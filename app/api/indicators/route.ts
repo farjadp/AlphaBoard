@@ -91,13 +91,15 @@ const DAILY_TIMEFRAME: TimeframeSpec = {
 
 const MULTI_TIMEFRAMES: TimeframeSpec[] = [
   { key: "1Y", binanceInterval: "1d", yahooInterval: "1d", limit: 365, periodDays: 400 },
-  { key: "3M", binanceInterval: "1d", yahooInterval: "1d", limit: 90, periodDays: 120 },
-  { key: "1M", binanceInterval: "1h", yahooInterval: "1d", limit: 30, periodDays: 40 },
-  { key: "1W", binanceInterval: "15m", yahooInterval: "1d", limit: 7, periodDays: 14 },
-  { key: "4H", binanceInterval: "4h", yahooInterval: "1d", limit: 300, periodDays: 70, aggregateSize: 4 },
+  { key: "3M", binanceInterval: "1d", yahooInterval: "1d", limit: 90,  periodDays: 120 },
+  // For Yahoo Finance, periodDays must always be >= 60 so pattern detectors get enough candles.
+  // limit is applied AFTER fetching, so the slice will trim to the right number.
+  { key: "1M", binanceInterval: "1h",  yahooInterval: "1d", limit: 30,  periodDays: 60 },
+  { key: "1W", binanceInterval: "15m", yahooInterval: "1d", limit: 30,  periodDays: 60 },
+  { key: "4H", binanceInterval: "4h",  yahooInterval: "1d", limit: 300, periodDays: 70, aggregateSize: 4 },
   { key: "45M", binanceInterval: "15m", yahooInterval: "1d", limit: 300, periodDays: 14, aggregateSize: 3 },
   { key: "15M", binanceInterval: "15m", yahooInterval: "1d", limit: 300, periodDays: 14 },
-  { key: "5M", binanceInterval: "5m", yahooInterval: "1d", limit: 300, periodDays: 7 },
+  { key: "5M",  binanceInterval: "5m",  yahooInterval: "1d", limit: 300, periodDays: 7 },
 ];
 const TIMEFRAME_WEIGHTS: Record<string, number> = {
   "1Y": 1.8,

@@ -54,7 +54,8 @@ function detectFlag(candles: Candle[]) {
   const consolidationLows = consolidation.map((candle) => candle.low);
   const widthRatio = (Math.max(...consolidationHighs) - Math.min(...consolidationLows)) / Math.max(Math.abs(pole[pole.length - 1].close - pole[0].close), 1);
 
-  if (poleMove > 0.035 && consolidationSlope <= 0.002 && consolidationSlope >= -0.01 && widthRatio < 0.55) {
+  // Lowered poleMove threshold from 0.035 to 0.015 to include lower-volatility TradFi assets
+  if (poleMove > 0.015 && consolidationSlope <= 0.003 && consolidationSlope >= -0.015 && widthRatio < 0.6) {
     matches.push(createMatch({
       key: "bullish_flag",
       name: "Bullish Flag",
@@ -65,7 +66,7 @@ function detectFlag(candles: Candle[]) {
     }));
   }
 
-  if (poleMove < -0.035 && consolidationSlope >= -0.002 && consolidationSlope <= 0.01 && widthRatio < 0.55) {
+  if (poleMove < -0.015 && consolidationSlope >= -0.003 && consolidationSlope <= 0.015 && widthRatio < 0.6) {
     matches.push(createMatch({
       key: "bearish_flag",
       name: "Bearish Flag",
@@ -96,7 +97,8 @@ function detectTriangle(candles: Candle[]) {
 
   if (compression >= 0.9) return matches;
 
-  if (highSlope < -0.0008 && lowSlope > 0.0008) {
+  // Lowered slope thresholds from 0.0008 to 0.0003 for TradFi compatibility
+  if (highSlope < -0.0003 && lowSlope > 0.0003) {
     matches.push(createMatch({
       key: "symmetrical_triangle",
       name: "Symmetrical Triangle",
@@ -107,7 +109,7 @@ function detectTriangle(candles: Candle[]) {
     }));
   }
 
-  if (Math.abs(highSlope) < 0.0007 && lowSlope > 0.0008) {
+  if (Math.abs(highSlope) < 0.0003 && lowSlope > 0.0003) {
     matches.push(createMatch({
       key: "ascending_triangle",
       name: "Ascending Triangle",
@@ -118,7 +120,7 @@ function detectTriangle(candles: Candle[]) {
     }));
   }
 
-  if (highSlope < -0.0008 && Math.abs(lowSlope) < 0.0007) {
+  if (highSlope < -0.0003 && Math.abs(lowSlope) < 0.0003) {
     matches.push(createMatch({
       key: "descending_triangle",
       name: "Descending Triangle",
@@ -147,7 +149,8 @@ function detectWedge(candles: Candle[]) {
 
   if (!converging) return matches;
 
-  if (highSlope > 0.0008 && lowSlope > 0.0008 && lowSlope > highSlope * 1.1) {
+  // Lowered slope thresholds from 0.0008 to 0.0003 for TradFi compatibility
+  if (highSlope > 0.0003 && lowSlope > 0.0003 && lowSlope > highSlope * 1.08) {
     matches.push(createMatch({
       key: "rising_wedge",
       name: "Rising Wedge",
@@ -158,7 +161,7 @@ function detectWedge(candles: Candle[]) {
     }));
   }
 
-  if (highSlope < -0.0008 && lowSlope < -0.0008 && Math.abs(highSlope) > Math.abs(lowSlope) * 1.1) {
+  if (highSlope < -0.0003 && lowSlope < -0.0003 && Math.abs(highSlope) > Math.abs(lowSlope) * 1.08) {
     matches.push(createMatch({
       key: "falling_wedge",
       name: "Falling Wedge",
@@ -186,25 +189,26 @@ function detectChannel(candles: Candle[]) {
   const parallelism = Math.abs(highSlope - lowSlope);
   const channelWidth = (Math.max(...highs) - Math.min(...lows)) / Math.max(average(closes), 1);
 
-  if (parallelism > 0.003 || channelWidth < 0.01 || channelWidth > 0.12) return matches;
+  // Relaxed parallelism and width limits for TradFi assets; lowered slope from 0.0012 to 0.0004
+  if (parallelism > 0.004 || channelWidth < 0.005 || channelWidth > 0.18) return matches;
 
-  if (closeSlope > 0.0012) {
+  if (closeSlope > 0.0004) {
     matches.push(createMatch({
       key: "bullish_channel",
       name: "Bullish Channel",
       bias: "Bullish",
-      confidence: 74 + Math.max(0, 0.003 - parallelism) * 4000,
+      confidence: 74 + Math.max(0, 0.004 - parallelism) * 3000,
       candles: sample.length,
       description: "قیمت در یک کانال صعودی منظم حرکت می‌کند و تا زمان شکست کف کانال، ساختار بازار رو به بالا باقی می‌ماند.",
     }));
   }
 
-  if (closeSlope < -0.0012) {
+  if (closeSlope < -0.0004) {
     matches.push(createMatch({
       key: "bearish_channel",
       name: "Bearish Channel",
       bias: "Bearish",
-      confidence: 74 + Math.max(0, 0.003 - parallelism) * 4000,
+      confidence: 74 + Math.max(0, 0.004 - parallelism) * 3000,
       candles: sample.length,
       description: "حرکت قیمت در یک کانال نزولی منظم نشان می‌دهد فروشندگان هنوز کنترل ساختار کوتاه‌مدت را در دست دارند.",
     }));
