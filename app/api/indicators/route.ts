@@ -140,26 +140,45 @@ function aggregateCandles(candles: Candle[], groupSize: number) {
   return aggregated;
 }
 
+const BINANCE_BASE_URLS = [
+  "https://api.binance.com",
+  "https://api1.binance.com",
+  "https://api2.binance.com",
+  "https://api3.binance.com",
+  "https://data-api.binance.vision"
+];
+
 async function fetchBinanceCandles(symbol: string, interval: BinanceInterval, limit: number) {
   const binanceSymbol = symbol.replace("/", "").toUpperCase();
-  const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=${limit}`;
-  const response = await fetch(url, { next: { revalidate: 300 } });
+  let lastError: Error | null = null;
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch klines from Binance: ${response.statusText}`);
+  for (const baseUrl of BINANCE_BASE_URLS) {
+    try {
+      const url = `${baseUrl}/api/v3/klines?symbol=${binanceSymbol}&interval=${interval}&limit=${limit}`;
+      const response = await fetch(url, { next: { revalidate: 300 } });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        throw new Error("Invalid kline data");
+      }
+
+      return (data as BinanceKlineRow[]).map((row) => ({
+        open: parseFloat(row[1]),
+        high: parseFloat(row[2]),
+        low: parseFloat(row[3]),
+        close: parseFloat(row[4]),
+      }));
+    } catch (e) {
+      lastError = e instanceof Error ? e : new Error(String(e));
+      // Continue to next URL
+    }
   }
 
-  const data = await response.json();
-  if (!Array.isArray(data) || data.length === 0) {
-    throw new Error("Invalid kline data");
-  }
-
-  return (data as BinanceKlineRow[]).map((row) => ({
-    open: parseFloat(row[1]),
-    high: parseFloat(row[2]),
-    low: parseFloat(row[3]),
-    close: parseFloat(row[4]),
-  }));
+  throw new Error(`Failed to fetch klines from Binance after trying multiple endpoints. Last error: ${lastError?.message}`);
 }
 
 async function fetchYahooCandles(symbol: string, interval: YahooInterval, periodDays: number) {
@@ -411,6 +430,9 @@ export async function GET(req: Request) {
     });
   } catch (error) {
     console.error("Indicators API Error:", error);
-    return NextResponse.json({ error: "Failed to calculate indicators" }, { status: 500 });
+    return NextResponse.json({ 
+      error: "Failed to calculate indicators", 
+      details: error instanceof Error ? error.message : String(error) 
+    }, { status: 500 });
   }
 }
