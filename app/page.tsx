@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { assetHref, DEFAULT_WATCHLIST, findAsset } from "@/lib/assetCatalog";
 
-export default function DashboardPage() {
+function DashboardContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { symbols, hydrated } = useWatchlist();
@@ -21,4 +21,12 @@ export default function DashboardPage() {
   }, [hydrated, router, searchParams, symbols]);
 
   return <div className="min-h-screen" style={{ background: "var(--bg)" }} />;
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" style={{ background: "var(--bg)" }} />}>
+      <DashboardContent />
+    </Suspense>
+  );
 }

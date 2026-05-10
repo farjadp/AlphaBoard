@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { useJournal, TradePosition, TradeEmotion, JournalEntry } from "@/hooks/useJournal";
@@ -8,7 +8,7 @@ import { useWatchlist } from "@/hooks/useWatchlist";
 import { findAsset } from "@/lib/assetCatalog";
 import TradePostMortem from "@/components/TradePostMortem";
 
-export default function JournalPage() {
+function JournalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { entries, addEntry, removeEntry, updateEntry, clearJournal } = useJournal();
@@ -298,6 +298,14 @@ export default function JournalPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function JournalPage() {
+  return (
+    <Suspense fallback={<div className="h-screen flex items-center justify-center text-sm" style={{ color: "var(--text-3)", background: "var(--bg)" }}>Loading journal...</div>}>
+      <JournalContent />
+    </Suspense>
   );
 }
 
