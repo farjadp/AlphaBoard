@@ -9,18 +9,19 @@
 ## 🚀 Key Features
 
 ### 1. Multi-Asset Dashboard
-- **Universal Tracking:** Monitor both Cryptocurrency (via Binance) and Traditional Finance/Forex (via Yahoo Finance) in a single pane of glass.
+- **Universal Tracking:** Monitor 60+ Assets across Cryptocurrency (via Binance) and Traditional Finance, Indices, Commodities, and Forex (via Yahoo Finance) in a single pane of glass.
 - **Real-Time Data:** Live price tickers, 24h volume, and market capitalization.
 - **Futures & Sentiment:** Open Interest, Funding Rates, and real-time news headlines dynamically fetched to provide fundamental context.
 
-### 2. The AI Signal Engine (GPT-4o)
-- **Granular Analysis:** Feed real-time RSI, MACD, Bollinger Bands, and multiple SMAs/EMAs directly into GPT-4o.
-- **Actionable Execution Plans:** The AI generates precise `BUY`, `SELL`, or `HOLD` signals complete with exact Entry, Take Profit, and Stop Loss levels based on current volatility.
-- **Indicator Breakdown:** Explains exactly what each indicator (e.g., 200 SMA, 5 EMA) is signaling in plain English.
+### 2. Institutional-Grade AI Signal Engine (GPT-4o)
+- **Deterministic Logic:** Operates with `temperature: 0` to provide highly consistent, logical trading analysis without signal flipping.
+- **Advanced Technical Mapping:** Extracts 3 distinct Support and Resistance levels and determines 1-3 highly probable "Safe Entry" zones for every analysis.
+- **Capital Preservation:** Explicitly designed to output `HOLD` signals in volatile or low-probability environments to discourage forced entries.
+- **Actionable Execution Plans:** When conditions align, the AI generates precise `BUY` or `SELL` signals complete with exact Entry, Take Profit, and Stop Loss levels based on current volatility and structure.
 
-### 3. Strategy Archive
-- **Historical Backtesting:** Every generated strategy is permanently archived in your browser.
-- **Precision Logging:** Stores the exact price, timestamp (down to the second), and the AI's full reasoning at the moment the signal was generated.
+### 3. Strategy Archive & Post-Mortem Learning
+- **Historical Backtesting:** Every generated strategy is permanently archived.
+- **Contextual Awareness:** Past trades are analyzed to derive lessons, which are then fed back into the core AI Engine for context-aware future decision-making.
 
 ### 4. Advanced Trading Journal & Vision AI
 - **Professional Metrics:** Log your trades with exchange-level precision, including Margin Mode (Cross/Isolated), Leverage, and Margin Amount.

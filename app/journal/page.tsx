@@ -6,6 +6,7 @@ import NavBar from "@/components/NavBar";
 import { useJournal, TradePosition, TradeEmotion, JournalEntry } from "@/hooks/useJournal";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { findAsset } from "@/lib/assetCatalog";
+import TradePostMortem from "@/components/TradePostMortem";
 
 export default function JournalPage() {
   const router = useRouter();
@@ -87,15 +88,18 @@ export default function JournalPage() {
     e.preventDefault();
     if (!symbol || !entryPrice) return;
 
+    const parsedEntry = parseFloat(entryPrice.replace(/,/g, ''));
+    const parsedExit = exitPrice ? parseFloat(exitPrice.replace(/,/g, '')) : undefined;
+
     addEntry({
       symbol,
       position,
-      entryPrice: parseFloat(entryPrice),
-      exitPrice: exitPrice ? parseFloat(exitPrice) : undefined,
+      entryPrice: parsedEntry,
+      exitPrice: parsedExit,
       emotion,
       notes,
       leverage: leverage ? parseFloat(leverage) : undefined,
-      margin: margin ? parseFloat(margin) : undefined,
+      margin: margin ? parseFloat(margin.replace(/,/g, '')) : undefined,
       marginMode,
     });
 
@@ -196,7 +200,7 @@ export default function JournalPage() {
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">$</span>
                     <input 
-                      type="number" step="any" placeholder="100"
+                      type="text" inputMode="decimal" placeholder="100"
                       value={margin} onChange={(e) => setMargin(e.target.value)}
                       className="w-full bg-transparent p-2.5 pl-6 rounded-lg text-sm font-mono focus:outline-none border"
                       style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
@@ -209,7 +213,7 @@ export default function JournalPage() {
                 <div>
                   <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>Entry Price</label>
                   <input 
-                    type="number" step="any" required
+                    type="text" inputMode="decimal" required
                     value={entryPrice} onChange={(e) => setEntryPrice(e.target.value)}
                     className="w-full bg-transparent p-2.5 rounded-lg text-sm font-mono focus:outline-none border"
                     style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
@@ -220,7 +224,7 @@ export default function JournalPage() {
                     Exit Price <span className="opacity-50">(Optional)</span>
                   </label>
                   <input 
-                    type="number" step="any"
+                    type="text" inputMode="decimal"
                     value={exitPrice} onChange={(e) => setExitPrice(e.target.value)}
                     placeholder="Leave blank for OPEN"
                     className="w-full bg-transparent p-2.5 rounded-lg text-sm font-mono focus:outline-none border placeholder-gray-600"
@@ -309,10 +313,12 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
   const [closePrice, setClosePrice] = useState("");
 
   const handleClose = () => {
-    const cp = parseFloat(closePrice);
-    if (!isNaN(cp) && cp > 0) {
-      onUpdate(entry.id, { exitPrice: cp });
+    const cp = parseFloat(closePrice.replace(/,/g, ''));
+    if (isNaN(cp) || cp <= 0) {
+      alert("Please enter a valid Exit Price to close the trade and calculate PnL.");
+      return;
     }
+    onUpdate(entry.id, { exitPrice: cp });
   };
 
   return (
@@ -335,7 +341,12 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
             <span className="text-sm font-bold tabular-nums" style={{ color: isWin ? "var(--green)" : isLoss ? "var(--red)" : "var(--text)" }}>
               {isWin ? "+" : ""}{(entry.pnlPercent || 0).toFixed(2)}%
             </span>
-            <span className="text-[10px] uppercase font-bold mt-1" style={{ color: "var(--text-3)" }}>PnL</span>
+            {entry.margin && (
+              <span className="text-[10px] font-bold mt-1" style={{ color: isWin ? "var(--green)" : isLoss ? "var(--red)" : "var(--text-3)" }}>
+                {isWin ? "+" : ""}{((entry.pnlPercent || 0) / 100 * entry.margin).toFixed(2)} USD
+              </span>
+            )}
+            <span className="text-[9px] uppercase font-bold mt-1" style={{ color: "var(--text-3)", opacity: 0.7 }}>PnL</span>
           </>
         )}
       </div>
@@ -396,7 +407,7 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
           <div className="flex items-center gap-2 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
             <span className="text-[10px] uppercase" style={{ color: "var(--text-3)" }}>Close Trade:</span>
             <input 
-              type="number" step="any" placeholder="Exit Price"
+              type="text" inputMode="decimal" placeholder="Exit Price"
               value={closePrice} onChange={(e) => setClosePrice(e.target.value)}
               className="bg-transparent p-1 px-2 rounded text-xs font-mono focus:outline-none border"
               style={{ color: "var(--text)", borderColor: "var(--border)" }}
@@ -410,6 +421,8 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
             </button>
           </div>
         )}
+
+        <TradePostMortem entry={entry} onUpdate={onUpdate} />
       </div>
     </div>
   );

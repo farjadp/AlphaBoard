@@ -1,6 +1,27 @@
 import { NextResponse } from "next/server";
+import { ASSET_CATALOG } from "@/lib/assetCatalog";
 
 export const revalidate = 300; // Cache for 5 minutes
+
+interface DefiLlamaProtocolRow {
+  slug: string;
+  total24h?: number | null;
+  total7d?: number | null;
+  total30d?: number | null;
+}
+
+interface DefiLlamaOverview {
+  protocols?: DefiLlamaProtocolRow[];
+}
+
+interface CashflowEntry {
+  fees24h: number | null;
+  fees7d: number | null;
+  fees30d: number | null;
+  revenue24h: number | null;
+  revenue7d: number | null;
+  revenue30d: number | null;
+}
 
 // Map our symbols to DefiLlama slugs
 const SYMBOL_TO_SLUG: Record<string, string> = {
@@ -8,7 +29,7 @@ const SYMBOL_TO_SLUG: Record<string, string> = {
   "ETH/USDT": "ethereum",
 };
 
-const TRADFI_SYMBOLS = ["XAU/USD", "SPX", "DJI", "NDX", "WTI"];
+const TRADFI_SYMBOLS = ASSET_CATALOG.filter((asset) => asset.category !== "crypto").map((asset) => asset.symbol);
 
 export async function GET() {
   try {
@@ -25,14 +46,14 @@ export async function GET() {
       throw new Error("Failed to fetch from DefiLlama");
     }
 
-    const feesData = await feesRes.json();
-    const revData = await revRes.json();
+    const feesData = await feesRes.json() as DefiLlamaOverview;
+    const revData = await revRes.json() as DefiLlamaOverview;
 
-    const cashflowBySymbol: Record<string, any> = {};
+    const cashflowBySymbol: Record<string, CashflowEntry> = {};
 
     for (const [symbol, slug] of Object.entries(SYMBOL_TO_SLUG)) {
-      const feesProtocol = feesData.protocols?.find((p: any) => p.slug === slug);
-      const revProtocol = revData.protocols?.find((p: any) => p.slug === slug);
+      const feesProtocol = feesData.protocols?.find((protocol) => protocol.slug === slug);
+      const revProtocol = revData.protocols?.find((protocol) => protocol.slug === slug);
 
       cashflowBySymbol[symbol] = {
         fees24h: feesProtocol?.total24h || null,

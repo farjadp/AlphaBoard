@@ -13,6 +13,15 @@ export interface ArchivedSignal {
   entry: number;
   stopLoss: number;
   takeProfit: number;
+  tradeStyle?: string;
+  risk_management?: {
+    leverage: string;
+    leverageReasoning: string;
+    positionSize: string;
+    sizeReasoning: string;
+    riskRewardRatio: string;
+    distanceToTarget: string;
+  };
   reasoning: string;
   indicators_breakdown?: Array<{
     name: string;

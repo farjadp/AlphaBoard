@@ -1,6 +1,23 @@
 import { NextResponse } from "next/server";
+import { ASSET_CATALOG } from "@/lib/assetCatalog";
 
 export const revalidate = 300; // Cache for 5 minutes
+
+interface CoinGeckoMarketRow {
+  id: string;
+  market_cap?: number | null;
+  fully_diluted_valuation?: number | null;
+  circulating_supply?: number | null;
+  total_supply?: number | null;
+  max_supply?: number | null;
+}
+
+interface BalanceSheetEntry {
+  marketCap: number | null;
+  fdv: number | null;
+  circulatingSupply: number | null;
+  maxSupply: number | null;
+}
 
 // Map our symbols to CoinGecko IDs
 const SYMBOL_TO_CG_ID: Record<string, string> = {
@@ -8,7 +25,7 @@ const SYMBOL_TO_CG_ID: Record<string, string> = {
   "ETH/USDT": "ethereum",
 };
 
-const TRADFI_SYMBOLS = ["XAU/USD", "SPX", "DJI", "NDX", "WTI"];
+const TRADFI_SYMBOLS = ASSET_CATALOG.filter((asset) => asset.category !== "crypto").map((asset) => asset.symbol);
 
 export async function GET() {
   try {
@@ -26,15 +43,15 @@ export async function GET() {
       throw new Error(`Failed to fetch from CoinGecko: ${res.statusText}`);
     }
 
-    const data = await res.json();
+    const data = await res.json() as CoinGeckoMarketRow[];
     if (!Array.isArray(data)) {
       throw new Error("Invalid format from CoinGecko");
     }
 
-    const balanceSheetBySymbol: Record<string, any> = {};
+    const balanceSheetBySymbol: Record<string, BalanceSheetEntry> = {};
 
     for (const [symbol, cgId] of Object.entries(SYMBOL_TO_CG_ID)) {
-      const coinData = data.find((c: any) => c.id === cgId);
+      const coinData = data.find((coin) => coin.id === cgId);
 
       balanceSheetBySymbol[symbol] = {
         marketCap: coinData?.market_cap || null,

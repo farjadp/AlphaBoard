@@ -135,6 +135,30 @@ function HistoryCard({ item, onRemove }: { item: ArchivedSignal, onRemove: () =>
             <p className="text-xs leading-relaxed" style={{ color: "var(--text-2)" }}>{item.reasoning}</p>
           </div>
           
+          {item.risk_management && (
+            <div className="mb-4 space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--text)" }}>Risk & Sizing</h4>
+              
+              <div className="grid grid-cols-2 gap-3 mb-2">
+                <div className="p-2.5 rounded-lg border flex flex-col gap-1" style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
+                  <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Leverage</p>
+                  <p className="text-sm font-bold font-mono" style={{ color: "var(--yellow)" }}>{item.risk_management.leverage}</p>
+                  <p className="text-[10px] leading-tight mt-0.5" style={{ color: "var(--text-2)" }}>{item.risk_management.leverageReasoning}</p>
+                </div>
+                <div className="p-2.5 rounded-lg border flex flex-col gap-1" style={{ background: "var(--surface-2)", borderColor: "var(--border)" }}>
+                  <p className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Position Size</p>
+                  <p className="text-sm font-bold font-mono" style={{ color: "var(--accent)" }}>{item.risk_management.positionSize}</p>
+                  <p className="text-[10px] leading-tight mt-0.5" style={{ color: "var(--text-2)" }}>{item.risk_management.sizeReasoning}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 text-[10px] font-mono p-2 rounded-lg" style={{ background: "var(--surface-2)" }}>
+                <div><span style={{ color: "var(--text-3)" }}>R:R Ratio:</span> <span style={{ color: "var(--text)" }}>{item.risk_management.riskRewardRatio}</span></div>
+                <div><span style={{ color: "var(--text-3)" }}>Distance:</span> <span style={{ color: "var(--text)" }}>{item.risk_management.distanceToTarget}</span></div>
+              </div>
+            </div>
+          )}
+          
           {item.indicators_breakdown && item.indicators_breakdown.length > 0 && (
             <div>
               <h4 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: "var(--text-3)" }}>Indicator Breakdown</h4>

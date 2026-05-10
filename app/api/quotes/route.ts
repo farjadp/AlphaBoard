@@ -6,6 +6,14 @@ export const dynamic = "force-dynamic";
 
 const yf = new YahooFinance();
 
+interface YahooQuoteRow {
+  regularMarketPrice?: number;
+  regularMarketChangePercent?: number;
+  regularMarketDayHigh?: number;
+  regularMarketDayLow?: number;
+  regularMarketVolume?: number;
+}
+
 // Build a fast lookup: pairSymbol → yahooSymbol
 const YAHOO_MAP: Record<string, string> = {};
 for (const a of ASSET_CATALOG) {
@@ -33,7 +41,7 @@ export async function GET(req: Request) {
     targets.map(async (pairSymbol) => {
       const yahooSym = YAHOO_MAP[pairSymbol];
       try {
-        const quote: any = await yf.quote(yahooSym);
+        const quote = await yf.quote(yahooSym) as YahooQuoteRow;
         if (quote?.regularMarketPrice) {
           results[pairSymbol] = {
             price:  quote.regularMarketPrice,
@@ -43,8 +51,8 @@ export async function GET(req: Request) {
             volume: quote.regularMarketVolume ?? 0,
           };
         }
-      } catch (err: any) {
-        console.error(`[quotes] ${pairSymbol} (${yahooSym}):`, err?.message);
+      } catch (err: unknown) {
+        console.error(`[quotes] ${pairSymbol} (${yahooSym}):`, err instanceof Error ? err.message : String(err));
       }
     })
   );

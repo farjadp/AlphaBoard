@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { ASSET_CATALOG, CATEGORY_LABELS, type Asset, type AssetCategory } from "@/lib/assetCatalog";
@@ -127,7 +127,7 @@ export default function SetupPage() {
           <div className="flex-1 overflow-y-auto p-6">
             {search && (
               <p className="text-xs mb-4" style={{ color: "var(--text-3)" }}>
-                {filtered.length} results for "{search}"
+                {filtered.length} results for &quot;{search}&quot;
               </p>
             )}
             <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">

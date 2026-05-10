@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import { formatPrice } from "@/lib/binance";
-import type { Asset } from "@/lib/assetCatalog";
+import type { BinanceTicker } from "@/lib/binance";
+import { assetHref, type Asset } from "@/lib/assetCatalog";
 import type { TradfiQuoteMap } from "@/hooks/useTradfiQuotes";
 
 interface SidebarProps {
   selected: string;
-  onSelect: (symbol: string) => void;
-  tickers: Record<string, any>;
+  tickers: Record<string, BinanceTicker>;
   tradfiQuotes: TradfiQuoteMap;
   watchlist: Asset[];
 }
 
-export default function Sidebar({ selected, onSelect, tickers, tradfiQuotes, watchlist }: SidebarProps) {
+export default function Sidebar({ selected, tickers, tradfiQuotes, watchlist }: SidebarProps) {
   return (
     <aside
       className="flex flex-col w-56 shrink-0 h-full"
@@ -54,17 +54,15 @@ export default function Sidebar({ selected, onSelect, tickers, tradfiQuotes, wat
             const isSelected = selected === asset.symbol;
 
             return (
-              <button
+              <Link
                 key={asset.symbol}
-                onClick={() => onSelect(asset.symbol)}
                 className="w-full flex items-center justify-between px-4 py-3 text-left transition-all duration-150 cursor-pointer animate-fade-up"
                 style={{
                   background:  isSelected ? "var(--surface-active)" : "transparent",
                   borderLeft:  `3px solid ${isSelected ? "var(--accent)" : "transparent"}`,
                   animationDelay: `${i * 30}ms`,
                 }}
-                onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "var(--surface-hover)"; }}
-                onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                href={assetHref(asset.symbol)}
               >
                 <div className="flex items-center gap-2">
                   <span style={{ fontSize: "14px" }}>{asset.icon}</span>
@@ -82,7 +80,7 @@ export default function Sidebar({ selected, onSelect, tickers, tradfiQuotes, wat
                     {change !== 0 ? `${positive ? "+" : ""}${change.toFixed(2)}%` : "—"}
                   </div>
                 </div>
-              </button>
+              </Link>
             );
           })
         )}

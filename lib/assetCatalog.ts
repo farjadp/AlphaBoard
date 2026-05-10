@@ -36,14 +36,25 @@ export const ASSET_CATALOG: Asset[] = [
   { symbol: "PEPE/USDT", name: "Pepe",             category: "crypto",      binanceSymbol: "PEPEUSDT", newsKeyword: "PEPE meme coin", icon: "🐸" },
 
   // ─── Indices ──────────────────────────────────────────────
-  { symbol: "SPX",   name: "S&P 500",       category: "indices",     yahooSymbol: "^GSPC",  newsKeyword: "S&P 500 stock market", icon: "📈" },
-  { symbol: "DJI",   name: "Dow Jones",     category: "indices",     yahooSymbol: "^DJI",   newsKeyword: "Dow Jones DJIA",       icon: "📊" },
-  { symbol: "NDX",   name: "Nasdaq 100",    category: "indices",     yahooSymbol: "^NDX",   newsKeyword: "Nasdaq 100 tech",      icon: "💻" },
-  { symbol: "DAX",   name: "DAX (Germany)", category: "indices",     yahooSymbol: "^GDAXI", newsKeyword: "DAX Germany index",    icon: "🇩🇪" },
-  { symbol: "FTSE",  name: "FTSE 100 (UK)", category: "indices",     yahooSymbol: "^FTSE",  newsKeyword: "FTSE 100 UK stocks",   icon: "🇬🇧" },
-  { symbol: "N225",  name: "Nikkei 225",    category: "indices",     yahooSymbol: "^N225",  newsKeyword: "Nikkei 225 Japan",     icon: "🇯🇵" },
-  { symbol: "HSI",   name: "Hang Seng",     category: "indices",     yahooSymbol: "^HSI",   newsKeyword: "Hang Seng Hong Kong",  icon: "🇭🇰" },
-  { symbol: "CAC40", name: "CAC 40 (France)", category: "indices",   yahooSymbol: "^FCHI",  newsKeyword: "CAC 40 France",        icon: "🇫🇷" },
+  { symbol: "SPX",      name: "S&P 500",                    category: "indices", yahooSymbol: "^GSPC",      newsKeyword: "S&P 500 stock market",        icon: "📈" },
+  { symbol: "NDX",      name: "Nasdaq-100",                 category: "indices", yahooSymbol: "^NDX",       newsKeyword: "Nasdaq 100 tech",             icon: "💻" },
+  { symbol: "DJI",      name: "Dow Jones Industrial Average", category: "indices", yahooSymbol: "^DJI",       newsKeyword: "Dow Jones DJIA",              icon: "🏛️" },
+  { symbol: "FTSE",     name: "FTSE 100",                   category: "indices", yahooSymbol: "^FTSE",      newsKeyword: "FTSE 100 UK stocks",          icon: "🇬🇧" },
+  { symbol: "DAX",      name: "DAX 40",                     category: "indices", yahooSymbol: "^GDAXI",     newsKeyword: "DAX Germany index",           icon: "🇩🇪" },
+  { symbol: "N225",     name: "Nikkei 225",                 category: "indices", yahooSymbol: "^N225",      newsKeyword: "Nikkei 225 Japan",            icon: "🇯🇵" },
+  { symbol: "HSI",      name: "Hang Seng Index",            category: "indices", yahooSymbol: "^HSI",       newsKeyword: "Hang Seng Hong Kong",         icon: "🇭🇰" },
+  { symbol: "TSX",      name: "S&P/TSX Composite",          category: "indices", yahooSymbol: "^GSPTSE",    newsKeyword: "S&P TSX Composite Canada",    icon: "🇨🇦" },
+  { symbol: "SHCOMP",   name: "Shanghai Composite",         category: "indices", yahooSymbol: "000001.SS",  newsKeyword: "Shanghai Composite China",    icon: "��" },
+  { symbol: "ESTX50",   name: "EURO STOXX 50",              category: "indices", yahooSymbol: "^STOXX50E",  newsKeyword: "Euro Stoxx 50 Europe",        icon: "🇪🇺" },
+  { symbol: "CAC40",    name: "CAC 40",                     category: "indices", yahooSymbol: "^FCHI",      newsKeyword: "CAC 40 France",               icon: "��" },
+  { symbol: "BVSP",     name: "Bovespa Index",              category: "indices", yahooSymbol: "^BVSP",      newsKeyword: "Bovespa Brazil index",        icon: "🇧🇷" },
+  { symbol: "ASX200",   name: "ASX 200",                    category: "indices", yahooSymbol: "^AXJO",      newsKeyword: "ASX 200 Australia",           icon: "🇦🇺" },
+  { symbol: "IPC",      name: "IPC Mexico",                 category: "indices", yahooSymbol: "^MXX",       newsKeyword: "IPC Mexico index",            icon: "🇲🇽" },
+  { symbol: "BVLPG",    name: "S&P/BVL Peru General",       category: "indices", yahooSymbol: "^SPBLPGPT",  newsKeyword: "S&P BVL Peru General",        icon: "��" },
+  { symbol: "JSE40",    name: "FTSE/JSE Top 40",            category: "indices", yahooSymbol: "J200.L",     newsKeyword: "FTSE JSE Top 40 South Africa", icon: "🇿🇦" },
+  { symbol: "KOSPI",    name: "KOSPI",                      category: "indices", yahooSymbol: "^KS11",      newsKeyword: "KOSPI South Korea",           icon: "🇰🇷" },
+  { symbol: "RUT",      name: "Russell 2000",               category: "indices", yahooSymbol: "^RUT",       newsKeyword: "Russell 2000 small cap",      icon: "🧢" },
+  { symbol: "IBEX",     name: "IBEX 35",                    category: "indices", yahooSymbol: "^IBEX",      newsKeyword: "IBEX 35 Spain",               icon: "��" },
 
   // ─── Commodities ──────────────────────────────────────────
   { symbol: "XAU/USD", name: "Gold",         category: "commodities", yahooSymbol: "GC=F",  newsKeyword: "Gold price commodity",    icon: "🥇" },
@@ -72,6 +83,18 @@ export const DEFAULT_WATCHLIST = ["BTC/USDT", "ETH/USDT", "XAU/USD", "SPX", "WTI
 /** Find a single asset by symbol */
 export function findAsset(symbol: string): Asset | undefined {
   return ASSET_CATALOG.find((a) => a.symbol === symbol);
+}
+
+export function symbolToSlug(symbol: string): string {
+  return symbol.replace(/\//g, "-").toLowerCase();
+}
+
+export function findAssetBySlug(slug: string): Asset | undefined {
+  return ASSET_CATALOG.find((asset) => symbolToSlug(asset.symbol) === slug.toLowerCase());
+}
+
+export function assetHref(symbol: string): string {
+  return `/market/${symbolToSlug(symbol)}`;
 }
 
 /** Category labels for display */

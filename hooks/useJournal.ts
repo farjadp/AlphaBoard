@@ -5,6 +5,16 @@ import { useState, useEffect } from "react";
 export type TradePosition = "LONG" | "SHORT" | "SPOT";
 export type TradeEmotion = "Confident" | "FOMO" | "Panic" | "Neutral" | "Greed" | "Revenge";
 
+export interface PostMortemAnalysis {
+  outcome: "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
+  rootCause: string;
+  mistakes: string[];
+  strengths: string[];
+  lesson: string;
+  tags: string[];
+  generatedAt: string;
+}
+
 export interface JournalEntry {
   id: string;
   timestamp: string; // ISO String
@@ -19,6 +29,8 @@ export interface JournalEntry {
   margin?: number;
   marginMode?: "Cross" | "Isolated";
   status: "OPEN" | "CLOSED";
+  screenshotUrl?: string; // base64 data URL of post-mortem screenshot
+  postMortem?: PostMortemAnalysis;
 }
 
 const STORAGE_KEY = "alphaboard_trading_journal";
@@ -58,6 +70,9 @@ export function useJournal() {
       if (entryData.position === "SHORT") {
         pnl = -pnl; // Inverse for shorts
       }
+      if (entryData.leverage && entryData.leverage > 0) {
+        pnl = pnl * entryData.leverage;
+      }
     }
 
     const newEntry: JournalEntry = {
@@ -84,6 +99,9 @@ export function useJournal() {
             updated.pnlPercent = (diff / updated.entryPrice) * 100;
             if (updated.position === "SHORT") {
               updated.pnlPercent = -updated.pnlPercent;
+            }
+            if (updated.leverage && updated.leverage > 0) {
+              updated.pnlPercent = updated.pnlPercent * updated.leverage;
             }
           }
           return updated;
