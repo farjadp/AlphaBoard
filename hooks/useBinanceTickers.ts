@@ -18,7 +18,39 @@ export function useBinanceTickers(binanceSymbols: string[]) {
     const streams = binanceSymbols
       .map((s) => s.toLowerCase() + "@ticker")
       .join("/");
-    const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
+    // Use data-stream.binance.vision to bypass regional IP blocks (e.g., US/Canada)
+    const url = `wss://data-stream.binance.vision/stream?streams=${streams}`;
+
+    // 1. Fetch initial state immediately via REST (unblocked endpoint)
+    async function fetchInitial() {
+      try {
+        const symbolsParam = JSON.stringify(binanceSymbols.map(s => s.toUpperCase()));
+        const restUrl = `https://data-api.binance.vision/api/v3/ticker/24hr?symbols=${symbolsParam}`;
+        const res = await fetch(restUrl);
+        if (res.ok) {
+          const data = await res.json();
+          setTickers((prev) => {
+            const next = { ...prev };
+            for (const item of data) {
+              next[item.symbol] = {
+                symbol: item.symbol,
+                price: parseFloat(item.lastPrice),
+                change: parseFloat(item.priceChangePercent),
+                high: parseFloat(item.highPrice),
+                low: parseFloat(item.lowPrice),
+                volume: parseFloat(item.quoteVolume),
+              };
+            }
+            return next;
+          });
+        }
+      } catch {
+        // Silently fail and rely on WebSockets
+      }
+    }
+    fetchInitial();
+
+    // 2. Connect WebSocket for live updates
 
     function connect() {
       const ws = new WebSocket(url);
