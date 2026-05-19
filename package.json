@@ -4,23 +4,30 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
+    "@prisma/client": "^6.4.1",
     "axios": "^1.15.2",
+    "bcryptjs": "^3.0.3",
     "lightweight-charts": "^5.2.0",
     "next": "16.2.4",
+    "next-auth": "^5.0.0-beta.31",
+    "prisma": "^6.4.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "technicalindicators": "^3.1.0",
     "ws": "^8.20.0",
-    "yahoo-finance2": "^3.14.0"
+    "yahoo-finance2": "^3.14.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

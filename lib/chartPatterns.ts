@@ -41,6 +41,150 @@ function createMatch(match: ChartPatternMatch) {
   };
 }
 
+// ─── Order Block Detection ────────────────────────────────────────────────────
+// An Order Block is the last opposing candle immediately before a strong
+// impulsive move. It represents an institutional footprint: a zone where large
+// buy or sell orders were accumulated. Price tends to revisit these zones.
+//
+// Bullish OB : last bearish candle before a sharp upward impulse
+// Bearish OB : last bullish candle before a sharp downward impulse
+//
+// Scoring: body-to-range quality × impulse magnitude × recency
+function detectOrderBlocks(candles: Candle[]) {
+  const matches: ChartPatternMatch[] = [];
+  if (candles.length < 10) return matches;
+
+  const LOOKBACK = Math.min(50, candles.length - 5);
+  const IMPULSE_CANDLES = 4;   // candles after the OB used to measure impulse
+  const MIN_IMPULSE = 1.8;     // impulse must move ≥ 1.8× the OB body size
+  const MIN_BODY_RATIO = 0.35; // OB candle body must occupy ≥ 35% of its range
+
+  const baseAvg = average(candles.map((c) => c.close));
+
+  const bullishOBs: ChartPatternMatch[] = [];
+  const bearishOBs: ChartPatternMatch[] = [];
+
+  for (let i = candles.length - LOOKBACK; i < candles.length - IMPULSE_CANDLES - 1; i++) {
+    const ob = candles[i];
+    const obBody = Math.abs(ob.close - ob.open);
+    const obRange = Math.max(ob.high - ob.low, 0.0001);
+    if (obBody / obRange < MIN_BODY_RATIO) continue;
+
+    const impulseCandles = candles.slice(i + 1, i + 1 + IMPULSE_CANDLES);
+    const impulseHigh = Math.max(...impulseCandles.map((c) => c.high));
+    const impulseLow = Math.min(...impulseCandles.map((c) => c.low));
+
+    // Bullish Order Block: bearish OB candle followed by strong upward impulse
+    if (ob.close < ob.open) {
+      const upMove = impulseHigh - Math.max(ob.open, ob.close);
+      if (upMove >= obBody * MIN_IMPULSE) {
+        const recency = (i - (candles.length - LOOKBACK)) / Math.max(LOOKBACK, 1);
+        const confidence = 74 + recency * 14 + Math.min((upMove / Math.max(baseAvg, 1)) * 800, 8);
+        bullishOBs.push(createMatch({
+          key: "bullish_order_block",
+          name: "Bullish Order Block",
+          bias: "Bullish",
+          confidence,
+          candles: IMPULSE_CANDLES + 1,
+          description: "آخرین کندل نزولی قبل از یک حرکت صعودی قوی شناسایی شده — این ناحیه نشان‌دهنده‌ی سفارشات انباشته‌ی خریداران بزرگ است و معمولاً در بازگشت قیمت به این سطح، واکنش صعودی ایجاد می‌شود.",
+        }));
+      }
+    }
+
+    // Bearish Order Block: bullish OB candle followed by strong downward impulse
+    if (ob.close > ob.open) {
+      const downMove = Math.min(ob.open, ob.close) - impulseLow;
+      if (downMove >= obBody * MIN_IMPULSE) {
+        const recency = (i - (candles.length - LOOKBACK)) / Math.max(LOOKBACK, 1);
+        const confidence = 74 + recency * 14 + Math.min((downMove / Math.max(baseAvg, 1)) * 800, 8);
+        bearishOBs.push(createMatch({
+          key: "bearish_order_block",
+          name: "Bearish Order Block",
+          bias: "Bearish",
+          confidence,
+          candles: IMPULSE_CANDLES + 1,
+          description: "آخرین کندل صعودی پیش از یک ریزش تند شناسایی شده — این منطقه جایی‌ست که فروشندگان سازمانی سفارشات خود را قرار داده‌اند و قیمت در بازگشت احتمالاً با فشار فروش مواجه می‌شود.",
+        }));
+      }
+    }
+  }
+
+  // Return only the most confident block of each type
+  if (bullishOBs.length > 0) matches.push(bullishOBs.sort((a, b) => b.confidence - a.confidence)[0]);
+  if (bearishOBs.length > 0) matches.push(bearishOBs.sort((a, b) => b.confidence - a.confidence)[0]);
+  return matches;
+}
+
+// ─── Fair Value Gap (FVG) Detection ──────────────────────────────────────────
+// An FVG is a price inefficiency created when a rapid move leaves a gap
+// between the wicks of candle[i-2] and candle[i]. Market structure theory
+// holds that price tends to retrace and "fill" these inefficiencies.
+//
+// Bullish FVG : candle[i].low > candle[i-2].high  (gap above earlier candle)
+// Bearish FVG : candle[i].high < candle[i-2].low  (gap below earlier candle)
+//
+// Only reports gaps that are still relevant to the current price level.
+function detectFairValueGaps(candles: Candle[]) {
+  const matches: ChartPatternMatch[] = [];
+  if (candles.length < 5) return matches;
+
+  const LOOKBACK = Math.min(40, candles.length - 2);
+  const currentPrice = candles[candles.length - 1].close;
+  const baseAvg = average(candles.map((c) => c.close));
+
+  const bullishFVGs: ChartPatternMatch[] = [];
+  const bearishFVGs: ChartPatternMatch[] = [];
+
+  for (let i = candles.length - LOOKBACK + 1; i < candles.length - 1; i++) {
+    const prev2 = candles[i - 1]; // the candle two steps back (i-2 in classic notation)
+    const curr  = candles[i + 1]; // the candle after the middle candle
+    if (!prev2 || !curr) continue;
+
+    // Bullish FVG: curr.low > prev2.high (gap between consecutive non-adjacent wicks)
+    const bullishGap = curr.low - prev2.high;
+    if (bullishGap > 0) {
+      const gapMid = (curr.low + prev2.high) / 2;
+      // Only relevant if current price is near or inside the gap
+      if (currentPrice >= gapMid * 0.95) {
+        const gapRatio = bullishGap / Math.max(baseAvg, 1);
+        const recency = i / candles.length;
+        const confidence = 68 + recency * 16 + Math.min(gapRatio * 1200, 10);
+        bullishFVGs.push(createMatch({
+          key: "bullish_fvg",
+          name: "Bullish Fair Value Gap",
+          bias: "Bullish",
+          confidence,
+          candles: 3,
+          description: "یک شکاف قیمتی صعودی بین کندل‌های اخیر شناسایی شده — قیمت اغلب به این ناحیه باز می‌گردد تا «فاصله» را پر کند و این سطح می‌تواند به‌عنوان حمایت عمل کند.",
+        }));
+      }
+    }
+
+    // Bearish FVG: curr.high < prev2.low (gap below the earlier candle)
+    const bearishGap = prev2.low - curr.high;
+    if (bearishGap > 0) {
+      const gapMid = (curr.high + prev2.low) / 2;
+      if (currentPrice <= gapMid * 1.05) {
+        const gapRatio = bearishGap / Math.max(baseAvg, 1);
+        const recency = i / candles.length;
+        const confidence = 68 + recency * 16 + Math.min(gapRatio * 1200, 10);
+        bearishFVGs.push(createMatch({
+          key: "bearish_fvg",
+          name: "Bearish Fair Value Gap",
+          bias: "Bearish",
+          confidence,
+          candles: 3,
+          description: "یک شکاف قیمتی نزولی در ساختار کندل‌های اخیر دیده می‌شود — قیمت معمولاً دوباره به این ناحیه سر می‌زند و این سطح می‌تواند به‌عنوان مقاومت عمل کند.",
+        }));
+      }
+    }
+  }
+
+  if (bullishFVGs.length > 0) matches.push(bullishFVGs.sort((a, b) => b.confidence - a.confidence)[0]);
+  if (bearishFVGs.length > 0) matches.push(bearishFVGs.sort((a, b) => b.confidence - a.confidence)[0]);
+  return matches;
+}
+
 function detectFlag(candles: Candle[]) {
   const matches: ChartPatternMatch[] = [];
   if (candles.length < 18) return matches;
@@ -220,6 +364,8 @@ function detectChannel(candles: Candle[]) {
 export function detectChartPatterns(candles: Candle[]) {
   const validCandles = candles.filter((candle) => [candle.open, candle.high, candle.low, candle.close].every((value) => Number.isFinite(value)));
   const matches = [
+    ...detectOrderBlocks(validCandles),
+    ...detectFairValueGaps(validCandles),
     ...detectFlag(validCandles),
     ...detectTriangle(validCandles),
     ...detectWedge(validCandles),

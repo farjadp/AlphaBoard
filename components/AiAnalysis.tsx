@@ -45,6 +45,8 @@ interface AiAnalysisProps {
   onTimeframeChange: (timeframe: ReportTimeframe) => void;
   onResultChange?: (result: AnalysisResult | null) => void;
   onLoadingChange?: (loading: boolean) => void;
+  /** Filtered list of tabs to show — pass from StatsPanel which is category-aware */
+  timeframeOptions?: Array<{ key: ReportTimeframe; label: string }>;
 }
 
 export interface AnalysisResult {
@@ -80,7 +82,7 @@ export interface AnalysisResult {
   }>;
 }
 
-export default function AiAnalysis({ symbol, price, priceChange, cashflow, balanceSheet, futures, indicators, selectedTimeframe, onTimeframeChange, onResultChange, onLoadingChange }: AiAnalysisProps) {
+export default function AiAnalysis({ symbol, price, priceChange, cashflow, balanceSheet, futures, indicators, selectedTimeframe, onTimeframeChange, onResultChange, onLoadingChange, timeframeOptions }: AiAnalysisProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +173,7 @@ export default function AiAnalysis({ symbol, price, priceChange, cashflow, balan
           </div>
 
           <div className="flex flex-wrap gap-2 rounded-xl p-2" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)" }}>
-            {REPORT_TIMEFRAME_OPTIONS.map((option) => {
+            {(timeframeOptions ?? REPORT_TIMEFRAME_OPTIONS).map((option) => {
               const active = selectedTimeframe === option.key;
               return (
                 <button

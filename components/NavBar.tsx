@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: "/alerts", label: "Alerts" },
   { href: "/archive", label: "Archive" },
   { href: "/journal", label: "Journal" },
+  { href: "/academy", label: "Academy" },
 ];
 
 // [openH, openM, closeH, closeM] in local market time

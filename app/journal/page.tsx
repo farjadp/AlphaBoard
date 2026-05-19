@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, Suspense } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { useJournal, TradePosition, TradeEmotion, JournalEntry } from "@/hooks/useJournal";
@@ -26,6 +26,7 @@ function JournalContent() {
   const [marginMode, setMarginMode] = useState<"Cross" | "Isolated">("Cross");
 
   const [isUploading, setIsUploading] = useState(false);
+  const [exchangePnlPercent, setExchangePnlPercent] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Pre-fill from URL if coming from Archive
@@ -70,10 +71,12 @@ function JournalContent() {
         }
         if (data.position) setPosition(data.position as TradePosition);
         if (data.entryPrice) setEntryPrice(data.entryPrice.toString());
+        if (data.exitPrice) setExitPrice(data.exitPrice.toString());
         if (data.leverage) setLeverage(data.leverage.toString());
         if (data.margin) setMargin(data.margin.toString());
         if (data.marginMode) setMarginMode(data.marginMode as "Cross" | "Isolated");
-        
+        if (typeof data.pnlPercent === "number") setExchangePnlPercent(data.pnlPercent);
+
         setIsUploading(false);
       };
       reader.readAsDataURL(file);
@@ -101,6 +104,8 @@ function JournalContent() {
       leverage: leverage ? parseFloat(leverage) : undefined,
       margin: margin ? parseFloat(margin.replace(/,/g, '')) : undefined,
       marginMode,
+      pnlPercent: exchangePnlPercent ?? undefined,
+      pnlSource: exchangePnlPercent !== null ? "exchange" : undefined,
     });
 
     // Reset form partially
@@ -109,6 +114,7 @@ function JournalContent() {
     setNotes("");
     setMargin("");
     setLeverage("");
+    setExchangePnlPercent(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     router.replace("/journal");
   };
@@ -271,29 +277,7 @@ function JournalContent() {
           </div>
 
           {/* Right Col: Timeline */}
-          <div className="xl:col-span-8 animate-fade-up" style={{ animationDelay: "100ms" }}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-bold" style={{ color: "var(--text)" }}>Trade Timeline</h2>
-              {entries.length > 0 && (
-                <button onClick={() => { if(window.confirm("Clear entire journal?")) clearJournal(); }} className="text-xs text-red-500 hover:underline">
-                  Clear Log
-                </button>
-              )}
-            </div>
-
-            {entries.length === 0 ? (
-              <div className="glass-card p-12 text-center" style={{ borderStyle: "dashed" }}>
-                <span className="text-4xl mb-3 block opacity-50">📓</span>
-                <p className="text-sm" style={{ color: "var(--text-3)" }}>Your journal is empty. Log a trade or upload a screenshot.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {entries.map((entry) => (
-                  <JournalCard key={entry.id} entry={entry} onRemove={() => removeEntry(entry.id)} onUpdate={updateEntry} />
-                ))}
-              </div>
-            )}
-          </div>
+          <TimelineSection entries={entries} onRemove={removeEntry} onUpdate={updateEntry} clearJournal={clearJournal} />
 
         </div>
       </main>
@@ -319,6 +303,17 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
   const isLoss = !isOpen && (entry.pnlPercent || 0) < 0;
 
   const [closePrice, setClosePrice] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    entryPrice: String(entry.entryPrice ?? ""),
+    exitPrice: entry.exitPrice ? String(entry.exitPrice) : "",
+    leverage: entry.leverage ? String(entry.leverage) : "",
+    margin: entry.margin ? String(entry.margin) : "",
+    marginMode: entry.marginMode || "Cross",
+    position: entry.position,
+    notes: entry.notes || "",
+    feeRatePercent: typeof entry.feeRatePercent === "number" ? String(entry.feeRatePercent) : "",
+  });
 
   const handleClose = () => {
     const cp = parseFloat(closePrice.replace(/,/g, ''));
@@ -329,14 +324,65 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
     onUpdate(entry.id, { exitPrice: cp });
   };
 
+  const openEdit = () => {
+    setEditForm({
+      entryPrice: String(entry.entryPrice ?? ""),
+      exitPrice: entry.exitPrice ? String(entry.exitPrice) : "",
+      leverage: entry.leverage ? String(entry.leverage) : "",
+      margin: entry.margin ? String(entry.margin) : "",
+      marginMode: entry.marginMode || "Cross",
+      position: entry.position,
+      notes: entry.notes || "",
+      feeRatePercent: typeof entry.feeRatePercent === "number" ? String(entry.feeRatePercent) : "",
+    });
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    const parsedEntry = parseFloat(editForm.entryPrice.replace(/,/g, ""));
+    if (isNaN(parsedEntry) || parsedEntry <= 0) {
+      alert("Entry price is required.");
+      return;
+    }
+    const parsedExit = editForm.exitPrice ? parseFloat(editForm.exitPrice.replace(/,/g, "")) : undefined;
+    const parsedFee = editForm.feeRatePercent ? parseFloat(editForm.feeRatePercent) : undefined;
+    const updates: Partial<JournalEntry> = {
+      entryPrice: parsedEntry,
+      exitPrice: parsedExit && parsedExit > 0 ? parsedExit : undefined,
+      leverage: editForm.leverage ? parseFloat(editForm.leverage) : undefined,
+      margin: editForm.margin ? parseFloat(editForm.margin.replace(/,/g, "")) : undefined,
+      marginMode: editForm.marginMode as "Cross" | "Isolated",
+      position: editForm.position,
+      notes: editForm.notes,
+      feeRatePercent: typeof parsedFee === "number" && !isNaN(parsedFee) ? parsedFee : undefined,
+    };
+    // If exit cleared, reset status to OPEN and drop pnl
+    if (!updates.exitPrice) {
+      updates.status = "OPEN";
+      updates.pnlPercent = undefined;
+    }
+    onUpdate(entry.id, updates);
+    setEditing(false);
+  };
+
   return (
     <div className="glass-card p-4 relative group flex flex-col md:flex-row gap-4">
-      <button 
-        onClick={onRemove}
-        className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-md hover:bg-white/5 text-gray-500 hover:text-red-400"
-      >
-        ✕
-      </button>
+      <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={openEdit}
+          title="Edit trade"
+          className="p-1.5 rounded-md text-gray-400 hover:text-blue-300 hover:bg-white/5 transition-colors"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+        </button>
+        <button
+          onClick={onRemove}
+          title="Delete trade"
+          className="p-1.5 rounded-md text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors"
+        >
+          ✕
+        </button>
+      </div>
 
       {/* PnL / Status Sidebar */}
       <div className="w-full md:w-24 shrink-0 flex flex-col items-center justify-center text-center p-3 rounded-lg" 
@@ -354,7 +400,17 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
                 {isWin ? "+" : ""}{((entry.pnlPercent || 0) / 100 * entry.margin).toFixed(2)} USD
               </span>
             )}
-            <span className="text-[9px] uppercase font-bold mt-1" style={{ color: "var(--text-3)", opacity: 0.7 }}>PnL</span>
+            <span
+              className="text-[9px] uppercase font-bold mt-1 px-1.5 py-0.5 rounded"
+              style={{
+                color: entry.pnlSource === "exchange" ? "var(--accent)" : "var(--text-3)",
+                background: entry.pnlSource === "exchange" ? "var(--accent-dim)" : "transparent",
+                opacity: entry.pnlSource === "exchange" ? 1 : 0.7,
+              }}
+              title={entry.pnlSource === "exchange" ? "PnL taken directly from exchange screenshot" : "PnL calculated from prices (fees auto-deducted)"}
+            >
+              {entry.pnlSource === "exchange" ? "EXCHANGE" : "NET PnL"}
+            </span>
           </>
         )}
       </div>
@@ -396,7 +452,7 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
         <div className="flex flex-wrap gap-x-6 gap-y-2 mb-3 text-xs tabular-nums font-mono" style={{ color: "var(--text-2)" }}>
           <div><span style={{ color: "var(--text-3)" }}>Entry:</span> ${entry.entryPrice}</div>
           {entry.exitPrice && <div><span style={{ color: "var(--text-3)" }}>Exit:</span> ${entry.exitPrice}</div>}
-          
+
           {entry.margin && (
             <div><span style={{ color: "var(--text-3)" }}>Margin:</span> ${entry.margin}</div>
           )}
@@ -404,6 +460,33 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
             <div><span style={{ color: "var(--text-3)" }}>Size:</span> ${(entry.margin * entry.leverage).toFixed(2)}</div>
           )}
         </div>
+
+        {/* PnL breakdown: gross vs net vs fees (only for closed, computed trades) */}
+        {!isOpen && typeof entry.grossPnlPercent === "number" && (
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>
+            <div>
+              <span>Gross: </span>
+              <span style={{ color: entry.grossPnlPercent >= 0 ? "var(--green)" : "var(--red)" }}>
+                {entry.grossPnlPercent >= 0 ? "+" : ""}{entry.grossPnlPercent.toFixed(2)}%
+              </span>
+            </div>
+            {entry.leverage && (
+              <div>
+                <span>Fees: </span>
+                <span style={{ color: "var(--red)" }}>−{((entry.feeRatePercent ?? 0.05) * 2 * entry.leverage).toFixed(2)}%</span>
+                <span className="opacity-60"> ({(entry.feeRatePercent ?? 0.05).toFixed(2)}% × 2 × {entry.leverage}x)</span>
+              </div>
+            )}
+            {entry.pnlSource === "exchange" && typeof entry.grossPnlPercent === "number" && typeof entry.pnlPercent === "number" && (
+              <div>
+                <span>Exchange PnL: </span>
+                <span style={{ color: entry.pnlPercent >= 0 ? "var(--green)" : "var(--red)" }}>
+                  {entry.pnlPercent >= 0 ? "+" : ""}{entry.pnlPercent.toFixed(2)}%
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Notes */}
         <p className="text-[11px] leading-relaxed p-2.5 rounded-md mb-2" style={{ background: "var(--surface)", color: "var(--text-2)" }}>
@@ -430,8 +513,299 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
           </div>
         )}
 
+        {editing && (
+          <div className="mt-3 rounded-xl p-3 flex flex-col gap-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-strong)" }}>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>Edit Trade</span>
+              <button onClick={() => setEditing(false)} className="text-[11px]" style={{ color: "var(--text-3)" }}>Cancel</button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <EditField label="Entry Price" value={editForm.entryPrice} onChange={(v) => setEditForm((f) => ({ ...f, entryPrice: v }))} prefix="$" />
+              <EditField label="Exit Price" value={editForm.exitPrice} onChange={(v) => setEditForm((f) => ({ ...f, exitPrice: v }))} prefix="$" placeholder="blank = open" />
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <EditField label="Leverage" value={editForm.leverage} onChange={(v) => setEditForm((f) => ({ ...f, leverage: v }))} suffix="x" />
+              <EditField label="Margin" value={editForm.margin} onChange={(v) => setEditForm((f) => ({ ...f, margin: v }))} prefix="$" />
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Mode</label>
+                <select
+                  value={editForm.marginMode}
+                  onChange={(e) => setEditForm((f) => ({ ...f, marginMode: e.target.value as "Cross" | "Isolated" }))}
+                  className="bg-transparent p-2 rounded-lg text-xs font-semibold focus:outline-none border"
+                  style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                >
+                  <option value="Cross">Cross</option>
+                  <option value="Isolated">Isolated</option>
+                </select>
+              </div>
+            </div>
+
+            <EditField
+              label="Taker Fee (per side, %) — leave blank for default 0.05%"
+              value={editForm.feeRatePercent}
+              onChange={(v) => setEditForm((f) => ({ ...f, feeRatePercent: v }))}
+              suffix="%"
+              placeholder="0.05"
+            />
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Position</label>
+              <div className="flex gap-2">
+                {(["LONG", "SHORT", "SPOT"] as const).map((pos) => (
+                  <button
+                    key={pos}
+                    type="button"
+                    onClick={() => setEditForm((f) => ({ ...f, position: pos }))}
+                    className="px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200 hover:scale-105"
+                    style={{
+                      background: editForm.position === pos ? (pos === "LONG" ? "var(--green-bg)" : pos === "SHORT" ? "var(--red-bg)" : "var(--surface-active)") : "var(--surface-2)",
+                      border: `1px solid ${editForm.position === pos ? (pos === "LONG" ? "var(--green)" : pos === "SHORT" ? "var(--red)" : "var(--accent)") : "var(--border)"}`,
+                      color: editForm.position === pos ? (pos === "LONG" ? "var(--green)" : pos === "SHORT" ? "var(--red)" : "var(--accent)") : "var(--text-2)",
+                    }}
+                  >
+                    {pos}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Notes</label>
+              <textarea
+                rows={2}
+                value={editForm.notes}
+                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                className="w-full bg-transparent p-2 rounded-lg text-xs resize-none border focus:outline-none"
+                style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={saveEdit}
+                className="glow-btn py-2 px-4 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-95"
+              >
+                Save Changes
+              </button>
+              <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
+                PnL is auto-recalculated
+              </span>
+            </div>
+          </div>
+        )}
+
         <TradePostMortem entry={entry} onUpdate={onUpdate} />
       </div>
     </div>
+  );
+}
+
+function EditField({ label, value, onChange, prefix, suffix, placeholder }: { label: string; value: string; onChange: (v: string) => void; prefix?: string; suffix?: string; placeholder?: string }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>{label}</label>
+      <div className="relative">
+        {prefix && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px]" style={{ color: "var(--text-3)" }}>{prefix}</span>}
+        <input
+          type="text"
+          inputMode="decimal"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full bg-transparent p-2 rounded-lg text-xs font-mono focus:outline-none border"
+          style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)", paddingLeft: prefix ? "1.4rem" : undefined, paddingRight: suffix ? "1.4rem" : undefined }}
+        />
+        {suffix && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px]" style={{ color: "var(--text-3)" }}>{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+type TimelineTab = "all" | "open" | "closed";
+
+function TimelineSection({
+  entries,
+  onRemove,
+  onUpdate,
+  clearJournal,
+}: {
+  entries: JournalEntry[];
+  onRemove: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<JournalEntry>) => void;
+  clearJournal: () => void;
+}) {
+  const [tab, setTab] = useState<TimelineTab>("all");
+
+  const stats = useMemo(() => {
+    const closed = entries.filter((e) => e.status === "CLOSED");
+    const open = entries.filter((e) => e.status === "OPEN");
+    const wins = closed.filter((e) => (e.pnlPercent || 0) > 0);
+    const losses = closed.filter((e) => (e.pnlPercent || 0) < 0);
+
+    let totalInvested = 0;
+    let netPnlUsd = 0;
+    let totalProfitUsd = 0;
+    let totalLossUsd = 0;
+    let openExposure = 0;
+
+    entries.forEach((e) => {
+      const margin = e.margin || 0;
+      totalInvested += margin;
+      if (e.status === "OPEN") openExposure += margin;
+      if (e.status === "CLOSED" && typeof e.pnlPercent === "number" && margin) {
+        const pnlUsd = (e.pnlPercent / 100) * margin;
+        netPnlUsd += pnlUsd;
+        if (pnlUsd >= 0) totalProfitUsd += pnlUsd;
+        else totalLossUsd += pnlUsd;
+      }
+    });
+
+    const winRate = closed.length > 0 ? (wins.length / closed.length) * 100 : 0;
+    const avgPnlPercent = closed.length > 0
+      ? closed.reduce((sum, e) => sum + (e.pnlPercent || 0), 0) / closed.length
+      : 0;
+
+    return {
+      total: entries.length,
+      closedCount: closed.length,
+      openCount: open.length,
+      winsCount: wins.length,
+      lossesCount: losses.length,
+      winRate,
+      avgPnlPercent,
+      totalInvested,
+      openExposure,
+      netPnlUsd,
+      totalProfitUsd,
+      totalLossUsd,
+    };
+  }, [entries]);
+
+  const filtered = useMemo(() => {
+    if (tab === "open") return entries.filter((e) => e.status === "OPEN");
+    if (tab === "closed") return entries.filter((e) => e.status === "CLOSED");
+    return entries;
+  }, [entries, tab]);
+
+  const fmtUsd = (n: number) => `${n >= 0 ? "+" : "−"}$${Math.abs(n).toFixed(2)}`;
+  const netTone = stats.netPnlUsd > 0 ? "var(--green)" : stats.netPnlUsd < 0 ? "var(--red)" : "var(--text)";
+
+  return (
+    <div className="xl:col-span-8 animate-fade-up flex flex-col gap-5" style={{ animationDelay: "100ms" }}>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold" style={{ color: "var(--text)" }}>Trade Timeline</h2>
+        {entries.length > 0 && (
+          <button
+            onClick={() => { if (window.confirm("Clear entire journal?")) clearJournal(); }}
+            className="text-xs font-semibold transition-all duration-200 hover:scale-105"
+            style={{ color: "var(--red)" }}
+          >
+            Clear Log
+          </button>
+        )}
+      </div>
+
+      {entries.length > 0 && (
+        <div className="glass-card p-4 flex flex-col gap-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-semibold px-2 py-1 rounded-md uppercase tracking-wider" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+                Performance
+              </span>
+              <span className="text-xs" style={{ color: "var(--text-3)" }}>
+                {stats.closedCount} closed · {stats.openCount} open
+              </span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Net PnL</span>
+              <span className="text-lg font-bold tabular-nums" style={{ color: netTone }}>
+                {fmtUsd(stats.netPnlUsd)}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <StatTile label="Total Trades" value={String(stats.total)} sub={`${stats.closedCount} closed`} />
+            <StatTile label="Win Rate" value={`${stats.winRate.toFixed(0)}%`} sub={`${stats.winsCount}W · ${stats.lossesCount}L`} tone={stats.winRate >= 50 ? "green" : stats.winRate > 0 ? "red" : "neutral"} />
+            <StatTile label="Avg PnL" value={`${stats.avgPnlPercent >= 0 ? "+" : ""}${stats.avgPnlPercent.toFixed(2)}%`} sub="per closed trade" tone={stats.avgPnlPercent >= 0 ? "green" : "red"} />
+            <StatTile label="Total Invested" value={`$${stats.totalInvested.toFixed(2)}`} sub={`Open: $${stats.openExposure.toFixed(2)}`} />
+          </div>
+
+          {stats.closedCount > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-xl px-3 py-2.5 flex items-center justify-between transition-all duration-200 hover:scale-[1.01]" style={{ background: "rgba(52, 211, 153, 0.08)", border: "1px solid rgba(52, 211, 153, 0.18)" }}>
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Total Profit</span>
+                <span className="text-sm font-bold tabular-nums" style={{ color: "var(--green)" }}>+${stats.totalProfitUsd.toFixed(2)}</span>
+              </div>
+              <div className="rounded-xl px-3 py-2.5 flex items-center justify-between transition-all duration-200 hover:scale-[1.01]" style={{ background: "rgba(248, 113, 113, 0.08)", border: "1px solid rgba(248, 113, 113, 0.18)" }}>
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Total Loss</span>
+                <span className="text-sm font-bold tabular-nums" style={{ color: "var(--red)" }}>−${Math.abs(stats.totalLossUsd).toFixed(2)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {entries.length === 0 ? (
+        <div className="glass-card p-12 text-center" style={{ borderStyle: "dashed" }}>
+          <span className="text-4xl mb-3 block opacity-50">📓</span>
+          <p className="text-sm" style={{ color: "var(--text-3)" }}>Your journal is empty. Log a trade or upload a screenshot.</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-2 flex-wrap">
+            <TimelineTabPill label="All" count={stats.total} active={tab === "all"} onClick={() => setTab("all")} />
+            <TimelineTabPill label="Open" count={stats.openCount} active={tab === "open"} onClick={() => setTab("open")} tone="accent" />
+            <TimelineTabPill label="Closed" count={stats.closedCount} active={tab === "closed"} onClick={() => setTab("closed")} tone="neutral" />
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="glass-card p-8 text-center" style={{ borderStyle: "dashed" }}>
+              <p className="text-sm" style={{ color: "var(--text-3)" }}>
+                No {tab} trades yet.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filtered.map((entry) => (
+                <JournalCard key={entry.id} entry={entry} onRemove={() => onRemove(entry.id)} onUpdate={onUpdate} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function StatTile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "green" | "red" | "neutral" }) {
+  const valueColor = tone === "green" ? "var(--green)" : tone === "red" ? "var(--red)" : "var(--text)";
+  return (
+    <div className="rounded-xl px-3 py-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))", border: "1px solid var(--border)" }}>
+      <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-3)" }}>{label}</p>
+      <p className="text-base font-bold tabular-nums" style={{ color: valueColor }}>{value}</p>
+      {sub && <p className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>{sub}</p>}
+    </div>
+  );
+}
+
+function TimelineTabPill({ label, count, active, onClick, tone }: { label: string; count: number; active: boolean; onClick: () => void; tone?: "accent" | "neutral" }) {
+  const activeStyles = tone === "accent"
+    ? { background: "var(--accent-dim)", border: "1px solid var(--accent)", color: "var(--accent)", boxShadow: "0 0 12px rgba(82,170,255,0.18)" }
+    : { background: "var(--surface-active)", border: "1px solid var(--border-strong)", color: "var(--text)" };
+
+  return (
+    <button
+      onClick={onClick}
+      className="px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95"
+      style={active ? activeStyles : { background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-2)" }}
+    >
+      <span>{label}</span>
+      <span className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded" style={{ background: active ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.05)", color: "inherit" }}>
+        {count}
+      </span>
+    </button>
   );
 }

@@ -34,6 +34,11 @@ export const ASSET_CATALOG: Asset[] = [
   { symbol: "TON/USDT",  name: "Toncoin",          category: "crypto",      binanceSymbol: "TONUSDT",  newsKeyword: "Toncoin TON",    icon: "💎" },
   { symbol: "FIL/USDT",  name: "Filecoin",         category: "crypto",      binanceSymbol: "FILUSDT",  newsKeyword: "Filecoin FIL",   icon: "📁" },
   { symbol: "PEPE/USDT", name: "Pepe",             category: "crypto",      binanceSymbol: "PEPEUSDT", newsKeyword: "PEPE meme coin", icon: "🐸" },
+  { symbol: "SHIB/USDT", name: "Shiba Inu",        category: "crypto",      binanceSymbol: "SHIBUSDT", newsKeyword: "Shiba Inu SHIB", icon: "🐕" },
+  { symbol: "FLOKI/USDT",name: "Floki",            category: "crypto",      binanceSymbol: "FLOKIUSDT",newsKeyword: "Floki meme coin",icon: "🐶" },
+  { symbol: "WIF/USDT",  name: "dogwifhat",        category: "crypto",      binanceSymbol: "WIFUSDT",  newsKeyword: "dogwifhat WIF",  icon: "🎩" },
+  { symbol: "BONK/USDT", name: "Bonk",             category: "crypto",      binanceSymbol: "BONKUSDT", newsKeyword: "Bonk BONK",      icon: "🏏" },
+  { symbol: "FARTCOIN/USD",  name: "Fartcoin",     category: "crypto",      yahooSymbol: "FARTCOIN-USD",  newsKeyword: "Fartcoin",   icon: "💨" },
 
   // ─── Indices ──────────────────────────────────────────────
   { symbol: "SPX",      name: "S&P 500",                    category: "indices", yahooSymbol: "^GSPC",      newsKeyword: "S&P 500 stock market",        icon: "📈" },
@@ -78,7 +83,7 @@ export const ASSET_CATALOG: Asset[] = [
 ];
 
 /** Default watchlist symbols shown on first launch */
-export const DEFAULT_WATCHLIST = ["BTC/USDT", "ETH/USDT", "XAU/USD", "SPX", "WTI"];
+export const DEFAULT_WATCHLIST = ["BTC/USDT", "ETH/USDT", "DOGE/USDT", "PEPE/USDT", "SHIB/USDT", "XAU/USD", "SPX", "WTI"];
 
 /** Find a single asset by symbol */
 export function findAsset(symbol: string): Asset | undefined {

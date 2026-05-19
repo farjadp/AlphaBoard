@@ -36,6 +36,7 @@ type ConsensusScore = {
   netScore: number;
   dominantBias: TrendSignal;
   coverage: number;
+  confluenceStrength: "Strong" | "Moderate" | "Weak" | "Conflicting";
 };
 
 interface TimeframeSpec {
@@ -70,15 +71,20 @@ interface IndicatorSnapshot {
   chartPattern: ReturnType<typeof detectChartPatterns>["primary"];
   chartPatternMatches: ReturnType<typeof detectChartPatterns>["matches"];
   trendSignal: TrendSignal;
+  atr: number | null;   // Average True Range (14-period Wilder)
   available: boolean;
 }
+
+// MIN_YAHOO_PERIOD_DAYS: non-crypto assets only have daily data from Yahoo Finance.
+// We must fetch at least this many days to give pattern detectors and SMA200 enough candles.
+const MIN_YAHOO_PERIOD_DAYS = 400;
 
 const BASE_TIMEFRAME: TimeframeSpec = {
   key: "1H",
   binanceInterval: "1h",
   yahooInterval: "1d",
   limit: 300,
-  periodDays: 30,
+  periodDays: 30, // For crypto (Binance). Non-crypto always overrides to MIN_YAHOO_PERIOD_DAYS.
 };
 
 const DAILY_TIMEFRAME: TimeframeSpec = {
@@ -91,15 +97,16 @@ const DAILY_TIMEFRAME: TimeframeSpec = {
 
 const MULTI_TIMEFRAMES: TimeframeSpec[] = [
   { key: "1Y", binanceInterval: "1d", yahooInterval: "1d", limit: 365, periodDays: 400 },
-  { key: "3M", binanceInterval: "1d", yahooInterval: "1d", limit: 90,  periodDays: 120 },
-  // For Yahoo Finance, periodDays must always be >= 60 so pattern detectors get enough candles.
+  { key: "3M", binanceInterval: "1d", yahooInterval: "1d", limit: 90,  periodDays: 400 },
+  // For Yahoo Finance, periodDays must always be >= MIN_YAHOO_PERIOD_DAYS so pattern detectors
+  // and all SMA indicators (up to SMA200) get enough daily candles.
   // limit is applied AFTER fetching, so the slice will trim to the right number.
-  { key: "1M", binanceInterval: "1h",  yahooInterval: "1d", limit: 30,  periodDays: 60 },
-  { key: "1W", binanceInterval: "15m", yahooInterval: "1d", limit: 30,  periodDays: 60 },
-  { key: "4H", binanceInterval: "4h",  yahooInterval: "1d", limit: 300, periodDays: 70, aggregateSize: 4 },
-  { key: "45M", binanceInterval: "15m", yahooInterval: "1d", limit: 300, periodDays: 14, aggregateSize: 3 },
-  { key: "15M", binanceInterval: "15m", yahooInterval: "1d", limit: 300, periodDays: 14 },
-  { key: "5M",  binanceInterval: "5m",  yahooInterval: "1d", limit: 300, periodDays: 7 },
+  { key: "1M", binanceInterval: "1h",  yahooInterval: "1d", limit: 30,  periodDays: 400 },
+  { key: "1W", binanceInterval: "15m", yahooInterval: "1d", limit: 30,  periodDays: 400 },
+  { key: "4H", binanceInterval: "4h",  yahooInterval: "1d", limit: 300, periodDays: 400, aggregateSize: 4 },
+  { key: "45M", binanceInterval: "15m", yahooInterval: "1d", limit: 300, periodDays: 400, aggregateSize: 3 },
+  { key: "15M", binanceInterval: "15m", yahooInterval: "1d", limit: 300, periodDays: 400 },
+  { key: "5M",  binanceInterval: "5m",  yahooInterval: "1d", limit: 300, periodDays: 400 },
 ];
 const TIMEFRAME_WEIGHTS: Record<string, number> = {
   "1Y": 1.8,
@@ -204,16 +211,21 @@ async function fetchYahooCandles(symbol: string, interval: YahooInterval, period
 }
 
 async function fetchCandlesForTimeframe(pairDef: PairDef, symbol: string, spec: TimeframeSpec) {
-  if (pairDef.category !== "crypto" && ["4H", "45M", "15M", "5M"].includes(spec.key)) {
-    throw new Error("Intraday timeframe unavailable for this asset");
+  if (pairDef.category === "crypto" && pairDef.binanceSymbol) {
+    // Crypto listed on Binance: use Binance with the exact interval requested
+    const rawCandles = await fetchBinanceCandles(symbol, spec.binanceInterval, spec.limit * (spec.aggregateSize ?? 1));
+    const candles = spec.aggregateSize ? aggregateCandles(rawCandles, spec.aggregateSize) : rawCandles;
+    return candles.slice(-spec.limit);
   }
 
-  const rawCandles = pairDef.category === "crypto"
-    ? await fetchBinanceCandles(symbol, spec.binanceInterval, spec.limit * (spec.aggregateSize ?? 1))
-    : await fetchYahooCandles(pairDef.yahooSymbol!, spec.yahooInterval, spec.periodDays);
+  // Non-crypto (commodities, forex, indices) OR crypto only available on Yahoo Finance (e.g. Fartcoin):
+  // Yahoo Finance only provides daily data.
+  // Always fetch MIN_YAHOO_PERIOD_DAYS so indicators (SMA200, pattern detectors) have enough candles.
+  const effectiveDays = Math.max(spec.periodDays, MIN_YAHOO_PERIOD_DAYS);
+  const rawCandles = await fetchYahooCandles(pairDef.yahooSymbol!, spec.yahooInterval, effectiveDays);
 
-  const candles = spec.aggregateSize ? aggregateCandles(rawCandles, spec.aggregateSize) : rawCandles;
-  return candles.slice(-spec.limit);
+  // For intraday labels (4H, 45M, 15M, 5M) we serve daily data as-is (only 1 candle/day from Yahoo).
+  return rawCandles.slice(-spec.limit);
 }
 
 function calculateTrendSignal(parts: Array<TrendSignal | string>) {
@@ -233,6 +245,20 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
+// ─── Consensus Score with Top-Down Confluence Logic ──────────────────────────
+// Standard weighted scoring is extended with a confluence bonus/penalty:
+//
+// Confluence BONUS  (+5 pts): Higher TFs (1Y, 3M) and lower TFs (1W, 1M, 4H)
+//   agree on the same bias → the trend is clean across the structure.
+//
+// Confluence PENALTY (-8 pts): Higher TFs and lower TFs disagree
+//   → classic Smart Money trap; reduce confidence to avoid false signals.
+//
+// confluenceStrength label helps the UI communicate signal quality:
+//   Strong   : HTF aligned, netScore > 60 or < 40
+//   Moderate : HTF aligned, netScore 50-60 or 40-50
+//   Weak     : Neutral zones without HTF alignment
+//   Conflicting : HTF vs LTF mismatch
 function calculateConsensusScore(timeframes: IndicatorSnapshot[]): ConsensusScore {
   const available = timeframes.filter((item) => item.available);
   const totalWeight = available.reduce((sum, item) => sum + (TIMEFRAME_WEIGHTS[item.timeframe] ?? 1), 0);
@@ -244,6 +270,7 @@ function calculateConsensusScore(timeframes: IndicatorSnapshot[]): ConsensusScor
       netScore: 50,
       dominantBias: "Neutral",
       coverage: 0,
+      confluenceStrength: "Weak",
     };
   }
 
@@ -257,9 +284,49 @@ function calculateConsensusScore(timeframes: IndicatorSnapshot[]): ConsensusScor
     .filter((item) => item.trendSignal === "Neutral")
     .reduce((sum, item) => sum + (TIMEFRAME_WEIGHTS[item.timeframe] ?? 1), 0);
 
+  // Base scores
   const bullishPressure = clamp(Number((((bullishWeight + neutralWeight * 0.5) / totalWeight) * 100).toFixed(1)), 0, 100);
   const bearishPressure = clamp(Number((((bearishWeight + neutralWeight * 0.5) / totalWeight) * 100).toFixed(1)), 0, 100);
-  const netScore = clamp(Number((50 + ((bullishWeight - bearishWeight) / totalWeight) * 50).toFixed(1)), 0, 100);
+  let netScore = clamp(Number((50 + ((bullishWeight - bearishWeight) / totalWeight) * 50).toFixed(1)), 0, 100);
+
+  // ── Top-Down Confluence Analysis ─────────────────────────────────────────
+  // Classify timeframes into Higher TF (macro) vs Lower TF (micro)
+  const htfKeys = new Set(["1Y", "3M"]);
+  const ltfKeys = new Set(["1M", "1W", "4H"]);
+
+  const htfSignals = available.filter((item) => htfKeys.has(item.timeframe)).map((item) => item.trendSignal);
+  const ltfSignals = available.filter((item) => ltfKeys.has(item.timeframe)).map((item) => item.trendSignal);
+
+  // Determine dominant bias for each group (ignore Neutral)
+  const htfBias = htfSignals.filter((s) => s !== "Neutral");
+  const ltfBias = ltfSignals.filter((s) => s !== "Neutral");
+
+  const htfDominant = htfBias.length > 0
+    ? (htfBias.filter((s) => s === "Bullish").length > htfBias.length / 2 ? "Bullish" : "Bearish")
+    : null;
+  const ltfDominant = ltfBias.length > 0
+    ? (ltfBias.filter((s) => s === "Bullish").length > ltfBias.length / 2 ? "Bullish" : "Bearish")
+    : null;
+
+  let confluenceStrength: ConsensusScore["confluenceStrength"] = "Weak";
+
+  if (htfDominant && ltfDominant) {
+    if (htfDominant === ltfDominant) {
+      // HTF and LTF agree → strong confluence → apply bonus
+      const bonus = 5;
+      netScore = clamp(htfDominant === "Bullish" ? netScore + bonus : netScore - bonus, 0, 100);
+      confluenceStrength = Math.abs(netScore - 50) >= 10 ? "Strong" : "Moderate";
+    } else {
+      // HTF and LTF conflict → Smart Money trap → apply penalty
+      const penalty = 8;
+      netScore = clamp(netScore > 50 ? netScore - penalty : netScore + penalty, 0, 100);
+      confluenceStrength = "Conflicting";
+    }
+  } else if (htfDominant || ltfDominant) {
+    // Only one group has a clear bias
+    confluenceStrength = "Moderate";
+  }
+
   const dominantBias = netScore >= 57 ? "Bullish" : netScore <= 43 ? "Bearish" : "Neutral";
   const coverage = clamp(Number(((available.length / MULTI_TIMEFRAMES.length) * 100).toFixed(0)), 0, 100);
 
@@ -269,12 +336,40 @@ function calculateConsensusScore(timeframes: IndicatorSnapshot[]): ConsensusScor
     netScore,
     dominantBias,
     coverage,
+    confluenceStrength,
   };
 }
 
 function calculateIndicatorSnapshot(timeframe: string, candles: Candle[]): IndicatorSnapshot {
   const closes = candles.map((candle) => candle.close);
+  const highs  = candles.map((candle) => candle.high);
+  const lows   = candles.map((candle) => candle.low);
   const currentPrice = closes.at(-1) ?? null;
+
+  // ── ATR (14-period Wilder's smoothing) ───────────────────────────────────
+  // True Range = max(high - low, |high - prev_close|, |low - prev_close|)
+  // ATR = Wilder EMA of TR over 14 periods
+  let atr: number | null = null;
+  if (candles.length >= 15) {
+    const trueRanges: number[] = [];
+    for (let i = 1; i < candles.length; i++) {
+      const prevClose = candles[i - 1].close;
+      const tr = Math.max(
+        highs[i] - lows[i],
+        Math.abs(highs[i] - prevClose),
+        Math.abs(lows[i]  - prevClose),
+      );
+      trueRanges.push(tr);
+    }
+    // First ATR: simple average of first 14 TRs
+    const period = 14;
+    let atrValue = trueRanges.slice(0, period).reduce((s, v) => s + v, 0) / period;
+    // Wilder smoothing for remaining TRs
+    for (let i = period; i < trueRanges.length; i++) {
+      atrValue = (atrValue * (period - 1) + trueRanges[i]) / period;
+    }
+    atr = Number(atrValue.toFixed(currentPrice && currentPrice > 100 ? 2 : 6));
+  }
 
   const rsiValues = closes.length >= 14 ? RSI.calculate({ values: closes, period: 14 }) : [];
   const latestRsi = rsiValues.at(-1) ?? null;
@@ -350,6 +445,7 @@ function calculateIndicatorSnapshot(timeframe: string, candles: Candle[]): Indic
     chartPattern: chartPatterns.primary,
     chartPatternMatches: chartPatterns.matches,
     trendSignal,
+    atr,
     available: true,
   };
 }
@@ -381,6 +477,7 @@ function buildUnavailableSnapshot(timeframe: string): IndicatorSnapshot {
     chartPattern: emptyChartPattern,
     chartPatternMatches: [],
     trendSignal: "Neutral",
+    atr: null,
     available: false,
   };
 }
@@ -411,8 +508,19 @@ export async function GET(req: Request) {
     }
 
     const primarySpec = requestedSpec ?? BASE_TIMEFRAME;
-    const primaryCandles = await fetchCandlesForTimeframe(pairDef, symbol, primarySpec);
-    const primarySnapshot = calculateIndicatorSnapshot(primarySpec.key, primaryCandles);
+    let primarySnapshot: IndicatorSnapshot;
+    try {
+      const primaryCandles = await fetchCandlesForTimeframe(pairDef, symbol, primarySpec);
+      primarySnapshot = calculateIndicatorSnapshot(primarySpec.key, primaryCandles);
+    } catch (primaryError) {
+      // Gracefully handle unavailable timeframes (e.g. intraday for non-crypto assets)
+      // rather than returning a 500. The client can detect `available: false`.
+      primarySnapshot = {
+        ...buildUnavailableSnapshot(primarySpec.key),
+        rsiSignal: "Unavailable",
+        macdSignal: primaryError instanceof Error ? primaryError.message : "Unavailable",
+      };
+    }
     const multiTimeframes = await Promise.all(
       MULTI_TIMEFRAMES.map(async (spec) => {
         try {

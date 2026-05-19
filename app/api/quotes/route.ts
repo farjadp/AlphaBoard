@@ -15,6 +15,7 @@ interface YahooQuoteRow {
 }
 
 // Build a fast lookup: pairSymbol → yahooSymbol
+// Includes: all non-crypto assets + crypto assets that use Yahoo instead of Binance (e.g. Fartcoin)
 const YAHOO_MAP: Record<string, string> = {};
 for (const a of ASSET_CATALOG) {
   if (a.yahooSymbol) YAHOO_MAP[a.symbol] = a.yahooSymbol;

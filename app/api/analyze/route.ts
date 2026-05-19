@@ -25,8 +25,18 @@ export async function POST(req: Request) {
           })
           .join("\n")
       : "No prior lessons recorded.";
+    // ── Chart Academy visual lessons ──
+    type ChartLesson = { signal?: string; lesson?: string; patterns?: string[]; tags?: string[]; confluenceScore?: number; symbol?: string; createdAt?: string };
+    const chartLessons = Array.isArray(body.chartLessons) ? (body.chartLessons as ChartLesson[]).slice(0, 5) : [];
+    const chartLessonsBlock = chartLessons.length > 0
+      ? chartLessons.map((cl, idx) => {
+          const pats = Array.isArray(cl.patterns) ? cl.patterns.join(", ") : "";
+          const tags = Array.isArray(cl.tags) ? cl.tags.join(", ") : "";
+          return `${idx + 1}. [Chart Study · ${cl.signal || "?"} · Confluence ${cl.confluenceScore ?? "N/A"}/100${cl.symbol ? ` · ${cl.symbol}` : ""}] Patterns: ${pats || "N/A"}. Lesson: ${cl.lesson || ""}${tags ? ` (tags: ${tags})` : ""}`;
+        }).join("\n")
+      : "No chart academy lessons recorded.";
     const multiTimeframes = Array.isArray(body.indicators?.multiTimeframes)
-      ? body.indicators.multiTimeframes as Array<{ timeframe: string; trendSignal?: string; rsiSignal?: string; macdSignal?: string; emaSignal?: string; available?: boolean }>
+      ? body.indicators.multiTimeframes as Array<{ timeframe: string; trendSignal?: string; rsiSignal?: string; macdSignal?: string; emaSignal?: string; atr?: number | null; available?: boolean }>
       : [];
     const consensusScore = body.indicators?.consensusScore as {
       bullishPressure?: number;
@@ -34,9 +44,10 @@ export async function POST(req: Request) {
       netScore?: number;
       dominantBias?: "Bullish" | "Bearish" | "Neutral";
       coverage?: number;
+      confluenceStrength?: "Strong" | "Moderate" | "Weak" | "Conflicting";
     } | undefined;
     const multiTimeframeSummary = multiTimeframes.length > 0
-      ? multiTimeframes.map((item) => `${item.timeframe}: ${item.available ? item.trendSignal || "Neutral" : "Unavailable"} | RSI ${item.rsiSignal || "N/A"} | MACD ${item.macdSignal || "N/A"} | EMA ${item.emaSignal || "N/A"}`).join("\n")
+      ? multiTimeframes.map((item) => `${item.timeframe}: ${item.available ? item.trendSignal || "Neutral" : "Unavailable"} | RSI ${item.rsiSignal || "N/A"} | MACD ${item.macdSignal || "N/A"} | EMA ${item.emaSignal || "N/A"}${item.atr != null ? ` | ATR ${item.atr}` : ""}`).join("\n")
       : "No multi-timeframe summary available.";
 
     // Fallback if no API key is set
@@ -75,7 +86,7 @@ export async function POST(req: Request) {
     }
 
     const prompt = `
-You are an elite, highly active crypto and TradFi trader and risk manager. Analyze the following asset data to find the best actionable setup for the user's selected timeframe.
+You are an elite, highly active crypto and TradFi trader and risk manager with deep expertise in both classical technical analysis and Smart Money Concepts (SMC). Analyze the following asset data to find the best actionable setup for the user's selected timeframe.
 IMPORTANT: While your goal is to find actionable setups, if the market indicators are genuinely conflicting, choppy, or directionless, you MUST signal "HOLD" and explain why patience is required. Do not force a trade if the edge is not clear.
 
 You also have access to the trader's PERSONAL POST-MORTEM LESSONS from previous trades. Treat them as a personalized memory: avoid repeating mistakes the trader has made before, lean into setups that previously worked for them, and reference relevant past lessons in the "reasoning" field when they directly apply.
@@ -88,6 +99,11 @@ You must utilize the following Moving Average Cheat Sheet to speed up your decis
 •  100 SMA: 📉 Dip buy alert
 •  200 SMA: 🔄 Trend shift
 •  250 SMA: 💰 Fair value
+
+Smart Money Concepts (SMC) you must apply:
+•  Order Block (OB): The last opposing candle before a strong impulse. Price revisits these institutional zones. A Bullish OB acts as demand; a Bearish OB acts as supply.
+•  Fair Value Gap (FVG): A price imbalance between non-adjacent candle wicks. Price tends to retrace and fill these gaps. Use them as target zones or entry areas.
+•  ATR-based Stop Loss: When ATR is provided, set Stop Loss = entry ± (ATR × 1.5). This is dynamic and respects current volatility. If ATR is available, ALWAYS use this formula; do not use arbitrary fixed distances.
 
 Return ONLY a valid JSON object with the following exact keys:
 - "signal": (must be "BUY", "SELL", or "HOLD". Find the most likely direction, but use HOLD if the market is neutral/conflicting.)
@@ -116,7 +132,9 @@ ${body.symbol} ...
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        messages: [{ role: "user", content: prompt + `\n\nData:\nSymbol: ${body.symbol}\nCurrent Price: $${body.price}\n24h Change: ${body.priceChange}%\nSelected Report Timeframe: ${selectedTimeframe}\n\nRecent News Headlines:\n${news.length > 0 ? news.map((headline) => '- ' + headline).join("\\n") : "No recent news."}\n\nTechnical Indicators (${selectedTimeframe} Chart):\nRSI (14): ${body.indicators?.rsi ? body.indicators.rsi.toFixed(2) : "N/A"} (${body.indicators?.rsiSignal || "N/A"})\nMACD: ${body.indicators?.macd?.MACD ? body.indicators.macd.MACD.toFixed(2) : "N/A"} (${body.indicators?.macdSignal || "N/A"})\nSMA (50): ${body.indicators?.sma50 ? body.indicators.sma50.toFixed(2) : "N/A"}\nSMA (100): ${body.indicators?.sma100 ? body.indicators.sma100.toFixed(2) : "N/A"}\nSMA (200): ${body.indicators?.sma200 ? body.indicators.sma200.toFixed(2) : "N/A"}\nSMA (250): ${body.indicators?.sma250 ? body.indicators.sma250.toFixed(2) : "N/A"}\nEMA (5): ${body.indicators?.ema5 ? body.indicators.ema5.toFixed(2) : "N/A"}\nEMA (10): ${body.indicators?.ema10 ? body.indicators.ema10.toFixed(2) : "N/A"}\nEMA (20): ${body.indicators?.ema20 ? body.indicators.ema20.toFixed(2) : "N/A"}\nBollinger Bands (20,2): Lower: ${body.indicators?.bollingerBands?.lower ? body.indicators.bollingerBands.lower.toFixed(2) : "N/A"}, Upper: ${body.indicators?.bollingerBands?.upper ? body.indicators.bollingerBands.upper.toFixed(2) : "N/A"} (${body.indicators?.bbSignal || "N/A"})\nCandlestick Pattern (${selectedTimeframe}): ${body.indicators?.candlestickPattern?.name || "No Clear Pattern"} (${body.indicators?.candlestickPattern?.bias || "Neutral"})\nCandlestick Pattern Note: ${body.indicators?.candlestickPattern?.description || "No dominant candlestick pattern available."}\nChart Pattern (${selectedTimeframe}): ${body.indicators?.chartPattern?.name || "No Clear Chart Pattern"} (${body.indicators?.chartPattern?.bias || "Neutral"})\nChart Pattern Note: ${body.indicators?.chartPattern?.description || "No dominant chart pattern available."}\n\nMulti-Timeframe Summary:\n${multiTimeframeSummary}\n\nConsensus Score:\nNet Score: ${consensusScore?.netScore ?? "N/A"}\nDominant Bias: ${consensusScore?.dominantBias || "N/A"}\nBullish Pressure: ${consensusScore?.bullishPressure ?? "N/A"}\nBearish Pressure: ${consensusScore?.bearishPressure ?? "N/A"}\nCoverage: ${consensusScore?.coverage ?? "N/A"}%\n\nTrader's Past Post-Mortem Lessons:\n${lessonsBlock}\n\nFundamental & Network Data:\nCashflow 24h Fees: ${body.cashflow?.fees24h || "N/A"}\nCashflow 24h Revenue: ${body.cashflow?.revenue24h || "N/A"}\nBalance Sheet Market Cap: ${body.balanceSheet?.marketCap || "N/A"}\nBalance Sheet FDV: ${body.balanceSheet?.fdv || "N/A"}\nFutures Funding Rate: ${body.futures?.fundingRate || "N/A"}\nFutures Open Interest: ${body.futures?.openInterest || "N/A"}\n` }],
+        messages: [{ role: "user", content: prompt + `\n\nData:\nSymbol: ${body.symbol}\nCurrent Price: $${body.price}\n24h Change: ${body.priceChange}%\nSelected Report Timeframe: ${selectedTimeframe}\n\nRecent News Headlines:\n${news.length > 0 ? news.map((headline) => '- ' + headline).join("\\n") : "No recent news."}\n\nTechnical Indicators (${selectedTimeframe} Chart):\nRSI (14): ${body.indicators?.rsi ? body.indicators.rsi.toFixed(2) : "N/A"} (${body.indicators?.rsiSignal || "N/A"})\nMACD: ${body.indicators?.macd?.MACD ? body.indicators.macd.MACD.toFixed(2) : "N/A"} (${body.indicators?.macdSignal || "N/A"})\nSMA (50): ${body.indicators?.sma50 ? body.indicators.sma50.toFixed(2) : "N/A"}\nSMA (100): ${body.indicators?.sma100 ? body.indicators.sma100.toFixed(2) : "N/A"}\nSMA (200): ${body.indicators?.sma200 ? body.indicators.sma200.toFixed(2) : "N/A"}\nSMA (250): ${body.indicators?.sma250 ? body.indicators.sma250.toFixed(2) : "N/A"}\nEMA (5): ${body.indicators?.ema5 ? body.indicators.ema5.toFixed(2) : "N/A"}\nEMA (10): ${body.indicators?.ema10 ? body.indicators.ema10.toFixed(2) : "N/A"}\nEMA (20): ${body.indicators?.ema20 ? body.indicators.ema20.toFixed(2) : "N/A"}\nBollinger Bands (20,2): Lower: ${body.indicators?.bollingerBands?.lower ? body.indicators.bollingerBands.lower.toFixed(2) : "N/A"}, Upper: ${body.indicators?.bollingerBands?.upper ? body.indicators.bollingerBands.upper.toFixed(2) : "N/A"} (${body.indicators?.bbSignal || "N/A"})\nATR (14, Wilder): ${body.indicators?.atr != null ? body.indicators.atr : "N/A"}${body.indicators?.atr != null && body.price ? ` | ATR×1.5 SL buffer: ${(body.indicators.atr * 1.5).toFixed(body.price > 100 ? 2 : 6)}` : ""}\n\nCandlestick Pattern (${selectedTimeframe}): ${body.indicators?.candlestickPattern?.name || "No Clear Pattern"} (${body.indicators?.candlestickPattern?.bias || "Neutral"})\nCandlestick Pattern Note: ${body.indicators?.candlestickPattern?.description || "No dominant candlestick pattern available."}\n\nChart Patterns & Smart Money Structures (${selectedTimeframe}):\n${Array.isArray(body.indicators?.chartPatternMatches) && body.indicators.chartPatternMatches.length > 0
+  ? body.indicators.chartPatternMatches.map((p: { name: string; bias: string; confidence: number; description: string }) => `- ${p.name} (${p.bias}, ${p.confidence}% confidence): ${p.description}`).join("\\n")
+  : `- ${body.indicators?.chartPattern?.name || "No Clear Chart Pattern"} (${body.indicators?.chartPattern?.bias || "Neutral"}): ${body.indicators?.chartPattern?.description || "No dominant chart pattern available."}`}\n\nMulti-Timeframe Summary:\n${multiTimeframeSummary}\n\nConsensus Score:\nNet Score: ${consensusScore?.netScore ?? "N/A"}\nDominant Bias: ${consensusScore?.dominantBias || "N/A"}\nBullish Pressure: ${consensusScore?.bullishPressure ?? "N/A"}\nBearish Pressure: ${consensusScore?.bearishPressure ?? "N/A"}\nCoverage: ${consensusScore?.coverage ?? "N/A"}%\nConfluence Strength: ${consensusScore?.confluenceStrength ?? "N/A"}${consensusScore?.confluenceStrength === "Conflicting" ? " ⚠ HTF and LTF are in conflict — increase caution, consider HOLD" : consensusScore?.confluenceStrength === "Strong" ? " ✓ HTF and LTF are aligned — higher conviction trade" : ""}\n\nTrader's Past Post-Mortem Lessons:\n${lessonsBlock}\n\nTrader's Chart Academy Visual Lessons (patterns studied from real chart screenshots):\n${chartLessonsBlock}\n\nFundamental & Network Data:\nCashflow 24h Fees: ${body.cashflow?.fees24h || "N/A"}\nCashflow 24h Revenue: ${body.cashflow?.revenue24h || "N/A"}\nBalance Sheet Market Cap: ${body.balanceSheet?.marketCap || "N/A"}\nBalance Sheet FDV: ${body.balanceSheet?.fdv || "N/A"}\nFutures Funding Rate: ${body.futures?.fundingRate || "N/A"}\nFutures Open Interest: ${body.futures?.openInterest || "N/A"}\n` }],
         response_format: { type: "json_object" },
         temperature: 0,
       }),

@@ -19,23 +19,35 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "system",
-          content: "You are an expert crypto trading assistant. Extract trade details from the provided exchange screenshot. Return ONLY valid JSON."
+          content: "You are an expert crypto trading assistant. Extract EXACT trade details from exchange screenshots. Return ONLY valid JSON, no markdown, no prose."
         },
         {
           role: "user",
           content: [
             {
               type: "text",
-              text: `Extract the following details from this crypto exchange screenshot.
-              Return ONLY a JSON object with these exact keys:
-              - "symbol": (string, e.g. "BTC/USDT" or "BTCUSDT")
-              - "position": (string, either "LONG" or "SHORT")
-              - "entryPrice": (number)
-              - "margin": (number, the margin/size in USD, do not include symbols)
-              - "leverage": (number, just the multiplier, e.g. 50)
-              - "marginMode": (string, either "Cross" or "Isolated")
-              
-              If any field cannot be found, return null for that field. Do not include markdown formatting or backticks.`
+              text: `Extract trade details from this crypto exchange screenshot. This may be a position record, order history, open positions page, or a "Share My PnL" card.
+
+PRIORITY RULES (most important):
+1. If the screenshot is a "Share PnL" card (has big % number, entry price, avg close price), extract from THAT card, not any surrounding UI.
+2. Prefer labels like "Avg Entry Price", "Avg Close Price", "Entry Price", "Exit Price", "Close Price" — these are the source of truth.
+3. Leverage is often shown as "10x", "6X", "50X", or in a tag like "Perp | Long | 6X". Extract the pure number (e.g. 6, not "6x").
+4. For position side, look for "Long" / "Short" labels. Green number usually = profit. Red = loss. Do NOT infer side from color alone; use the explicit label.
+5. Margin/Size: "Margin" is the collateral used (small number). "Size" or "Position Size" is margin × leverage (bigger). Prefer "Margin" for the margin field.
+6. If a field is missing or ambiguous, return null — do NOT guess.
+
+Return ONLY a JSON object with these EXACT keys:
+- "symbol": string like "BTC/USDT" or "SOL/USDT" (keep the slash if present, otherwise add it: "BTCUSDT" -> "BTC/USDT")
+- "position": "LONG" | "SHORT" | null
+- "entryPrice": number | null  (exact value shown next to "Entry" or "Avg Entry Price")
+- "exitPrice": number | null  (exact value shown next to "Exit", "Close Price", or "Avg Close Price"; null if position is still open)
+- "leverage": number | null  (just the integer multiplier, e.g. 6 for "6X")
+- "margin": number | null  (collateral in USD)
+- "marginMode": "Cross" | "Isolated" | null
+- "pnlPercent": number | null  (signed, e.g. 4.14 for "+4.14%", -2.24 for "-2.24%")
+- "pnlUsd": number | null  (signed, e.g. 0.07 for "+0.07 USDT")
+
+Do not include markdown, code fences, or explanations.`
             },
             {
               type: "image_url",
@@ -46,7 +58,9 @@ export async function POST(req: Request) {
           ]
         }
       ],
-      max_tokens: 300,
+      max_tokens: 400,
+      response_format: { type: "json_object" },
+      temperature: 0,
     };
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {

@@ -22,7 +22,10 @@ export interface JournalEntry {
   position: TradePosition;
   entryPrice: number;
   exitPrice?: number;
-  pnlPercent?: number;
+  pnlPercent?: number; // NET pnl% (after fees)
+  grossPnlPercent?: number; // GROSS pnl% (raw price move × leverage)
+  feeRatePercent?: number; // per-side taker fee % (e.g. 0.05 for 0.05%). Undefined = use DEFAULT_FEE_RATE_PERCENT
+  pnlSource?: "calculated" | "exchange"; // "exchange" means pnlPercent was provided directly (e.g. from screenshot) and should not be recomputed
   emotion: TradeEmotion;
   notes: string;
   leverage?: number;
@@ -33,7 +36,33 @@ export interface JournalEntry {
   postMortem?: PostMortemAnalysis;
 }
 
+/** Default taker fee per side (e.g. 0.05% on Binance/Bybit/Ourbit futures). Round-trip cost = 2× this × leverage. */
+export const DEFAULT_FEE_RATE_PERCENT = 0.05;
+
 const STORAGE_KEY = "alphaboard_trading_journal";
+
+/**
+ * Compute net PnL% from raw trade inputs, deducting round-trip taker fees.
+ * Fees in % of margin = feeRate × 2 × leverage (entry + exit, both at leverage).
+ */
+export function computePnl(params: {
+  entryPrice: number;
+  exitPrice: number;
+  position: TradePosition;
+  leverage?: number;
+  feeRatePercent?: number;
+}): { gross: number; net: number; feeImpact: number } {
+  const { entryPrice, exitPrice, position, leverage, feeRatePercent } = params;
+  const feeRate = typeof feeRatePercent === "number" ? feeRatePercent : DEFAULT_FEE_RATE_PERCENT;
+  const lev = leverage && leverage > 0 ? leverage : 1;
+  const diff = exitPrice - entryPrice;
+  let gross = (diff / entryPrice) * 100;
+  if (position === "SHORT") gross = -gross;
+  gross = gross * lev;
+  const feeImpact = feeRate * 2 * lev; // % of margin consumed by round-trip fees
+  const net = gross - feeImpact;
+  return { gross, net, feeImpact };
+}
 
 export function useJournal() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -58,28 +87,35 @@ export function useJournal() {
     }
   };
 
-  const addEntry = (entryData: Omit<JournalEntry, "id" | "timestamp" | "pnlPercent" | "status">) => {
-    let pnl: number | undefined = undefined;
+  const addEntry = (entryData: Omit<JournalEntry, "id" | "timestamp" | "status"> & { pnlPercent?: number; pnlSource?: JournalEntry["pnlSource"] }) => {
+    let netPnl: number | undefined = entryData.pnlPercent;
+    let grossPnl: number | undefined;
     let status: "OPEN" | "CLOSED" = "OPEN";
+    const exchangeProvided = entryData.pnlSource === "exchange" && typeof entryData.pnlPercent === "number";
 
-    // Calculate PnL % if exit price exists
     if (entryData.exitPrice && entryData.exitPrice > 0) {
       status = "CLOSED";
-      const diff = entryData.exitPrice - entryData.entryPrice;
-      pnl = (diff / entryData.entryPrice) * 100;
-      if (entryData.position === "SHORT") {
-        pnl = -pnl; // Inverse for shorts
-      }
-      if (entryData.leverage && entryData.leverage > 0) {
-        pnl = pnl * entryData.leverage;
-      }
+      const { gross, net } = computePnl({
+        entryPrice: entryData.entryPrice,
+        exitPrice: entryData.exitPrice,
+        position: entryData.position,
+        leverage: entryData.leverage,
+        feeRatePercent: entryData.feeRatePercent,
+      });
+      grossPnl = gross;
+      if (!exchangeProvided) netPnl = net;
+    } else if (exchangeProvided) {
+      // Exchange PnL was provided but no exit price — still mark as closed.
+      status = "CLOSED";
     }
 
     const newEntry: JournalEntry = {
       ...entryData,
       id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
       timestamp: new Date().toISOString(),
-      pnlPercent: pnl,
+      pnlPercent: netPnl,
+      grossPnlPercent: grossPnl,
+      pnlSource: exchangeProvided ? "exchange" : (typeof netPnl === "number" ? "calculated" : undefined),
       status,
     };
 
@@ -91,17 +127,23 @@ export function useJournal() {
       entries.map((e) => {
         if (e.id === id) {
           const updated = { ...e, ...updates };
-          
-          // Recalculate PnL if exit price is added/changed
+
+          // If caller explicitly set pnlSource === "exchange" and pnlPercent, honor it and skip formula.
+          const exchangeLocked = updated.pnlSource === "exchange" && typeof updated.pnlPercent === "number";
+
           if (updated.exitPrice && updated.exitPrice > 0) {
             updated.status = "CLOSED";
-            const diff = updated.exitPrice - updated.entryPrice;
-            updated.pnlPercent = (diff / updated.entryPrice) * 100;
-            if (updated.position === "SHORT") {
-              updated.pnlPercent = -updated.pnlPercent;
-            }
-            if (updated.leverage && updated.leverage > 0) {
-              updated.pnlPercent = updated.pnlPercent * updated.leverage;
+            const { gross, net } = computePnl({
+              entryPrice: updated.entryPrice,
+              exitPrice: updated.exitPrice,
+              position: updated.position,
+              leverage: updated.leverage,
+              feeRatePercent: updated.feeRatePercent,
+            });
+            updated.grossPnlPercent = gross;
+            if (!exchangeLocked) {
+              updated.pnlPercent = net;
+              updated.pnlSource = "calculated";
             }
           }
           return updated;

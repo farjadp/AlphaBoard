@@ -11,6 +11,7 @@ import AiAnalysis from "./AiAnalysis";
 import type { AnalysisResult } from "./AiAnalysis";
 import PatternMiniVisual from "./PatternMiniVisual";
 import NewsFeed from "./NewsFeed";
+import { findAsset } from "@/lib/assetCatalog";
 
 interface FuturesData { fundingRate: string; openInterest: string; }
 interface GlobalData { btcDominance: string; ethDominance: string; totalMarketCap: string; }
@@ -26,6 +27,7 @@ interface MultiTimeframeIndicator {
   ema20: number | null;
   emaSignal: string;
   trendSignal: "Bullish" | "Bearish" | "Neutral";
+  atr?: number | null;
   candlestickPattern?: CandlestickPatternMatch;
   chartPattern?: ChartPatternMatch;
   available: boolean;
@@ -42,6 +44,7 @@ interface IndicatorsData {
   emaSignal: string;
   bollingerBands: BollingerBandsData;
   bbSignal: string;
+  atr?: number | null;
   candlestickPattern?: CandlestickPatternMatch;
   candlestickMatches?: CandlestickPatternMatch[];
   chartPattern?: ChartPatternMatch;
@@ -53,6 +56,7 @@ interface IndicatorsData {
     netScore: number;
     dominantBias: "Bullish" | "Bearish" | "Neutral";
     coverage: number;
+    confluenceStrength?: "Strong" | "Moderate" | "Weak" | "Conflicting";
   };
 }
 
@@ -69,10 +73,21 @@ export const REPORT_TIMEFRAME_OPTIONS: Array<{ key: ReportTimeframe; label: stri
   { key: "15M", label: "15M" },
 ];
 
+// Timeframes that require intraday data (only available for crypto via Binance)
+const CRYPTO_ONLY_TIMEFRAMES: ReportTimeframe[] = ["4H", "15M"];
+
+function getTimeframeOptions(isCrypto: boolean) {
+  if (isCrypto) return REPORT_TIMEFRAME_OPTIONS;
+  return REPORT_TIMEFRAME_OPTIONS.filter((opt) => !CRYPTO_ONLY_TIMEFRAMES.includes(opt.key));
+}
+
 interface StatsPanelProps { symbol: string; ticker?: BinanceTicker; tradfiQuote?: TradfiQuote; }
 
 export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelProps) {
   const pair = PAIRS.find((p) => p.symbol === symbol);
+  const asset = findAsset(symbol);
+  const isCrypto = asset?.category === "crypto";
+  const timeframeOptions = getTimeframeOptions(isCrypto);
   const [futures, setFutures] = useState<FuturesData | null>(null);
   const [global, setGlobal] = useState<GlobalData | null>(null);
   const [cashflow, setCashflow] = useState<CashflowData | null>(null);
@@ -80,7 +95,8 @@ export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelPr
   const [indicators, setIndicators] = useState<IndicatorsData | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<AnalysisResult | null>(null);
   const [aiRecommendationLoading, setAiRecommendationLoading] = useState(false);
-  const [selectedTimeframe, setSelectedTimeframe] = useState<ReportTimeframe>("1H");
+  // Non-crypto assets use daily data — default to 1D; crypto defaults to 1H
+  const [selectedTimeframe, setSelectedTimeframe] = useState<ReportTimeframe>(isCrypto ? "1H" : "1D");
 
   function handleTimeframeChange(next: ReportTimeframe) {
     if (next === selectedTimeframe) return;
@@ -172,6 +188,7 @@ export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelPr
           onTimeframeChange={handleTimeframeChange}
           onResultChange={setAiRecommendation}
           onLoadingChange={setAiRecommendationLoading}
+          timeframeOptions={timeframeOptions}
         />
       </div>
 
@@ -500,6 +517,36 @@ function MultiTimeframeIndicatorsCard({
                     {consensusScore.netScore}/100
                   </span>
                   <TimeframeTrendBadge tone={consensusScore.dominantBias} label={consensusScore.dominantBias} />
+                  {consensusScore.confluenceStrength && (
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-widest"
+                      style={{
+                        background: consensusScore.confluenceStrength === "Strong"
+                          ? "rgba(52,211,153,0.15)"
+                          : consensusScore.confluenceStrength === "Moderate"
+                            ? "rgba(96,165,250,0.15)"
+                            : consensusScore.confluenceStrength === "Conflicting"
+                              ? "rgba(251,146,60,0.15)"
+                              : "rgba(255,255,255,0.06)",
+                        color: consensusScore.confluenceStrength === "Strong"
+                          ? "#34d399"
+                          : consensusScore.confluenceStrength === "Moderate"
+                            ? "#60a5fa"
+                            : consensusScore.confluenceStrength === "Conflicting"
+                              ? "#fb923c"
+                              : "var(--text-3)",
+                        border: `1px solid ${consensusScore.confluenceStrength === "Strong"
+                          ? "rgba(52,211,153,0.3)"
+                          : consensusScore.confluenceStrength === "Moderate"
+                            ? "rgba(96,165,250,0.3)"
+                            : consensusScore.confluenceStrength === "Conflicting"
+                              ? "rgba(251,146,60,0.3)"
+                              : "rgba(255,255,255,0.1)"}`,
+                      }}
+                    >
+                      {consensusScore.confluenceStrength === "Conflicting" ? "⚠ Conflicting HTF/LTF" : `${consensusScore.confluenceStrength} Confluence`}
+                    </span>
+                  )}
                 </div>
               </div>
               <DetailPill label="Coverage" value={`${consensusScore.coverage}%`} />
