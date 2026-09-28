@@ -14,6 +14,9 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains",
 });
 
+// Nonce-based CSP (proxy.ts) requires request-time rendering: no prerendered HTML without the nonce.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "AlphaBoard — Trading Dashboard",
   description: "Professional crypto & markets trading dashboard with real-time data, AI-powered analysis, and institutional-grade tools.",
