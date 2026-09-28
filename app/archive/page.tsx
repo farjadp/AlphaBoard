@@ -4,6 +4,7 @@ import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import { useSignalHistory, ArchivedSignal } from "@/hooks/useSignalHistory";
 import { formatPrice } from "@/lib/binance";
+import OutcomeBadge from "@/components/performance/OutcomeBadge";
 
 export default function AlertsPage() {
   const { history, clearHistory, removeSignal } = useSignalHistory();
@@ -79,6 +80,11 @@ function HistoryCard({ item, onRemove }: { item: ArchivedSignal, onRemove: () =>
               {item.signal} ({item.timeframe})
             </span>
           </div>
+          {item.evaluation && (
+            <div className="mb-3">
+              <OutcomeBadge status={item.evaluation.status} rMultiple={item.evaluation.rMultiple} note={item.evaluation.note} />
+            </div>
+          )}
 
           <div className="mb-4 space-y-1 text-[11px] text-ink-3">
             <div>{formattedDate}</div>
@@ -96,6 +102,14 @@ function HistoryCard({ item, onRemove }: { item: ArchivedSignal, onRemove: () =>
           >
             Log to Journal
           </Link>
+          {item.signal !== "HOLD" && (
+            <Link
+              href={`/paper?signal=${encodeURIComponent(item.id)}`}
+              className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-ink py-2 text-[10px] font-bold uppercase tracking-wider text-paper hover:bg-[#23313f]"
+            >
+              Trade on paper
+            </Link>
+          )}
         </div>
 
         {/* Mid Col: Execution Plan */}

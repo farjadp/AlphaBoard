@@ -88,6 +88,13 @@ export interface ArchivedSignal {
     signal: "Bullish" | "Bearish" | "Neutral";
     explanation: string;
   }>;
+  /** Outcome replayed on later candles (P5); absent until the first evaluation, and for HOLD. */
+  evaluation?: {
+    status: "OPEN" | "TP_HIT" | "SL_HIT" | "EXPIRED" | "NO_FILL" | "INVALID";
+    rMultiple: number | null;
+    resolvedAt: string | null;
+    note: string | null;
+  };
 }
 
 // ─── Chart academy ───────────────────────────────────────────────────────────

@@ -24,6 +24,17 @@ describe("db → client mappers", () => {
       indicatorsBreakdown: [], provider: "openai", model: "gpt-4o", createdAt: d,
     });
     expect(dto).toMatchObject({ price: 83618.9, risk_management: { leverage: "2x" }, indicators_breakdown: [], timestamp: d.toISOString() });
+    expect("evaluation" in dto).toBe(false);
+  });
+
+  it("signal: carries its evaluated outcome when there is one", () => {
+    const base = {
+      id: "s2", userId: "u", legacyId: null, symbol: "BTC/USDT", timeframe: "1H", signal: "BUY", confidence: 70,
+      priceAtSignal: 100, entry: 100, stopLoss: 95, takeProfit: 110, tradeStyle: null, riskManagement: null, supportResistance: null,
+      safeEntries: null, reasoning: "r", indicatorsBreakdown: null, provider: "openai", model: "gpt-5.4-mini", createdAt: d,
+    };
+    const dto = signalToDto({ ...base, evaluation: { status: "TP_HIT", rMultiple: 2, resolvedAt: d, note: null } });
+    expect(dto.evaluation).toEqual({ status: "TP_HIT", rMultiple: 2, resolvedAt: d.toISOString(), note: null });
   });
 
   it("lesson: tradeId falls back to empty string when the trade was deleted", () => {

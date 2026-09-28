@@ -7,6 +7,8 @@ import AssetSearch from "@/components/shell/AssetSearch";
 
 const NAV_LINKS: Array<{ href: string; label: string; match: (path: string) => boolean }> = [
   { href: "/", label: "Markets", match: (p) => p === "/" || p.startsWith("/market") || p === "/setup" },
+  { href: "/paper", label: "Paper", match: (p) => p.startsWith("/paper") },
+  { href: "/performance", label: "Performance", match: (p) => p.startsWith("/performance") },
   { href: "/journal", label: "Journal", match: (p) => p.startsWith("/journal") },
   { href: "/archive", label: "Archive", match: (p) => p.startsWith("/archive") },
   { href: "/alerts", label: "Alerts", match: (p) => p.startsWith("/alerts") },

@@ -59,7 +59,9 @@ export function lessonToDto(r: LessonRow): TradeLesson {
   });
 }
 
-export function signalToDto(r: SignalRow): ArchivedSignal {
+type EvaluationPart = { status: NonNullable<ArchivedSignal["evaluation"]>["status"]; rMultiple: number | null; resolvedAt: Date | null; note: string | null };
+
+export function signalToDto(r: SignalRow & { evaluation?: EvaluationPart | null }): ArchivedSignal {
   return compact<ArchivedSignal>({
     id: r.id,
     timestamp: r.createdAt.toISOString(),
@@ -75,6 +77,9 @@ export function signalToDto(r: SignalRow): ArchivedSignal {
     risk_management: u(r.riskManagement) as ArchivedSignal["risk_management"],
     reasoning: r.reasoning,
     indicators_breakdown: u(r.indicatorsBreakdown) as ArchivedSignal["indicators_breakdown"],
+    evaluation: r.evaluation
+      ? { status: r.evaluation.status, rMultiple: r.evaluation.rMultiple, resolvedAt: r.evaluation.resolvedAt?.toISOString() ?? null, note: r.evaluation.note }
+      : undefined,
   });
 }
 
