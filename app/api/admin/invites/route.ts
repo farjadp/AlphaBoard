@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { route } from "@/lib/http/route";
 import { readJson } from "@/lib/http/errors";
 import { requireAdmin } from "@/lib/auth/dal";
-import { generateInviteToken, hashInviteToken, inviteExpiry, inviteState, inviteUrl } from "@/lib/auth/invites";
+import { inviteState } from "@/lib/auth/invites";
+import { createInvite } from "@/lib/auth/createInvite";
 
 export const dynamic = "force-dynamic";
 
@@ -41,19 +42,7 @@ export const POST = route(async (req) => {
   const admin = await requireAdmin();
   const data = createSchema.parse(await readJson(req, 5_000));
 
-  const token = generateInviteToken();
-  const invite = await prisma.invite.create({
-    data: {
-      tokenHash: hashInviteToken(token),
-      email: data.email,
-      role: data.role,
-      createdById: admin.id,
-      expiresAt: inviteExpiry(new Date(), data.days),
-    },
-  });
-  await prisma.auditLog.create({
-    data: { userId: admin.id, action: "admin.invite_created", target: data.email ?? invite.id, meta: { role: data.role } },
-  });
+  const invite = await createInvite(admin.id, data);
 
-  return NextResponse.json({ id: invite.id, url: inviteUrl(token), expiresAt: invite.expiresAt }, { status: 201 });
+  return NextResponse.json(invite, { status: 201 });
 });

@@ -80,6 +80,7 @@ export const limiters = {
   auth: createRateLimiter({ limit: 10, windowMs: 15 * 60_000 }),        // login/register: 10 per 15 min per IP
   ai: createRateLimiter({ limit: 20, windowMs: 10 * 60_000 }),          // AI calls: 20 per 10 min per IP
   api: createRateLimiter({ limit: 300, windowMs: 60_000 }),             // general API: 300/min per IP
+  public: createRateLimiter({ limit: 5, windowMs: 60 * 60_000 }),       // public forms (waitlist): 5 per hour per IP
 };
 
 /** Throws HttpError(429) when the caller's IP exceeds the tier's budget. */

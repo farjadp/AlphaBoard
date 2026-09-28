@@ -427,3 +427,27 @@ model Notification {
   @@index([userId, createdAt])
   @@index([userId, readAt])
 }
+
+// ─── Access requests / waitlist (P7) ─────────────────────────────────────────
+// Public landing form; admins turn a request into an invite from Admin → Invites.
+
+enum AccessRequestStatus {
+  PENDING
+  INVITED
+  DISMISSED
+}
+
+model AccessRequest {
+  id        String              @id @default(cuid())
+  email     String              @unique
+  name      String?
+  note      String?
+  status    AccessRequestStatus @default(PENDING)
+  ip        String?
+  inviteId  String?
+  handledAt DateTime?
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
+
+  @@index([status, createdAt])
+}

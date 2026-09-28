@@ -77,6 +77,9 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+::selection { background: var(--color-accent-soft); color: var(--color-ink); }
+input, textarea { caret-color: var(--color-accent); }
+
 /* Helpers live in the components layer so Tailwind utilities can override them. */
 @layer components {
   /* Tabular digits wherever numbers line up. */
@@ -118,6 +121,14 @@ body {
   .glow-btn:hover { background: #23313f; }
 
   .gradient-text { color: var(--color-ink); }
+
+  /* Landing: the product shot settles into place once (already visible; exponential ease-out). */
+  .landing-rise { animation: landing-rise 900ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  @keyframes landing-rise {
+    from { transform: translateY(18px) scale(0.985); opacity: 0.6; }
+    to { transform: none; opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) { .landing-rise { animation: none; } }
 
   /* Trade-ticket perforation: dashed rule with notches cut into both edges. */
   .perforation {

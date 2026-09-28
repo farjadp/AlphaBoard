@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, JetBrains_Mono, Manrope } from "next/font/google";
 import "./globals.css";
 import SiteFooter from "@/components/legal/SiteFooter";
+import { siteUrl } from "@/lib/site";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -25,8 +26,13 @@ const bricolage = Bricolage_Grotesque({
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "AlphaBoard — Trading Dashboard",
-  description: "Professional crypto & markets trading dashboard with real-time data, AI-powered analysis, and institutional-grade tools.",
+  metadataBase: new URL(siteUrl()),
+  title: { default: "AlphaBoard", template: "%s — AlphaBoard" },
+  description:
+    "Read live markets across six timeframes, draft a plan with the AI model you choose, rehearse it with paper money, and see every call graded against what price did next.",
+  applicationName: "AlphaBoard",
+  openGraph: { type: "website", siteName: "AlphaBoard", title: "AlphaBoard — know when to trade, and when to stay flat" },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({

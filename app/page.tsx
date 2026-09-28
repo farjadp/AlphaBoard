@@ -1,32 +1,31 @@
-"use client";
+import type { Metadata } from "next";
+import { getSessionUser } from "@/lib/auth/dal";
+import Landing from "@/components/landing/Landing";
+import HomeRedirect from "@/components/shell/HomeRedirect";
 
-import { useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useWatchlist } from "@/hooks/useWatchlist";
-import { assetHref, DEFAULT_WATCHLIST, findAsset } from "@/lib/assetCatalog";
+export const metadata: Metadata = {
+  title: { absolute: "AlphaBoard — know when to trade, and when to stay flat" },
+  alternates: { canonical: "/" },
+};
 
-function DashboardContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const { symbols, hydrated } = useWatchlist();
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "AlphaBoard",
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Web",
+  description:
+    "Trading-intelligence workspace: multi-timeframe market reads, AI trade plans from the model you choose, paper trading with fees and slippage, and every AI signal graded against what price did next.",
+};
 
-  useEffect(() => {
-    if (!hydrated) return;
-    const requestedSymbol = searchParams.get("symbol");
-    const resolvedSymbol = requestedSymbol && findAsset(requestedSymbol)
-      ? requestedSymbol
-      : symbols[0] ?? DEFAULT_WATCHLIST[0];
-
-    router.replace(assetHref(resolvedSymbol));
-  }, [hydrated, router, searchParams, symbols]);
-
-  return <div className="min-h-full bg-page" />;
-}
-
-export default function DashboardPage() {
+/** Signed out: the public landing. Signed in: straight to the markets. */
+export default async function Home() {
+  const user = await getSessionUser();
+  if (user) return <HomeRedirect />;
   return (
-    <Suspense fallback={<div className="min-h-full bg-page" />}>
-      <DashboardContent />
-    </Suspense>
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
+      <Landing />
+    </>
   );
 }

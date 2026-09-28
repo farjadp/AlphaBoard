@@ -2,11 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/auth/dal";
 import { inviteState } from "@/lib/auth/invites";
 import InviteCreator from "@/components/admin/InviteCreator";
+import AccessRequests from "@/components/admin/AccessRequests";
+import { listAccessRequests } from "@/lib/access/requests";
 
 export const dynamic = "force-dynamic";
 
 export default async function InvitesPage() {
   await requireAdmin();
+  const requests = await listAccessRequests();
   const invites = await prisma.invite.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
@@ -19,6 +22,8 @@ export default async function InvitesPage() {
         <h1 className="font-display text-2xl font-extrabold text-ink">Invites</h1>
         <p className="mt-1 text-sm text-ink-3">Registration is invite-only. Links are single-use and expire after 14 days by default.</p>
       </div>
+
+      <AccessRequests rows={requests.map((r) => ({ id: r.id, email: r.email, name: r.name, note: r.note, status: r.status, createdAt: r.createdAt.toISOString() }))} />
 
       <InviteCreator />
 
