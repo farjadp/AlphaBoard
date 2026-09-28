@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useActionState, Suspense } from 'react';
+import { useActionState, Suspense } from 'react';
 import { authenticate } from '@/app/actions/auth';
 import { useSearchParams } from 'next/navigation';
 
@@ -54,7 +54,7 @@ function LoginForm() {
       </form>
       
       <p className="mt-4 text-center text-sm text-gray-400">
-        Don't have an account? <a href="/register" className="text-blue-500 hover:underline">Sign up</a>
+        No account yet? Ask an administrator for an invite link.
       </p>
     </div>
   );

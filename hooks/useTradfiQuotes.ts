@@ -46,7 +46,6 @@ export function useTradfiQuotes(symbols: string[], intervalMs = 60_000) {
       mountedRef.current = false;
       clearInterval(id);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, intervalMs]);
 
   return quotes;

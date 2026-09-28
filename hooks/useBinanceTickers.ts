@@ -103,7 +103,6 @@ export function useBinanceTickers(binanceSymbols: string[]) {
       wsRef.current?.close();
       wsRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
   return { tickers, connected };

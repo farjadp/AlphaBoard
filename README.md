@@ -45,32 +45,58 @@
 
 ## ⚙️ Setup & Installation
 
-1. **Clone the repository**
-   \`\`\`bash
-   git clone https://github.com/farjadp/AlphaBoard.git
-   cd AlphaBoard
-   \`\`\`
+AlphaBoard v2 is **invite-only** and multi-user. It needs PostgreSQL.
 
-2. **Install Dependencies**
-   \`\`\`bash
-   npm install
-   \`\`\`
+```bash
+git clone https://github.com/farjadp/AlphaBoard.git && cd AlphaBoard
+npm install
+cp .env.example .env            # fill in the values below
+docker compose up -d db          # local Postgres on :5434
+npm run db:migrate               # applies prisma/migrations
+npm run db:seed                  # creates the first ADMIN from ADMIN_EMAIL / ADMIN_PASSWORD
+npm run dev                      # http://localhost:3000
+```
 
-3. **Environment Variables**
-   Create a \`.env.local\` file in the root directory and add the following keys:
-   \`\`\`env
-   # Required for the Signal Engine and Vision AI
-   OPENAI_API_KEY="your_openai_api_key_here"
+Log in as the admin, open **/admin/invites**, create an invite link and send it to each trader.
 
-   # Required for fetching market sentiment
-   NEWS_API_KEY="your_newsapi_key_here"
-   \`\`\`
+### Environment variables
 
-4. **Run the Development Server**
-   \`\`\`bash
-   npm run dev
-   \`\`\`
-   Visit \`http://localhost:3000\` to access your dashboard.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | PostgreSQL connection string |
+| `AUTH_SECRET` | yes | NextAuth JWT secret (`openssl rand -base64 32`) |
+| `AUTH_TRUST_HOST` | yes (prod) | Set to `true` behind Railway / a reverse proxy |
+| `APP_URL` | yes | Public base URL, used in invite links |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | first boot | Bootstraps the first admin (idempotent) |
+| `OPENAI_API_KEY` | one AI key | Signal engine + Vision parsing |
+| `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY` | optional | Additional AI providers (P3) |
+| `NEWS_API_KEY`, `CRYPTOPANIC_KEY` | optional | News feeds |
+| `CRON_SECRET` | optional | Protects `/api/cron/tick` for external schedulers (P4) |
+| `TELEGRAM_BOT_TOKEN` | optional | Alert delivery (P6) |
+
+### Scripts
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` / `npm run build` / `npm start` | Dev server / production build / `prisma migrate deploy && next start` |
+| `npm test` · `npm run typecheck` · `npm run lint` | Vitest · `tsc --noEmit` · ESLint (all three run in CI) |
+| `npm run db:migrate` · `npm run db:deploy` · `npm run db:seed` | Create/apply migrations · apply in prod · bootstrap admin |
+
+### Docker
+
+```bash
+docker compose --profile full up --build     # app + postgres
+```
+
+The image runs as a non-root user, applies migrations at boot, and exposes `GET /api/health`.
+
+### Security model (v2)
+
+- Every page except `/`, `/login`, `/register`, `/legal` requires a session; every Route Handler and Server Action calls `requireUser()` / `requireAdmin()` from `lib/auth/dal.ts`.
+- Registration requires a single-use, expiring invite token created by an admin.
+- Auth and AI endpoints are rate-limited per IP; JSON bodies are size-capped.
+- Strict security headers (CSP, HSTS, X-Frame-Options, …) are set in `next.config.ts`.
+- Structured JSON logs (pino) with a request id on every API response.
 
 ---
 

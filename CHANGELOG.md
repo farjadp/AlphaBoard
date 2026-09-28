@@ -1,3 +1,11 @@
+## [Unreleased] — v2 in progress
+
+### P0 · Foundation (2026-09-27)
+- **Security:** invite-only registration, `requireUser()`/`requireAdmin()` data-access layer, every API route authenticated and rate-limited, strict security headers, capped request bodies.
+- **Ops:** PostgreSQL migrations (`prisma migrate`, no more `db push`), admin bootstrap seed, `/api/health`, pino JSON logging with request ids, error/404 pages.
+- **Delivery:** Dockerfile (non-root, standalone), docker-compose, GitHub Actions CI (typecheck, lint, test, build), Vitest.
+- **Removed:** unfinished `/portal` skeleton and root test scripts.
+
 # Changelog
 
 All notable changes to the AlphaBoard project will be documented in this file.

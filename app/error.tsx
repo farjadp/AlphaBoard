@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Link from "next/link";
 
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -19,9 +20,9 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           <button onClick={reset} className="px-4 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-semibold hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300">
             Try again
           </button>
-          <a href="/market" className="px-4 py-2 rounded-lg border border-gray-700 text-sm font-semibold hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500">
+          <Link href="/market" className="px-4 py-2 rounded-lg border border-gray-700 text-sm font-semibold hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500">
             Dashboard
-          </a>
+          </Link>
         </div>
       </div>
     </main>
