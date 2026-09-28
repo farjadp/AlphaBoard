@@ -451,3 +451,23 @@ model AccessRequest {
 
   @@index([status, createdAt])
 }
+
+// ─── Operations (P7 admin dashboard) ─────────────────────────────────────────
+
+/// Server-side errors worth an admin's attention (5xx, render errors, tick failures).
+/// Repeats of the same failure (same fingerprint) within 10 minutes bump `count` instead of adding rows.
+model SystemEvent {
+  id          String   @id @default(cuid())
+  level       String
+  source      String
+  message     String
+  fingerprint String
+  count       Int      @default(1)
+  requestId   String?
+  meta        Json?
+  firstAt     DateTime @default(now())
+  lastAt      DateTime @default(now())
+
+  @@index([lastAt])
+  @@index([fingerprint, lastAt])
+}

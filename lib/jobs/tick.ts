@@ -11,8 +11,11 @@ import { evaluateAlerts } from "@/lib/alerts/job";
 import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { processTelegramUpdates } from "@/lib/notify/telegramLink";
+import { pruneEvents, recordEvent } from "@/lib/ops/events";
 
 export const TICK_KEY = "tick.last";
+export const TICK_HISTORY_KEY = "tick.history";
+const HISTORY_MAX = 120;
 const SNAPSHOT_EVERY_MS = 15 * 60_000;
 
 export interface TickDeps {
@@ -157,6 +160,14 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
   };
   const value = result as unknown as Prisma.InputJsonValue;
   await prisma.appSetting.upsert({ where: { key: TICK_KEY }, create: { key: TICK_KEY, value }, update: { value } });
+
+  // Last 120 runs (≈ 2 hours) for the admin health strip.
+  const prev = await prisma.appSetting.findUnique({ where: { key: TICK_HISTORY_KEY } });
+  const history = [...(Array.isArray(prev?.value) ? (prev.value as unknown[]) : []), { at: result.at, ms: result.ms, errors: errors.length }].slice(-HISTORY_MAX);
+  const hv = history as Prisma.InputJsonValue;
+  await prisma.appSetting.upsert({ where: { key: TICK_HISTORY_KEY }, create: { key: TICK_HISTORY_KEY, value: hv }, update: { value: hv } });
+  if (errors.length) await recordEvent({ level: "warn", source: "tick", message: errors[0], meta: { errors: errors.slice(0, 20) } }, now());
+  await pruneEvents(now());
   if (errors.length) logger.warn({ ...result }, "tick finished with errors");
   else if (closed.length || signals.resolved || alerts.fired) logger.info({ ...result }, "tick settled positions");
   return result;

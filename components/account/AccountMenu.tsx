@@ -48,11 +48,7 @@ export default function AccountMenu() {
           <Link role="menuitem" href="/settings" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Settings · AI model</Link>
           <Link role="menuitem" href="/import" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Import browser data</Link>
           {me?.role === "ADMIN" && (
-            <>
-            <Link role="menuitem" href="/admin/ai" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Admin · AI &amp; usage</Link>
-            <Link role="menuitem" href="/admin/users" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Admin · Users</Link>
-            <Link role="menuitem" href="/admin/invites" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Admin · Invites</Link>
-            </>
+            <Link role="menuitem" href="/admin" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Admin · System, users, invites, AI</Link>
           )}
           <button role="menuitem" type="button" disabled={busy} onClick={signOut} className="w-full text-left rounded-lg px-3 py-2 text-down hover:bg-down-soft disabled:opacity-50">
             {busy ? "Signing out…" : "Sign out"}

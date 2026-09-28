@@ -18,6 +18,8 @@ export function startScheduler() {
       await runTick();
     } catch (e) {
       logger.error({ err: e instanceof Error ? e.message : String(e) }, "tick failed");
+      const { recordEvent } = await import("@/lib/ops/events");
+      await recordEvent({ source: "scheduler", message: `tick failed: ${e instanceof Error ? e.message : String(e)}` });
     } finally {
       state.running = false;
     }

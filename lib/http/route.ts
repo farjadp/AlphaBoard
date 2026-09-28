@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { errorResponse } from "./errors";
 import { requestLogger } from "./logger";
+import { recordEvent } from "@/lib/ops/events";
 
 type Handler<Ctx> = (req: Request, ctx: Ctx & { requestId: string }) => Promise<Response> | Response;
 
@@ -23,6 +24,9 @@ export function route<Ctx = Record<string, unknown>>(handler: Handler<Ctx>) {
       res.headers.set("x-request-id", requestId);
       const level = res.status >= 500 ? "error" : "warn";
       log[level]({ status: res.status, ms: Date.now() - started, err: err instanceof Error ? err.message : String(err) }, "request failed");
+      if (res.status >= 500) {
+        await recordEvent({ source: "http", message: `${req.method} ${new URL(req.url).pathname}: ${err instanceof Error ? err.message : String(err)}`, requestId });
+      }
       return res;
     }
   };
