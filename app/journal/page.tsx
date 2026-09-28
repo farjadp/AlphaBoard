@@ -117,7 +117,7 @@ function JournalContent() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-page">
+    <div className="flex h-full flex-col overflow-hidden bg-page">
       <NavBar />
 
       <main className="flex-1 overflow-y-auto">
@@ -280,7 +280,7 @@ function JournalContent() {
 
 export default function JournalPage() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-page text-sm text-ink-3">Loading journal...</div>}>
+    <Suspense fallback={<div className="flex h-full items-center justify-center bg-page text-sm text-ink-3">Loading journal...</div>}>
       <JournalContent />
     </Suspense>
   );

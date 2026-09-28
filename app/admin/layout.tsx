@@ -8,7 +8,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (user.role !== "ADMIN") redirect("/market");
 
   return (
-    <div className="min-h-screen bg-page text-ink">
+    <div className="min-h-full bg-page text-ink">
       <header className="border-b border-line bg-paper">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-6">

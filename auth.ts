@@ -10,9 +10,22 @@ const credentialsSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
   session: { strategy: "jwt", maxAge: 7 * 24 * 3600 },
+  callbacks: {
+    ...authConfig.callbacks,
+    // Node-only extension of the edge-safe callback: on a session update, re-read the disclaimer from
+    // the DB. Client-supplied update data is ignored, so the claim cannot be set from the browser.
+    async jwt(params) {
+      const token = await authConfig.callbacks.jwt(params);
+      if (params.trigger === "update" && token.sub) {
+        const u = await prisma.user.findUnique({ where: { id: token.sub }, select: { disclaimerAcceptedAt: true } });
+        token.disclaimer = !!u?.disclaimerAcceptedAt;
+      }
+      return token;
+    },
+  },
   providers: [
     Credentials({
       async authorize(credentials) {
@@ -26,7 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const ok = await bcrypt.compare(password, hash);
         if (!user || !ok) return null;
 
-        return { id: user.id, name: user.name, email: user.email, role: user.role };
+        return { id: user.id, name: user.name, email: user.email, role: user.role, disclaimer: !!user.disclaimerAcceptedAt };
       },
     }),
   ],

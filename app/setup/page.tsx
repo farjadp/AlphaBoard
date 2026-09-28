@@ -60,7 +60,7 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-page">
+    <div className="flex h-full flex-col overflow-hidden bg-page">
       <NavBar />
 
       <div className="flex min-h-0 flex-1 overflow-hidden">

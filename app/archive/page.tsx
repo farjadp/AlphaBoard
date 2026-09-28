@@ -10,7 +10,7 @@ export default function AlertsPage() {
   const { history, clearHistory, removeSignal } = useSignalHistory();
 
   return (
-    <div className="min-h-screen bg-page">
+    <div className="min-h-full bg-page">
       <NavBar />
 
       <main className="mx-auto max-w-6xl px-6 py-8">

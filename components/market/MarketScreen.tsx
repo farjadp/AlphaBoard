@@ -160,7 +160,7 @@ export default function MarketScreen({ symbol }: { symbol: string }) {
   const up = (change ?? 0) >= 0;
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-full flex-col">
       <NavBar />
       <main className="flex-1 overflow-y-auto">
         <AssetTabs watchlist={watchlist} selected={symbol} tickers={tickers} tradfiQuotes={tradfiQuotes} />

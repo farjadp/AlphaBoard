@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, JetBrains_Mono, Manrope } from "next/font/google";
 import "./globals.css";
+import SiteFooter from "@/components/legal/SiteFooter";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -35,7 +36,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${manrope.variable} ${jetbrainsMono.variable} ${bricolage.variable} h-full`}>
-      <body className="h-full bg-page font-sans text-ink">{children}</body>
+      <body className="flex h-full flex-col bg-page font-sans text-ink">
+        {/* Pages fill this scroll area (h-full / min-h-full), so the risk notice below stays visible. */}
+        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <SiteFooter />
+      </body>
     </html>
   );
 }

@@ -67,7 +67,7 @@ export default function PaperScreen({ prefill }: { prefill: TicketPrefill | null
   const winRate = a && a.closedCount > 0 ? (a.winCount / a.closedCount) * 100 : null;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-page">
+    <div className="flex h-full flex-col overflow-hidden bg-page">
       <NavBar />
       <main className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-6xl space-y-6">

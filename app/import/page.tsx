@@ -84,7 +84,7 @@ export default function ImportPage() {
   const nothing = !!counts && counts.total === 0;
 
   return (
-    <div className="min-h-screen bg-page">
+    <div className="min-h-full bg-page">
       <NavBar />
       <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         <header>

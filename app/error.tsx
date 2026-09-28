@@ -9,7 +9,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error]);
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-page p-6 text-ink">
+    <main className="flex min-h-full items-center justify-center bg-page p-6 text-ink">
       <div className="panel w-full max-w-md p-8 text-center">
         <p className="label-caps mb-2 text-down">Something broke</p>
         <h1 className="mb-2 font-display text-2xl font-extrabold text-ink">This page hit an error</h1>

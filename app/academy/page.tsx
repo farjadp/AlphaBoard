@@ -156,7 +156,7 @@ export default function AcademyPage() {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-page">
+    <div className="flex h-full flex-col overflow-hidden bg-page">
       <NavBar />
 
       <main className="flex-1 overflow-y-auto">
