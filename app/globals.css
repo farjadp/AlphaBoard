@@ -1,39 +1,64 @@
 @import "tailwindcss";
 
-:root {
-  --bg: #06080d;
-  --bg-2: #0c1018;
-  --surface: rgba(14, 18, 28, 0.85);
-  --surface-2: rgba(20, 26, 40, 0.7);
-  --surface-hover: rgba(26, 34, 56, 0.6);
-  --surface-active: rgba(30, 40, 65, 0.8);
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.12);
-  --border-glow: rgba(99, 179, 237, 0.15);
-  --text: #e8ecf4;
-  --text-2: #94a3b8;
-  --text-3: #5a6578;
-  --accent: #60a5fa;
-  --accent-dim: rgba(96, 165, 250, 0.12);
-  --green: #34d399;
-  --green-bg: rgba(52, 211, 153, 0.1);
-  --green-glow: rgba(52, 211, 153, 0.2);
-  --red: #f87171;
-  --red-bg: rgba(248, 113, 113, 0.1);
-  --red-glow: rgba(248, 113, 113, 0.2);
-  --yellow: #fbbf24;
-  --yellow-bg: rgba(251, 191, 36, 0.1);
-  --gradient-start: #60a5fa;
-  --gradient-end: #a78bfa;
-  --gradient-green: linear-gradient(135deg, #34d399, #22d3ee);
-  --gradient-accent: linear-gradient(135deg, #60a5fa, #a78bfa);
+/*
+ * AlphaBoard design tokens (light, v2).
+ * Use the Tailwind utilities these generate (bg-paper, text-ink-2, border-line, text-up, …).
+ * Semantic colours: up / down for price direction, amber for caution. accent is for emphasis only.
+ */
+@theme {
+  --color-page: #eef1f4;
+  --color-paper: #ffffff;
+  --color-wash: #f6f8fa;
+  --color-ink: #15202b;
+  --color-ink-2: #4a5563;
+  --color-ink-3: #7d8896;
+  --color-line: #e1e6ec;
+  --color-line-2: #cfd6de;
+  --color-accent: #2446d8;
+  --color-accent-soft: #e6ecff;
+  --color-up: #138a4b;
+  --color-up-soft: #e3f4ea;
+  --color-down: #c8352b;
+  --color-down-soft: #fbe7e5;
+  --color-amber: #a86f06;
+  --color-amber-soft: #fdf3dc;
 }
 
 @theme inline {
-  --color-background: var(--bg);
-  --color-foreground: var(--text);
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: var(--font-manrope), "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-display: var(--font-bricolage), var(--font-manrope), system-ui, sans-serif;
+}
+
+/*
+ * Legacy variable names used by pages not yet moved to the utilities above.
+ * They resolve to the same light palette so those pages stay readable.
+ */
+:root {
+  color-scheme: light;
+  --bg: var(--color-page);
+  --bg-2: var(--color-paper);
+  --surface: var(--color-paper);
+  --surface-2: var(--color-wash);
+  --surface-hover: #eef2f6;
+  --surface-active: var(--color-accent-soft);
+  --border: var(--color-line);
+  --border-strong: var(--color-line-2);
+  --border-glow: var(--color-line-2);
+  --text: var(--color-ink);
+  --text-2: var(--color-ink-2);
+  --text-3: var(--color-ink-3);
+  --accent: var(--color-accent);
+  --accent-dim: var(--color-accent-soft);
+  --accent-glow: transparent;
+  --green: var(--color-up);
+  --green-bg: var(--color-up-soft);
+  --green-glow: transparent;
+  --red: var(--color-down);
+  --red-bg: var(--color-down-soft);
+  --red-glow: transparent;
+  --yellow: var(--color-amber);
+  --yellow-bg: var(--color-amber-soft);
 }
 
 * { box-sizing: border-box; }
@@ -45,128 +70,106 @@ html, body {
 }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Glassmorphism card base ─── */
-.glass-card {
-  background: var(--surface);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+/* Helpers live in the components layer so Tailwind utilities can override them. */
+@layer components {
+  /* Tabular digits wherever numbers line up. */
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+  /* Uppercase micro-label used across panels. */
+  .label-caps {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  /* Panel surface (legacy class name kept for pages that still use it). */
+  .glass-card,
+  .panel {
+    background: var(--color-paper);
+    border: 1px solid var(--color-line);
+    border-radius: 14px;
+  }
+
+  .glass-card-flat {
+    background: var(--color-paper);
+    border: 1px solid var(--color-line);
+  }
+
+  .stat-row:hover { background: var(--color-wash); }
+
+  /* Primary action (legacy name). */
+  .glow-btn {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    border: 1px solid var(--color-ink);
+    border-radius: 9px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .glow-btn:hover { background: #23313f; }
+
+  .gradient-text { color: var(--color-ink); }
+
+  /* Trade-ticket perforation: dashed rule with notches cut into both edges. */
+  .perforation {
+    position: relative;
+    height: 18px;
+  }
+  .perforation::before {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 50%;
+    border-top: 2px dashed var(--color-line-2);
+  }
+  .perforation::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(circle at 0 50%, var(--color-page) 9px, transparent 10px),
+      radial-gradient(circle at 100% 50%, var(--color-page) 9px, transparent 10px);
+  }
 }
 
-.glass-card:hover {
-  border-color: var(--border-strong);
-}
-
-.glass-card-flat {
-  background: var(--surface);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border);
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-/* ─── Stat row hover ─── */
-.stat-row {
-  transition: background 0.15s ease;
-}
-.stat-row:hover {
-  background: var(--surface-hover);
-}
-
-/* ─── Pulsing live dot ─── */
-@keyframes pulse-live {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--green-glow); }
-  50% { opacity: 0.7; box-shadow: 0 0 0 6px transparent; }
-}
-
-.live-dot {
-  animation: pulse-live 2s ease-in-out infinite;
-}
-
-/* ─── Fade in animation ─── */
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
-.animate-fade-up {
-  animation: fade-up 0.4s ease-out both;
+@layer components {
+  .animate-fade-up { animation: fade-up 0.3s ease-out both; }
 }
 
-/* ─── Shimmer for skeletons ─── */
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
-
 .skeleton {
-  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-hover) 50%, var(--surface-2) 75%);
+  background: linear-gradient(90deg, var(--color-wash) 25%, #e9edf2 50%, var(--color-wash) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
-/* ─── Gradient text ─── */
-.gradient-text {
-  background: var(--gradient-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
-/* ─── Gradient border trick ─── */
-.gradient-border {
-  position: relative;
-}
-.gradient-border::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, var(--accent), var(--gradient-end), transparent);
-  opacity: 0.4;
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }
 
-/* ─── Glow button ─── */
-.glow-btn {
-  background: var(--gradient-accent);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: box-shadow 0.25s ease, transform 0.15s ease;
-  box-shadow: 0 0 20px rgba(96, 165, 250, 0.15);
-}
-
-.glow-btn:hover {
-  box-shadow: 0 0 30px rgba(96, 165, 250, 0.3), 0 0 60px rgba(167, 139, 250, 0.15);
-  transform: translateY(-1px);
-}
-
-.glow-btn:active {
-  transform: translateY(0);
-}
-
-/* ─── Scrollbar ─── */
-::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
-
-/* ─── Numeric font feature ─── */
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-jetbrains), ui-monospace, monospace;
-}
+::-webkit-scrollbar-thumb { background: var(--color-line-2); border-radius: 4px; }

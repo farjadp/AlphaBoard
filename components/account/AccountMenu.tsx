@@ -35,26 +35,26 @@ export default function AccountMenu() {
         aria-expanded={open}
         aria-label="Account menu"
         onClick={() => setOpen((o) => !o)}
-        className="w-7 h-7 rounded-full text-[11px] font-bold flex items-center justify-center border border-white/15 bg-white/5 text-gray-200 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
+        className="w-8 h-8 rounded-full text-[12px] font-extrabold flex items-center justify-center bg-accent-soft text-accent hover:bg-[#d9e2ff]"
       >
         {initial}
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-9 z-50 w-56 rounded-xl border border-white/10 bg-gray-900 p-1 shadow-xl text-xs">
-          <div className="px-3 py-2 border-b border-white/10 mb-1">
-            <p className="font-semibold text-gray-100 truncate">{me?.name ?? "Signed in"}</p>
-            <p className="text-gray-400 truncate">{me?.email}</p>
+        <div role="menu" className="absolute right-0 top-10 z-50 w-60 rounded-xl border border-line bg-paper p-1 shadow-lg text-[13px]">
+          <div className="px-3 py-2 border-b border-line mb-1">
+            <p className="font-bold text-ink truncate">{me?.name ?? "Signed in"}</p>
+            <p className="text-ink-3 truncate">{me?.email}</p>
           </div>
-          <Link role="menuitem" href="/settings" className="block rounded-lg px-3 py-2 text-gray-200 hover:bg-white/5">Settings · AI model</Link>
-          <Link role="menuitem" href="/import" className="block rounded-lg px-3 py-2 text-gray-200 hover:bg-white/5">Import browser data</Link>
+          <Link role="menuitem" href="/settings" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Settings · AI model</Link>
+          <Link role="menuitem" href="/import" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Import browser data</Link>
           {me?.role === "ADMIN" && (
             <>
-            <Link role="menuitem" href="/admin/ai" className="block rounded-lg px-3 py-2 text-gray-200 hover:bg-white/5">Admin · AI &amp; usage</Link>
-            <Link role="menuitem" href="/admin/users" className="block rounded-lg px-3 py-2 text-gray-200 hover:bg-white/5">Admin · Users</Link>
-            <Link role="menuitem" href="/admin/invites" className="block rounded-lg px-3 py-2 text-gray-200 hover:bg-white/5">Admin · Invites</Link>
+            <Link role="menuitem" href="/admin/ai" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Admin · AI &amp; usage</Link>
+            <Link role="menuitem" href="/admin/users" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Admin · Users</Link>
+            <Link role="menuitem" href="/admin/invites" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Admin · Invites</Link>
             </>
           )}
-          <button role="menuitem" type="button" disabled={busy} onClick={signOut} className="w-full text-left rounded-lg px-3 py-2 text-red-300 hover:bg-red-500/10 disabled:opacity-50">
+          <button role="menuitem" type="button" disabled={busy} onClick={signOut} className="w-full text-left rounded-lg px-3 py-2 text-down hover:bg-down-soft disabled:opacity-50">
             {busy ? "Signing out…" : "Sign out"}
           </button>
         </div>

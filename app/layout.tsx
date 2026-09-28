@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, JetBrains_Mono, Manrope } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const manrope = Manrope({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800"],
-  variable: "--font-inter",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-manrope",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-jetbrains",
+});
+
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["600", "800"],
+  variable: "--font-bricolage",
 });
 
 // Nonce-based CSP (proxy.ts) requires request-time rendering: no prerendered HTML without the nonce.
@@ -28,8 +34,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable} h-full`}>
-      <body className="h-full">{children}</body>
+    <html lang="en" className={`${manrope.variable} ${jetbrainsMono.variable} ${bricolage.variable} h-full`}>
+      <body className="h-full bg-page font-sans text-ink">{children}</body>
     </html>
   );
 }
