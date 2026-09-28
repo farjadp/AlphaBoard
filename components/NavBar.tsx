@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import AccountMenu from "@/components/account/AccountMenu";
 import AssetSearch from "@/components/shell/AssetSearch";
+import NotificationBell from "@/components/notifications/NotificationBell";
 
 const NAV_LINKS: Array<{ href: string; label: string; match: (path: string) => boolean }> = [
   { href: "/", label: "Markets", match: (p) => p === "/" || p.startsWith("/market") || p === "/setup" },
@@ -46,6 +47,7 @@ export default function NavBar() {
 
       <div className="ml-auto flex items-center gap-4">
         <AssetSearch />
+        <NotificationBell />
         <AccountMenu />
       </div>
     </header>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import NavBar from "@/components/NavBar";
 import { useAlerts } from "@/hooks/useAlerts";
 import { useWatchlist } from "@/hooks/useWatchlist";
@@ -10,7 +10,7 @@ import { formatPrice } from "@/lib/binance";
 import { findAsset } from "@/lib/assetCatalog";
 
 export default function AlertsPage() {
-  const { alerts, addAlert, removeAlert, markTriggered } = useAlerts();
+  const { alerts, addAlert, removeAlert } = useAlerts();
   const { watchlist, symbols } = useWatchlist();
 
   // State for new alert form
@@ -38,19 +38,6 @@ export default function AlertsPage() {
     return tradfiQuotes[sym]?.price || 0;
   }, [tickers, tradfiQuotes]);
 
-  // Evaluate triggers whenever prices move. (Alerts still only fire while this page is open;
-  // server-side evaluation and notifications arrive in P6.)
-  useEffect(() => {
-    for (const alert of alerts) {
-      if (alert.triggered) continue;
-      const price = getCurrentPrice(alert.symbol);
-      if (!price) continue;
-      if ((alert.condition === "above" && price >= alert.targetPrice) || (alert.condition === "below" && price <= alert.targetPrice)) {
-        markTriggered(alert.id);
-      }
-    }
-  }, [alerts, getCurrentPrice, markTriggered]);
-
   const handleAddAlert = (e: React.FormEvent) => {
     e.preventDefault();
     const price = parseFloat(targetPrice);
@@ -73,7 +60,7 @@ export default function AlertsPage() {
           <div className="space-y-6 animate-fade-up md:col-span-1">
             <div>
               <h1 className="font-display text-2xl font-extrabold text-ink">Price Alerts</h1>
-              <p className="mt-1 text-sm text-ink-3">Set triggers to catch important price movements automatically.</p>
+              <p className="mt-1 text-sm text-ink-3">Checked on the server every minute against candle highs and lows, even when this page is closed. You are notified in the bell (and on Telegram if linked in Settings).</p>
             </div>
 
             <form onSubmit={handleAddAlert} className="panel space-y-5 p-5">
@@ -123,11 +110,11 @@ export default function AlertsPage() {
                     required
                     value={targetPrice}
                     onChange={(e) => setTargetPrice(e.target.value)}
-                    placeholder={getCurrentPrice(selectedSymbol).toString()}
+                    placeholder={getCurrentPrice(selectedSymbol) > 0 ? getCurrentPrice(selectedSymbol).toString() : "Target price"}
                     className="num w-full rounded-lg border border-line bg-paper py-2.5 pl-7 pr-3 text-sm text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
                   />
                 </div>
-                <p className="mt-1.5 text-[10px] text-ink-3">Current: <span className="num">{formatPrice(getCurrentPrice(selectedSymbol))}</span></p>
+                <p className="mt-1.5 text-[10px] text-ink-3">Current: <span className="num">{getCurrentPrice(selectedSymbol) > 0 ? formatPrice(getCurrentPrice(selectedSymbol)) : "Unavailable"}</span></p>
               </div>
 
               <button
@@ -216,7 +203,7 @@ export default function AlertsPage() {
                           <span className="font-bold text-ink">{alert.symbol}</span> crossed {alert.condition} <span className="num font-bold text-ink">${alert.targetPrice}</span>
                         </p>
                         <p className="text-[10px] text-ink-3">
-                          Triggered on {new Date(alert.triggeredAt || alert.createdAt).toLocaleString()}
+                          Triggered {new Date(alert.triggeredAt || alert.createdAt).toLocaleString()}{alert.triggerPrice != null && <> at <span className="num">{formatPrice(alert.triggerPrice)}</span></>}
                         </p>
                       </div>
                       <button onClick={() => removeAlert(alert.id)} className="rounded-md px-2 py-1 text-xs font-bold text-ink-3 hover:bg-wash hover:text-ink">Clear</button>

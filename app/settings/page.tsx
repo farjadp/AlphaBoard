@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import NavBar from "@/components/NavBar";
+import TelegramSettings from "@/components/settings/TelegramSettings";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
 
 type ModelRow = { provider: string; id: string; label: string; vision: boolean; priceInPerM: number; priceOutPerM: number };
@@ -46,7 +47,7 @@ export default function SettingsPage() {
       <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         <header>
           <h1 className="font-display text-2xl font-extrabold text-ink">Settings</h1>
-          <p className="mt-1 text-sm text-ink-3">Choose the AI model used for your strategy reports, post-mortems and chart studies.</p>
+          <p className="mt-1 text-sm text-ink-3">AI model for your strategy reports, post-mortems and chart studies, and where alerts are delivered.</p>
         </header>
 
         {!data ? (
@@ -90,6 +91,8 @@ export default function SettingsPage() {
               </div>
               <p className="text-xs text-ink-3">Resets at {new Date(data.usage.resetsAt).toLocaleString()} (00:00 UTC). Ask an administrator if you need a higher limit.</p>
             </section>
+
+            <TelegramSettings />
           </>
         )}
       </main>

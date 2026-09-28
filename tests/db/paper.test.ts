@@ -69,7 +69,7 @@ describe.skipIf(!run)("paper trading (Postgres)", () => {
       { time: t0 + 300_000, open: 100, high: 102, low: 99, close: 101 },
       { time: t0 + 600_000, open: 101, high: 101, low: 89, close: 90 },          // through the 90 stop
     ];
-    const r = await runTick({ now: () => new Date(t0 + 700_000), barsOf: async () => bars, priceOf, signalBarsOf: async () => null });
+    const r = await runTick({ now: () => new Date(t0 + 700_000), barsOf: async () => bars, priceOf, signalBarsOf: async () => null, telegram: null });
     expect(r.closed).toEqual([{ id: pos.id, symbol: "BTC/USDT", reason: "STOP_LOSS" }]);
 
     const o = await paperOverview(A, priceOf);
@@ -89,7 +89,7 @@ describe.skipIf(!run)("paper trading (Postgres)", () => {
     const pos = await openPaperPosition(A, { symbol: "BTC/USDT", side: "SHORT", margin: 500, leverage: 3, stopLoss: 110, takeProfit: 80 }, priceOf);
     const t0 = pos.openedAt.getTime();
     const bars = [{ time: t0 + 300_000, open: 100, high: 105, low: 95, close: 100 }];
-    const r = await runTick({ now: () => new Date(t0 + 400_000), barsOf: async () => bars, priceOf, signalBarsOf: async () => null });
+    const r = await runTick({ now: () => new Date(t0 + 400_000), barsOf: async () => bars, priceOf, signalBarsOf: async () => null, telegram: null });
     expect(r.closed).toEqual([]);
     const after = await prisma.paperPosition.findUniqueOrThrow({ where: { id: pos.id } });
     expect(after.lastCheckedAt.getTime()).toBe(t0 + 300_000);

@@ -7,6 +7,10 @@ import { getCandles } from "@/lib/market/candles";
 import { livePrice, settlePosition, snapshotEquity, type PriceOf } from "@/lib/paper/account";
 import { scanExit, type Bar } from "@/lib/paper/engine";
 import { evaluatePendingSignals, type SignalBarsOf } from "@/lib/eval/job";
+import { evaluateAlerts } from "@/lib/alerts/job";
+import { notify } from "@/lib/notify/notifications";
+import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
+import { processTelegramUpdates } from "@/lib/notify/telegramLink";
 
 export const TICK_KEY = "tick.last";
 const SNAPSHOT_EVERY_MS = 15 * 60_000;
@@ -18,6 +22,8 @@ export interface TickDeps {
   priceOf?: PriceOf;
   /** Candles of a signal's own timeframe (signal evaluation). */
   signalBarsOf?: SignalBarsOf;
+  /** Telegram bot; defaults to TELEGRAM_BOT_TOKEN (null = off). */
+  telegram?: Telegram | null;
 }
 
 export interface TickResult {
@@ -28,6 +34,8 @@ export interface TickResult {
   closed: Array<{ id: string; symbol: string; reason: string }>;
   snapshots: number;
   signals: { checked: number; resolved: number };
+  alerts: { active: number; fired: number };
+  telegram: { updates: number; linked: number } | null;
   errors: string[];
 }
 
@@ -39,13 +47,15 @@ const liveBars = async (symbol: string): Promise<Bar[] | null> => {
 
 /**
  * One scheduler tick: settle paper positions whose SL/TP/liquidation level was crossed by a candle
- * high/low (or the live quote), snapshot equity for active accounts, then evaluate pending AI
- * signals (P5). Alerts (P6) join here later. Each part is isolated: one failing never skips the rest.
+ * high/low (or the live quote), snapshot equity for active accounts, evaluate pending AI signals (P5),
+ * fire price alerts and process Telegram link messages (P6). Each part is isolated: one failing never
+ * skips the rest.
  */
 export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
   const now = deps.now ?? (() => new Date());
   const barsOf = deps.barsOf ?? liveBars;
   const priceOf = deps.priceOf ?? livePrice;
+  const telegram = deps.telegram === undefined ? telegramFromEnv() : deps.telegram;
   const started = now();
   const errors: string[] = [];
   const closed: TickResult["closed"] = [];
@@ -70,7 +80,19 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
       const exit = scanExit(pos, bars, pos.lastCheckedAt.getTime());
       if (exit) {
         const r = await settlePosition(pos, exit.reason, exit.level, now());
-        if (r) closed.push({ id: pos.id, symbol: pos.symbol, reason: exit.reason });
+        if (r) {
+          closed.push({ id: pos.id, symbol: pos.symbol, reason: exit.reason });
+          const owner = await prisma.paperAccount.findUnique({ where: { id: pos.accountId }, select: { userId: true } });
+          if (owner) {
+            const what = { STOP_LOSS: "stop-loss", TAKE_PROFIT: "take-profit", LIQUIDATION: "liquidation" }[exit.reason];
+            await notify(owner.userId, {
+              type: "paper_close",
+              title: `Paper ${pos.side.toLowerCase()} ${pos.symbol} closed by ${what}`,
+              body: `Exit ${r.exitPrice.toLocaleString("en-US", { maximumFractionDigits: 6 })} · net PnL ${r.realizedPnl >= 0 ? "+" : "−"}${Math.abs(r.realizedPnl).toFixed(2)} USDT.`,
+              data: { positionId: pos.id, href: "/paper" },
+            }, telegram).catch((e) => errors.push(`notify ${pos.id}: ${e instanceof Error ? e.message : e}`));
+          }
+        }
         continue;
       }
       // Re-scan the still-forming candle next time; never move back before the entry.
@@ -111,13 +133,31 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
     errors.push(`signal evaluation: ${e instanceof Error ? e.message : e}`);
   }
 
+  let alerts = { active: 0, fired: 0 };
+  try {
+    const a = await evaluateAlerts({ now: now(), barsOf, priceOf, telegram });
+    alerts = { active: a.active, fired: a.fired };
+    errors.push(...a.errors);
+  } catch (e) {
+    errors.push(`alerts: ${e instanceof Error ? e.message : e}`);
+  }
+
+  let tg: TickResult["telegram"] = null;
+  if (telegram) {
+    try {
+      tg = await processTelegramUpdates(telegram, now());
+    } catch (e) {
+      errors.push(`telegram: ${e instanceof Error ? e.message : e}`);
+    }
+  }
+
   const result: TickResult = {
     at: started.toISOString(), ms: now().getTime() - started.getTime(),
-    positions: open.length, symbols: symbols.length, closed, snapshots, signals, errors: errors.slice(0, 20),
+    positions: open.length, symbols: symbols.length, closed, snapshots, signals, alerts, telegram: tg, errors: errors.slice(0, 20),
   };
   const value = result as unknown as Prisma.InputJsonValue;
   await prisma.appSetting.upsert({ where: { key: TICK_KEY }, create: { key: TICK_KEY, value }, update: { value } });
   if (errors.length) logger.warn({ ...result }, "tick finished with errors");
-  else if (closed.length || signals.resolved) logger.info({ ...result }, "tick settled positions");
+  else if (closed.length || signals.resolved || alerts.fired) logger.info({ ...result }, "tick settled positions");
   return result;
 }

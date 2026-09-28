@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { userIdRoute } from "@/lib/http/userRoute";
-import { deleteAlert, markAlertTriggered } from "@/lib/db/alerts";
+import { deleteAlert } from "@/lib/db/alerts";
 
-/** PATCH marks the alert as triggered (idempotent). */
-export const PATCH = userIdRoute(async (_req, user, id) => NextResponse.json({ alert: await markAlertTriggered(user.id, id) }));
+// Alerts are triggered only by the server tick (lib/alerts/job.ts); clients can create and delete them.
 
 export const DELETE = userIdRoute(async (_req, user, id) => {
   await deleteAlert(user.id, id);
