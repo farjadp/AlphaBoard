@@ -39,6 +39,32 @@ const TF_OPTIONS: { timeframe: Timeframe; label: string }[] = [
   { timeframe: "1D",  label: "Daily"  },
 ];
 
+// Annotation colours the AI draws on the chart (see lib/ai/prompts/chartAcademy.ts); the legend
+// swatches must match those exact values, so they stay as data-driven inline colours.
+const ANNOTATION_LEGEND = [
+  { color: "#34d399", label: "Support / Bullish OB / TP" },
+  { color: "#f87171", label: "Resistance / Bearish OB / SL" },
+  { color: "#a78bfa", label: "FVG Zone" },
+  { color: "#60a5fa", label: "Entry" },
+  { color: "#fbbf24", label: "Structure" },
+  { color: "#e879f9", label: "BOS / ChoCH" },
+  { color: "#fb923c", label: "Liquidity" },
+];
+
+function keyLevelClass(type: string): string {
+  if (["Support", "OB", "TP"].includes(type)) return "text-up";
+  if (["Resistance", "SL"].includes(type)) return "text-down";
+  if (type === "Liquidity") return "text-amber";
+  if (type === "BOS" || type === "ChoCH") return "text-ink";
+  return "text-accent";
+}
+
+function scoreBarClass(score: number): string {
+  return score >= 70 ? "bg-up" : score >= 45 ? "bg-amber" : "bg-down";
+}
+
+const SECTION_TITLE = "label-caps mb-2.5 text-[11px]";
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AcademyPage() {
@@ -130,68 +156,57 @@ export default function AcademyPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className="flex h-screen flex-col overflow-hidden bg-page">
       <NavBar />
 
       <main className="flex-1 overflow-y-auto">
         {/* ── Header ── */}
-        <div style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--border)", padding: "16px 24px" }}>
-          <div style={{ maxWidth: "1400px", margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
-            <div>
-              <h1 style={{ fontSize: "22px", fontWeight: 800, margin: 0, background: "var(--gradient-accent)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-                Chart Academy
-              </h1>
-              <p style={{ fontSize: "12px", color: "var(--text-3)", margin: "4px 0 0" }}>
-                آپلود اسکرین‌شات چارت · AI تحلیل می‌کند · خطوط روی چارت رسم می‌شود · درس ذخیره می‌شود
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              {(["analyze", "lessons"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    padding: "7px 18px", borderRadius: "8px", fontSize: "12px", fontWeight: 600, cursor: "pointer",
-                    border: activeTab === tab ? "1px solid var(--accent)" : "1px solid var(--border)",
-                    background: activeTab === tab ? "var(--accent-dim)" : "var(--surface)",
-                    color: activeTab === tab ? "var(--accent)" : "var(--text-3)",
-                    transition: "all 0.2s",
-                    textTransform: "capitalize",
-                  }}
-                >
-                  {tab === "analyze" ? "🔍 Analyze" : `📚 Lessons (${lessons.length})`}
-                </button>
-              ))}
-            </div>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-6 pt-8">
+          <div>
+            <h1 className="m-0 font-display text-2xl font-extrabold text-ink">Chart Academy</h1>
+            <p className="mt-1 text-xs text-ink-3">
+              آپلود اسکرین‌شات چارت · AI تحلیل می‌کند · خطوط روی چارت رسم می‌شود · درس ذخیره می‌شود
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {(["analyze", "lessons"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`cursor-pointer rounded-lg border px-[18px] py-[7px] text-xs font-semibold capitalize transition-colors ${
+                  activeTab === tab
+                    ? "border-accent bg-accent-soft text-accent"
+                    : "border-line bg-paper text-ink-3 hover:bg-wash hover:text-ink-2"
+                }`}
+              >
+                {tab === "analyze" ? "Analyze" : `Lessons (${lessons.length})`}
+              </button>
+            ))}
           </div>
         </div>
 
         {/* ── Analyze Tab ── */}
         {activeTab === "analyze" && (
-          <div style={{ maxWidth: "1400px", margin: "0 auto", padding: "24px", display: "grid", gridTemplateColumns: result ? "1fr 400px" : "1fr", gap: "24px" }}>
+          <div className={`mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-6 ${result ? "lg:grid-cols-[minmax(0,1fr)_400px]" : ""}`}>
 
             {/* Left: Upload + Charts */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+            <div className="flex flex-col gap-5">
 
               {/* Slot selectors + drop zones */}
-              <div className="glass-card" style={{ padding: "20px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-                  <h2 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)", margin: 0 }}>آپلود چارت‌ها</h2>
-                  <span style={{ fontSize: "11px", color: "var(--text-3)" }}>تا ۳ تایم‌فریم</span>
+              <div className="panel p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="m-0 text-sm font-bold text-ink">آپلود چارت‌ها</h2>
+                  <span className="text-[11px] text-ink-3">تا ۳ تایم‌فریم</span>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "14px" }}>
+                <div className="grid grid-cols-3 gap-3.5">
                   {slots.map((slot, idx) => (
-                    <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <div key={idx} className="flex flex-col gap-2">
                       {/* Timeframe selector */}
                       <select
                         value={slot.timeframe}
                         onChange={(e) => updateSlot(idx, "timeframe", e.target.value)}
-                        style={{
-                          width: "100%", padding: "6px 10px", borderRadius: "8px", fontSize: "11px",
-                          fontWeight: 700, border: "1px solid var(--border)", background: "var(--surface)",
-                          color: "var(--accent)", cursor: "pointer", outline: "none",
-                        }}
+                        className="w-full cursor-pointer rounded-lg border border-line bg-paper px-2.5 py-1.5 text-[11px] font-bold text-ink focus:border-accent focus:outline-none"
                       >
                         {TF_OPTIONS.map((o) => (
                           <option key={o.timeframe} value={o.timeframe}>{o.label}</option>
@@ -212,19 +227,20 @@ export default function AcademyPage() {
                 <button
                   onClick={handleAnalyze}
                   disabled={filledSlots.length === 0 || analyzing}
-                  className="glow-btn"
-                  style={{ width: "100%", marginTop: "16px", padding: "13px", fontSize: "13px", fontWeight: 700, letterSpacing: "0.05em", opacity: filledSlots.length === 0 ? 0.4 : 1, cursor: filledSlots.length === 0 ? "not-allowed" : "pointer" }}
+                  className={`mt-4 w-full rounded-lg bg-ink p-[13px] text-[13px] font-bold tracking-[0.05em] text-paper hover:bg-[#23313f] ${
+                    filledSlots.length === 0 ? "cursor-not-allowed opacity-40" : "cursor-pointer"
+                  }`}
                 >
                   {analyzing ? (
-                    <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                      <span style={{ display: "inline-block", width: "14px", height: "14px", border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-paper/30 border-t-paper" />
                       AI در حال تحلیل...
                     </span>
-                  ) : "🧠 تحلیل با AI"}
+                  ) : "تحلیل با AI"}
                 </button>
 
                 {error && (
-                  <div style={{ marginTop: "12px", padding: "10px 14px", borderRadius: "8px", background: "var(--red-bg)", border: "1px solid var(--red)", color: "var(--red)", fontSize: "12px" }}>
+                  <div className="mt-3 rounded-lg border border-down bg-down-soft px-3.5 py-2.5 text-xs text-down">
                     ⚠ {error}
                   </div>
                 )}
@@ -232,20 +248,19 @@ export default function AcademyPage() {
 
               {/* Annotated charts (shown after analysis) */}
               {result && result.timeframes.length > 0 && (
-                <div className="glass-card" style={{ padding: "20px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", flexWrap: "wrap" }}>
-                    <h2 style={{ fontSize: "14px", fontWeight: 700, color: "var(--text)", margin: 0 }}>چارت تحلیل‌شده</h2>
-                    <div style={{ display: "flex", gap: "6px" }}>
+                <div className="panel p-5">
+                  <div className="mb-4 flex flex-wrap items-center gap-2.5">
+                    <h2 className="m-0 text-sm font-bold text-ink">چارت تحلیل‌شده</h2>
+                    <div className="flex gap-1.5">
                       {result.timeframes.map((tf, i) => (
                         <button
                           key={tf.timeframe}
                           onClick={() => setActiveTF(i)}
-                          style={{
-                            padding: "4px 12px", borderRadius: "6px", fontSize: "11px", fontWeight: 700, cursor: "pointer",
-                            border: activeTF === i ? "1px solid var(--accent)" : "1px solid var(--border)",
-                            background: activeTF === i ? "var(--accent-dim)" : "var(--surface-2)",
-                            color: activeTF === i ? "var(--accent)" : "var(--text-3)",
-                          }}
+                          className={`cursor-pointer rounded-md border px-3 py-1 text-[11px] font-bold ${
+                            activeTF === i
+                              ? "border-accent bg-accent-soft text-accent"
+                              : "border-line bg-wash text-ink-3 hover:text-ink-2"
+                          }`}
                         >{tf.timeframe}</button>
                       ))}
                     </div>
@@ -267,40 +282,33 @@ export default function AcademyPage() {
                   {result.timeframes[activeTF] && (
                     <>
                       {/* Reasoning */}
-                      <div style={{ marginTop: "12px", padding: "12px", borderRadius: "8px", background: "var(--surface-2)", border: "1px solid var(--border)" }}>
-                        <p style={{ fontSize: "12px", color: "var(--text-2)", margin: 0, lineHeight: 1.6 }}>
+                      <div className="mt-3 rounded-lg bg-wash p-3">
+                        <p className="m-0 text-xs leading-relaxed text-ink-2">
                           {result.timeframes[activeTF].reasoning}
                         </p>
                       </div>
                       {/* Color Legend */}
-                      <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                        {[
-                          { color: "#34d399", label: "Support / Bullish OB / TP" },
-                          { color: "#f87171", label: "Resistance / Bearish OB / SL" },
-                          { color: "#a78bfa", label: "FVG Zone" },
-                          { color: "#60a5fa", label: "Entry" },
-                          { color: "#fbbf24", label: "Structure" },
-                          { color: "#e879f9", label: "BOS / ChoCH" },
-                          { color: "#fb923c", label: "Liquidity" },
-                        ].map((l) => (
-                          <div key={l.label} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                            <div style={{ width: 10, height: 10, borderRadius: 2, background: l.color, flexShrink: 0 }} />
-                            <span style={{ fontSize: "9px", color: "var(--text-3)" }}>{l.label}</span>
+                      <div className="mt-2.5 flex flex-wrap gap-2">
+                        {ANNOTATION_LEGEND.map((l) => (
+                          <div key={l.label} className="flex items-center gap-[5px]">
+                            {/* swatch colour matches the annotation colour drawn on the canvas */}
+                            <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ background: l.color }} />
+                            <span className="text-[9px] text-ink-3">{l.label}</span>
                           </div>
                         ))}
                       </div>
                       {/* Entry Plan */}
                       {result.timeframes[activeTF].entryPlan && (
-                        <div style={{ marginTop: "10px", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "6px" }}>
+                        <div className="mt-2.5 grid grid-cols-4 gap-1.5">
                           {[
-                            { label: "Entry", val: `y=${result.timeframes[activeTF].entryPlan.entry_y.toFixed(0)}%`, color: "#60a5fa" },
-                            { label: "SL", val: `y=${result.timeframes[activeTF].entryPlan.sl_y.toFixed(0)}%`, color: "#f87171" },
-                            { label: "TP1", val: `y=${result.timeframes[activeTF].entryPlan.tp1_y.toFixed(0)}%`, color: "#34d399" },
-                            { label: "R:R", val: result.timeframes[activeTF].entryPlan.rrr, color: "#fbbf24" },
+                            { label: "Entry", val: `y=${result.timeframes[activeTF].entryPlan.entry_y.toFixed(0)}%`, tone: "text-accent" },
+                            { label: "SL", val: `y=${result.timeframes[activeTF].entryPlan.sl_y.toFixed(0)}%`, tone: "text-down" },
+                            { label: "TP1", val: `y=${result.timeframes[activeTF].entryPlan.tp1_y.toFixed(0)}%`, tone: "text-up" },
+                            { label: "R:R", val: result.timeframes[activeTF].entryPlan.rrr, tone: "text-amber" },
                           ].map((item) => (
-                            <div key={item.label} style={{ padding: "6px", borderRadius: "6px", background: "var(--surface)", border: `1px solid ${item.color}40`, textAlign: "center" }}>
-                              <div style={{ fontSize: "9px", color: "var(--text-3)", marginBottom: "2px" }}>{item.label}</div>
-                              <div style={{ fontSize: "11px", fontWeight: 700, color: item.color, fontFamily: "JetBrains Mono,monospace" }}>{item.val}</div>
+                            <div key={item.label} className="rounded-md bg-wash p-1.5 text-center">
+                              <div className="mb-0.5 text-[9px] text-ink-3">{item.label}</div>
+                              <div className={`num text-[11px] font-bold ${item.tone}`}>{item.val}</div>
                             </div>
                           ))}
                         </div>
@@ -313,65 +321,59 @@ export default function AcademyPage() {
 
             {/* Right: Analysis Panel */}
             {result && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div className="flex flex-col gap-4">
 
                 {/* Overall Signal */}
-                <div className="glass-card" style={{ padding: "20px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+                <div className="panel p-5">
+                  <div className="mb-3.5 flex items-center justify-between">
                     <SignalBadge signal={result.overallSignal} size="lg" />
                     {savedId ? (
-                      <span style={{ fontSize: "11px", color: "var(--green)", fontWeight: 600 }}>✓ ذخیره شد</span>
+                      <span className="text-[11px] font-semibold text-up">✓ ذخیره شد</span>
                     ) : (
                       <button
                         onClick={handleSave}
                         disabled={saving}
-                        style={{
-                          padding: "7px 16px", borderRadius: "8px", fontSize: "11px", fontWeight: 700, cursor: "pointer",
-                          background: "var(--gradient-accent)", color: "#fff", border: "none",
-                        }}
-                      >{saving ? "در حال ذخیره…" : "💾 ذخیره در مغز"}</button>
+                        className="cursor-pointer rounded-lg bg-ink px-4 py-[7px] text-[11px] font-bold text-paper hover:bg-[#23313f] disabled:cursor-not-allowed disabled:opacity-60"
+                      >{saving ? "در حال ذخیره…" : "ذخیره در مغز"}</button>
                     )}
                   </div>
                   <ConfluenceMeter score={result.confluenceScore} />
-                  <p style={{ fontSize: "12px", color: "var(--text-2)", marginTop: "12px", lineHeight: 1.7, margin: "12px 0 0" }}>
+                  <p className="mb-0 mt-3 text-xs leading-[1.7] text-ink-2">
                     {result.summary}
                   </p>
                 </div>
 
                 {/* Lesson */}
-                <div className="glass-card" style={{ padding: "20px", borderColor: "rgba(167,139,250,0.25)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-                    <span style={{ fontSize: "16px" }}>🎓</span>
-                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#a78bfa", textTransform: "uppercase", letterSpacing: "0.05em" }}>درس آموزشی</span>
-                  </div>
-                  <p style={{ fontSize: "13px", color: "var(--text)", lineHeight: 1.8, margin: 0 }}>{result.lesson}</p>
+                <div className="panel p-5">
+                  <div className="mb-2.5 text-xs font-bold uppercase tracking-[0.05em] text-accent">درس آموزشی</div>
+                  <p className="m-0 text-[13px] leading-[1.8] text-ink">{result.lesson}</p>
                 </div>
 
                 {/* Candlestick + Chart Pattern */}
                 {result.timeframes.some(tf => tf.candlestickPattern || tf.chartPattern) && (
-                  <div className="glass-card" style={{ padding: "16px" }}>
-                    <h3 style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 10px" }}>🕯 Patterns Detected</h3>
+                  <div className="panel p-4">
+                    <h3 className={SECTION_TITLE}>Patterns Detected</h3>
                     {result.timeframes.map((tf) => (
                       <div key={tf.timeframe}>
                         {tf.candlestickPattern && (
-                          <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", padding: "8px", borderRadius: "7px", background: tf.candlestickPattern.bullish ? "rgba(52,211,153,0.07)" : "rgba(248,113,113,0.07)", border: `1px solid ${tf.candlestickPattern.bullish ? "rgba(52,211,153,0.2)" : "rgba(248,113,113,0.2)"}`, marginBottom: "6px" }}>
-                            <span style={{ fontSize: "16px" }}>{tf.candlestickPattern.bullish ? "🟢" : "🔴"}</span>
+                          <div className={`mb-1.5 flex items-start gap-2 rounded-lg p-2 ${tf.candlestickPattern.bullish ? "bg-up-soft" : "bg-down-soft"}`}>
+                            <span aria-hidden="true" className={`mt-1 h-2 w-2 shrink-0 rounded-full ${tf.candlestickPattern.bullish ? "bg-up" : "bg-down"}`} />
                             <div>
-                              <div style={{ fontSize: "11px", fontWeight: 700, color: tf.candlestickPattern.bullish ? "var(--green)" : "var(--red)" }}>
-                                {tf.candlestickPattern.name} <span style={{ fontWeight: 400, color: "var(--text-3)", fontSize: "9px" }}>({tf.timeframe})</span>
+                              <div className={`text-[11px] font-bold ${tf.candlestickPattern.bullish ? "text-up" : "text-down"}`}>
+                                {tf.candlestickPattern.name} <span className="text-[9px] font-normal text-ink-3">({tf.timeframe})</span>
                               </div>
-                              <div style={{ fontSize: "10px", color: "var(--text-3)", marginTop: "2px" }}>{tf.candlestickPattern.location}</div>
+                              <div className="mt-0.5 text-[10px] text-ink-2">{tf.candlestickPattern.location}</div>
                             </div>
                           </div>
                         )}
                         {tf.chartPattern && (
-                          <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", padding: "8px", borderRadius: "7px", background: "rgba(96,165,250,0.07)", border: "1px solid rgba(96,165,250,0.2)", marginBottom: "6px" }}>
-                            <span style={{ fontSize: "16px" }}>📐</span>
+                          <div className="mb-1.5 flex items-start gap-2 rounded-lg bg-accent-soft p-2">
+                            <span aria-hidden="true" className="mt-1 h-2 w-2 shrink-0 rounded-[2px] bg-accent" />
                             <div>
-                              <div style={{ fontSize: "11px", fontWeight: 700, color: "var(--accent)" }}>
-                                {tf.chartPattern.name} <span style={{ fontWeight: 400, color: "var(--text-3)", fontSize: "9px" }}>({tf.timeframe})</span>
+                              <div className="text-[11px] font-bold text-accent">
+                                {tf.chartPattern.name} <span className="text-[9px] font-normal text-ink-3">({tf.timeframe})</span>
                               </div>
-                              <div style={{ fontSize: "10px", color: "var(--text-3)", marginTop: "2px" }}>{tf.chartPattern.description}</div>
+                              <div className="mt-0.5 text-[10px] text-ink-2">{tf.chartPattern.description}</div>
                             </div>
                           </div>
                         )}
@@ -381,27 +383,24 @@ export default function AcademyPage() {
                 )}
 
                 {/* Per-TF key levels */}
-                <div className="glass-card" style={{ padding: "20px" }}>
-                  <h3 style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 12px" }}>سطوح کلیدی هر تایم‌فریم</h3>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <div className="panel p-5">
+                  <h3 className={`${SECTION_TITLE} mb-3`}>سطوح کلیدی هر تایم‌فریم</h3>
+                  <div className="flex flex-col gap-2.5">
                     {result.timeframes.map((tf) => (
-                      <div key={tf.timeframe} style={{ padding: "10px", borderRadius: "8px", background: "var(--surface-2)" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-                          <div style={{ padding: "2px 7px", borderRadius: "5px", background: "var(--accent-dim)", color: "var(--accent)", fontSize: "10px", fontWeight: 800 }}>{tf.timeframe}</div>
+                      <div key={tf.timeframe} className="rounded-lg bg-wash p-2.5">
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <div className="rounded-[5px] bg-accent-soft px-[7px] py-0.5 text-[10px] font-extrabold text-accent">{tf.timeframe}</div>
                           <SignalBadge signal={tf.signal} size="sm" />
-                          <span style={{ fontSize: "10px", color: "var(--text-3)", flex: 1 }}>{tf.bias}</span>
+                          <span className="flex-1 text-[10px] text-ink-3">{tf.bias}</span>
                         </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
-                          {tf.keyLevels.map((kl, i) => {
-                            const typeColor = ["Support","OB","TP"].includes(kl.type) ? "#34d399" : ["Resistance","SL"].includes(kl.type) ? "#f87171" : kl.type === "FVG" ? "#a78bfa" : kl.type === "BOS" || kl.type === "ChoCH" ? "#e879f9" : kl.type === "Liquidity" ? "#fb923c" : "#60a5fa";
-                            return (
-                              <div key={i} style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "10px" }}>
-                                <span style={{ color: typeColor, fontWeight: 700, minWidth: "62px" }}>{kl.type}</span>
-                                <span style={{ color: "var(--text-2)", fontFamily: "JetBrains Mono,monospace", minWidth: "70px" }}>{kl.price}</span>
-                                <span style={{ color: "var(--text-3)" }}>{kl.description}</span>
-                              </div>
-                            );
-                          })}
+                        <div className="flex flex-col gap-[3px]">
+                          {tf.keyLevels.map((kl, i) => (
+                            <div key={i} className="flex items-center gap-1.5 text-[10px]">
+                              <span className={`min-w-[62px] font-bold ${keyLevelClass(kl.type)}`}>{kl.type}</span>
+                              <span className="num min-w-[70px] text-ink-2">{kl.price}</span>
+                              <span className="text-ink-3">{kl.description}</span>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -409,31 +408,31 @@ export default function AcademyPage() {
                 </div>
 
                 {/* Patterns + Strengths/Mistakes */}
-                <div className="glass-card" style={{ padding: "20px" }}>
-                  <h3 style={{ fontSize: "11px", fontWeight: 700, color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 10px" }}>الگوها</h3>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "14px" }}>
+                <div className="panel p-5">
+                  <h3 className={SECTION_TITLE}>الگوها</h3>
+                  <div className="mb-3.5 flex flex-wrap gap-1.5">
                     {result.patterns.map((p) => (
-                      <span key={p} style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "10px", fontWeight: 600, background: "var(--accent-dim)", color: "var(--accent)", border: "1px solid rgba(96,165,250,0.2)" }}>{p}</span>
+                      <span key={p} className="rounded-full bg-accent-soft px-2.5 py-[3px] text-[10px] font-semibold text-accent">{p}</span>
                     ))}
                     {result.tags.map((t) => (
-                      <span key={t} style={{ padding: "3px 10px", borderRadius: "20px", fontSize: "10px", fontWeight: 600, background: "var(--surface-2)", color: "var(--text-3)", border: "1px solid var(--border)" }}>{t}</span>
+                      <span key={t} className="rounded-full border border-line bg-wash px-2.5 py-[3px] text-[10px] font-semibold text-ink-2">{t}</span>
                     ))}
                   </div>
 
                   {result.strengths.length > 0 && (
                     <>
-                      <h3 style={{ fontSize: "11px", fontWeight: 700, color: "var(--green)", textTransform: "uppercase", letterSpacing: "0.07em", margin: "0 0 6px" }}>✓ نقاط قوت</h3>
+                      <h3 className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.07em] text-up">✓ نقاط قوت</h3>
                       {result.strengths.map((s, i) => (
-                        <div key={i} style={{ fontSize: "11px", color: "var(--text-2)", padding: "3px 0 3px 10px", borderLeft: "2px solid var(--green)", marginBottom: "4px" }}>{s}</div>
+                        <div key={i} className="mb-1 border-l-2 border-up py-[3px] pl-2.5 text-[11px] text-ink-2">{s}</div>
                       ))}
                     </>
                   )}
 
                   {result.mistakes.length > 0 && (
                     <>
-                      <h3 style={{ fontSize: "11px", fontWeight: 700, color: "var(--red)", textTransform: "uppercase", letterSpacing: "0.07em", margin: "12px 0 6px" }}>⚠ اشتباهات رایج</h3>
+                      <h3 className="mb-1.5 mt-3 text-[11px] font-bold uppercase tracking-[0.07em] text-down">⚠ اشتباهات رایج</h3>
                       {result.mistakes.map((m, i) => (
-                        <div key={i} style={{ fontSize: "11px", color: "var(--text-2)", padding: "3px 0 3px 10px", borderLeft: "2px solid var(--red)", marginBottom: "4px" }}>{m}</div>
+                        <div key={i} className="mb-1 border-l-2 border-down py-[3px] pl-2.5 text-[11px] text-ink-2">{m}</div>
                       ))}
                     </>
                   )}
@@ -445,61 +444,66 @@ export default function AcademyPage() {
 
         {/* ── Lessons Tab ── */}
         {activeTab === "lessons" && (
-          <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "24px" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-              <h2 style={{ fontSize: "16px", fontWeight: 700, color: "var(--text)", margin: 0 }}>📚 درس‌های ذخیره‌شده</h2>
+          <div className="mx-auto max-w-6xl px-6 py-6">
+            <div className="mb-5 flex items-center justify-between">
+              <h2 className="m-0 text-base font-bold text-ink">درس‌های ذخیره‌شده</h2>
               {lessons.length > 0 && (
                 <button
                   onClick={() => { if (window.confirm("همه درس‌ها پاک شوند؟")) clearLessons(); }}
-                  style={{ fontSize: "11px", color: "var(--red)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}
+                  className="cursor-pointer text-[11px] font-semibold text-down hover:underline"
                 >پاک کردن همه</button>
               )}
             </div>
 
             {lessons.length === 0 ? (
-              <div className="glass-card" style={{ padding: "48px", textAlign: "center", borderStyle: "dashed" }}>
-                <span style={{ fontSize: "36px", display: "block", marginBottom: "12px", opacity: 0.4 }}>🎓</span>
-                <p style={{ color: "var(--text-3)", fontSize: "13px" }}>هنوز درسی ذخیره نشده. چارت آپلود کن و تحلیل بگیر.</p>
-                <button onClick={() => setActiveTab("analyze")} className="glow-btn" style={{ marginTop: "16px", padding: "10px 24px", fontSize: "12px", fontWeight: 700 }}>
-                  🔍 شروع تحلیل
+              <div className="rounded-[14px] border border-dashed border-line-2 bg-paper p-12 text-center">
+                <p className="text-[13px] text-ink-3">هنوز درسی ذخیره نشده. چارت آپلود کن و تحلیل بگیر.</p>
+                <button
+                  onClick={() => setActiveTab("analyze")}
+                  className="mt-4 cursor-pointer rounded-lg bg-ink px-6 py-2.5 text-xs font-bold text-paper hover:bg-[#23313f]"
+                >
+                  شروع تحلیل
                 </button>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div className="flex flex-col gap-4">
                 {lessons.map((lesson) => (
-                  <div key={lesson.id} className="glass-card" style={{ padding: "20px" }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                  <div key={lesson.id} className="panel p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2.5">
                         <SignalBadge signal={lesson.overallSignal} />
-                        <span style={{ fontSize: "11px", color: "var(--text-3)" }}>{new Date(lesson.createdAt).toLocaleDateString("fa-IR")}</span>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                          <div style={{ width: "60px", height: "4px", borderRadius: "2px", background: "var(--surface-2)", overflow: "hidden" }}>
-                            <div style={{ height: "100%", width: `${lesson.confluenceScore}%`, background: lesson.confluenceScore >= 70 ? "var(--green)" : lesson.confluenceScore >= 45 ? "var(--yellow)" : "var(--red)", borderRadius: "2px" }} />
+                        <span className="text-[11px] text-ink-3">{new Date(lesson.createdAt).toLocaleDateString("fa-IR")}</span>
+                        <div className="flex items-center gap-1.5">
+                          <div className="h-1 w-[60px] overflow-hidden rounded-sm bg-wash">
+                            {/* width is computed from the score */}
+                            <div className={`h-full rounded-sm ${scoreBarClass(lesson.confluenceScore)}`} style={{ width: `${lesson.confluenceScore}%` }} />
                           </div>
-                          <span style={{ fontSize: "10px", color: "var(--text-3)" }}>{lesson.confluenceScore}/100</span>
+                          <span className="num text-[10px] text-ink-3">{lesson.confluenceScore}/100</span>
                         </div>
                         {lesson.patterns.slice(0, 3).map((p) => (
-                          <span key={p} style={{ padding: "2px 8px", borderRadius: "12px", fontSize: "9px", fontWeight: 600, background: "var(--accent-dim)", color: "var(--accent)" }}>{p}</span>
+                          <span key={p} className="rounded-full bg-accent-soft px-2 py-0.5 text-[9px] font-semibold text-accent">{p}</span>
                         ))}
                       </div>
-                      <button onClick={() => removeLesson(lesson.id)} style={{ color: "var(--text-3)", background: "none", border: "none", cursor: "pointer", fontSize: "14px", padding: "2px 6px" }} title="حذف">✕</button>
+                      <button
+                        onClick={() => removeLesson(lesson.id)}
+                        className="cursor-pointer rounded px-1.5 py-0.5 text-sm text-ink-3 hover:bg-down-soft hover:text-down"
+                        title="حذف"
+                        aria-label="حذف"
+                      >✕</button>
                     </div>
 
-                    <div style={{ marginTop: "12px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {lesson.charts.slice(0, 3).map((chart) => (
                         chart.imageDataUrl ? (
-                          <div key={chart.timeframe} style={{ width: "120px", position: "relative", flexShrink: 0 }}>
+                          <div key={chart.timeframe} className="relative w-[120px] shrink-0">
                             <AnnotatedCanvas imageDataUrl={chart.imageDataUrl} annotations={chart.annotations} />
-                            <div style={{ position: "absolute", bottom: 4, left: 4, fontSize: "9px", fontWeight: 700, color: "var(--accent)", background: "rgba(12,16,24,0.8)", padding: "1px 6px", borderRadius: "4px" }}>{chart.timeframe}</div>
+                            <div className="absolute bottom-1 left-1 rounded bg-ink/80 px-1.5 py-px text-[9px] font-bold text-paper">{chart.timeframe}</div>
                           </div>
                         ) : null
                       ))}
-                      <div style={{ flex: 1, minWidth: "200px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "6px" }}>
-                          <span style={{ fontSize: "14px" }}>🎓</span>
-                          <span style={{ fontSize: "10px", fontWeight: 700, color: "#a78bfa", textTransform: "uppercase" }}>درس</span>
-                        </div>
-                        <p style={{ fontSize: "12px", color: "var(--text-2)", lineHeight: 1.7, margin: 0 }}>{lesson.lesson}</p>
+                      <div className="min-w-[200px] flex-1">
+                        <div className="mb-1.5 text-[10px] font-bold uppercase text-accent">درس</div>
+                        <p className="m-0 text-xs leading-[1.7] text-ink-2">{lesson.lesson}</p>
                       </div>
                     </div>
                   </div>
@@ -509,10 +513,6 @@ export default function AcademyPage() {
           </div>
         )}
       </main>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-      `}</style>
     </div>
   );
 }

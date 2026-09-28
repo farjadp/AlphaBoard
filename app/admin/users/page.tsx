@@ -17,12 +17,12 @@ export default async function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Users</h1>
-        <p className="text-sm text-gray-400 mt-1">Daily AI token allowance per user (resets 00:00 UTC). Set 0 to turn AI off for someone.</p>
+        <h1 className="font-display text-2xl font-extrabold text-ink">Users</h1>
+        <p className="mt-1 text-sm text-ink-3">Daily AI token allowance per user (resets 00:00 UTC). Set 0 to turn AI off for someone.</p>
       </div>
-      <section className="rounded-xl border border-gray-800 overflow-x-auto">
+      <section className="panel overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-900 text-gray-400">
+          <thead className="border-b border-line bg-wash text-xs text-ink-3">
             <tr>
               <th className="p-3 font-medium">User</th>
               <th className="p-3 font-medium">Role</th>
@@ -35,11 +35,11 @@ export default async function AdminUsersPage() {
             {users.map((u) => {
               const t = used.get(u.id) ?? { tokens: 0, cost: 0 };
               return (
-                <tr key={u.id} className="border-t border-gray-800">
-                  <td className="p-3"><p className="text-gray-100">{u.name ?? "—"}</p><p className="text-xs text-gray-500">{u.email}</p></td>
+                <tr key={u.id} className="border-t border-line text-ink">
+                  <td className="p-3"><p className="font-semibold text-ink">{u.name ?? "—"}</p><p className="text-xs text-ink-3">{u.email}</p></td>
                   <td className="p-3">{u.role}</td>
-                  <td className="p-3 text-gray-300">{u.aiProvider && u.aiModel ? findModel(u.aiProvider, u.aiModel)?.label ?? u.aiModel : <span className="text-gray-500">default</span>}</td>
-                  <td className="p-3 text-right tabular-nums">{t.tokens.toLocaleString("en-US")}<span className="block text-xs text-gray-500">≈ ${t.cost.toFixed(3)}</span></td>
+                  <td className="p-3 text-ink-2">{u.aiProvider && u.aiModel ? findModel(u.aiProvider, u.aiModel)?.label ?? u.aiModel : <span className="text-ink-3">default</span>}</td>
+                  <td className="num p-3 text-right">{t.tokens.toLocaleString("en-US")}<span className="block text-xs text-ink-3">≈ ${t.cost.toFixed(3)}</span></td>
                   <td className="p-3"><UserQuotaRow id={u.id} quota={u.dailyTokenQuota} /></td>
                 </tr>
               );

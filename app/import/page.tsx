@@ -84,72 +84,70 @@ export default function ImportPage() {
   const nothing = !!counts && counts.total === 0;
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg)]">
+    <div className="min-h-screen bg-page">
       <NavBar />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <header>
-            <h1 className="text-2xl font-bold text-gray-100">Import browser data</h1>
-            <p className="text-sm text-gray-400 mt-1">
-              Earlier versions of AlphaBoard saved your journal, lessons, signals and alerts only in this browser.
-              Import them into your account so they are safe and available on every device.
-            </p>
-          </header>
+      <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
+        <header>
+          <h1 className="font-display text-2xl font-extrabold text-ink">Import browser data</h1>
+          <p className="mt-1 text-sm text-ink-3">
+            Earlier versions of AlphaBoard saved your journal, lessons, signals and alerts only in this browser.
+            Import them into your account so they are safe and available on every device.
+          </p>
+        </header>
 
-          {!preview ? (
-            <p className="text-sm text-gray-400">Reading this browser&apos;s storage…</p>
-          ) : nothing && phase.kind !== "done" ? (
-            <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5 text-sm text-gray-300">
-              No AlphaBoard data was found in this browser. If you used AlphaBoard on another device or browser, open this page there.
-            </section>
-          ) : (
-            <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
-              <h2 className="text-sm font-semibold text-gray-200">Found in this browser</h2>
-              <dl className="grid grid-cols-2 gap-3 text-sm">
-                {Object.entries(LABELS).map(([key, label]) => {
-                  const n = key === "watchlist" ? counts!.watchlist.length : (counts![key as keyof typeof counts] as unknown[]).length;
-                  const skipped = (counts!.skipped as Record<string, number>)[key] ?? 0;
-                  return (
-                    <div key={key} className="rounded-lg border border-white/10 p-3">
-                      <dt className="text-xs text-gray-400">{label}</dt>
-                      <dd className="text-lg font-semibold tabular-nums text-gray-100">{n}{skipped > 0 && <span className="ml-2 text-xs font-normal text-amber-400">{skipped} unreadable</span>}</dd>
-                    </div>
-                  );
-                })}
-              </dl>
-              <p className="text-xs text-gray-400">{preview.images} image{preview.images === 1 ? "" : "s"} will be compressed and uploaded. Importing twice is safe: rows already imported are skipped.</p>
+        {!preview ? (
+          <p className="text-sm text-ink-3">Reading this browser&apos;s storage…</p>
+        ) : nothing && phase.kind !== "done" ? (
+          <section className="panel p-5 text-sm text-ink-2">
+            No AlphaBoard data was found in this browser. If you used AlphaBoard on another device or browser, open this page there.
+          </section>
+        ) : (
+          <section className="panel space-y-4 p-5">
+            <h2 className="text-sm font-bold text-ink">Found in this browser</h2>
+            <dl className="grid grid-cols-2 gap-3 text-sm">
+              {Object.entries(LABELS).map(([key, label]) => {
+                const n = key === "watchlist" ? counts!.watchlist.length : (counts![key as keyof typeof counts] as unknown[]).length;
+                const skipped = (counts!.skipped as Record<string, number>)[key] ?? 0;
+                return (
+                  <div key={key} className="rounded-lg bg-wash p-3">
+                    <dt className="label-caps">{label}</dt>
+                    <dd className="num text-lg font-semibold text-ink">{n}{skipped > 0 && <span className="ml-2 font-sans text-xs font-normal text-amber">{skipped} unreadable</span>}</dd>
+                  </div>
+                );
+              })}
+            </dl>
+            <p className="text-xs text-ink-3">{preview.images} image{preview.images === 1 ? "" : "s"} will be compressed and uploaded. Importing twice is safe: rows already imported are skipped.</p>
 
-              {phase.kind !== "done" && (
-                <button type="button" onClick={runImport} disabled={busy}
-                  className="w-full rounded-lg bg-gray-100 py-2.5 text-sm font-semibold text-gray-900 hover:bg-white disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/50">
-                  {phase.kind === "uploading" ? `Uploading images ${phase.done + 1}/${phase.total}…` : phase.kind === "importing" ? "Importing…" : "Import to my account"}
+            {phase.kind !== "done" && (
+              <button type="button" onClick={runImport} disabled={busy}
+                className="w-full rounded-lg bg-ink py-2.5 text-sm font-bold text-paper hover:bg-[#23313f] disabled:opacity-60">
+                {phase.kind === "uploading" ? `Uploading images ${phase.done + 1}/${phase.total}…` : phase.kind === "importing" ? "Importing…" : "Import to my account"}
+              </button>
+            )}
+          </section>
+        )}
+
+        {phase.kind === "error" && (
+          <div role="alert" className="rounded-lg border border-down/30 bg-down-soft p-3 text-sm text-down">{phase.message}</div>
+        )}
+
+        {phase.kind === "done" && (
+          <section role="status" className="panel space-y-3 border-l-[3px] border-l-up p-5">
+            <h2 className="text-sm font-bold text-up">Import complete</h2>
+            <ul className="space-y-1 text-sm text-ink-2">
+              {Object.entries(phase.imported).map(([k, n]) => <li key={k}>{LABELS[k] ?? k}: <span className="num font-semibold text-ink">{n}</span> added</li>)}
+            </ul>
+            {phase.imageFailures > 0 && <p className="rounded-lg bg-amber-soft px-3 py-2 text-xs text-amber">{phase.imageFailures} image(s) could not be uploaded. The entries and lessons were still imported, without those images.</p>}
+            <div className="flex flex-wrap gap-3 pt-2">
+              <Link href="/journal" className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-[#23313f]">Open journal</Link>
+              {!nothing && (
+                <button type="button" onClick={removeBrowserCopy} className="rounded-lg border border-line-2 px-4 py-2 text-sm font-bold text-ink hover:bg-wash">
+                  Remove the browser copy
                 </button>
               )}
-            </section>
-          )}
-
-          {phase.kind === "error" && (
-            <div role="alert" className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{phase.message}</div>
-          )}
-
-          {phase.kind === "done" && (
-            <section role="status" className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 space-y-3">
-              <h2 className="text-sm font-semibold text-emerald-300">Import complete</h2>
-              <ul className="text-sm text-emerald-100 space-y-1">
-                {Object.entries(phase.imported).map(([k, n]) => <li key={k}>{LABELS[k] ?? k}: <span className="tabular-nums font-semibold">{n}</span> added</li>)}
-              </ul>
-              {phase.imageFailures > 0 && <p className="text-xs text-amber-300">{phase.imageFailures} image(s) could not be uploaded. The entries and lessons were still imported, without those images.</p>}
-              <div className="flex flex-wrap gap-3 pt-2">
-                <Link href="/journal" className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-white">Open journal</Link>
-                {!nothing && (
-                  <button type="button" onClick={removeBrowserCopy} className="rounded-lg border border-white/20 px-4 py-2 text-sm text-gray-200 hover:bg-white/5">
-                    Remove the browser copy
-                  </button>
-                )}
-              </div>
-            </section>
-          )}
-        </div>
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );

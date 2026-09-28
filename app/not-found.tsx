@@ -2,12 +2,12 @@ import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-gray-950 text-gray-100">
-      <div className="max-w-md w-full text-center">
-        <p className="text-xs font-semibold tracking-wider text-gray-500 uppercase mb-2">404</p>
-        <h1 className="text-2xl font-bold mb-2">Page not found</h1>
-        <p className="text-sm text-gray-400 mb-6">The page you asked for does not exist or was moved.</p>
-        <Link href="/market" className="inline-block px-4 py-2 rounded-lg bg-gray-100 text-gray-900 text-sm font-semibold hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-300">
+    <main className="flex min-h-screen items-center justify-center bg-page p-6 text-ink">
+      <div className="panel w-full max-w-md p-8 text-center">
+        <p className="label-caps mb-2">404</p>
+        <h1 className="mb-2 font-display text-2xl font-extrabold text-ink">Page not found</h1>
+        <p className="mb-6 text-sm text-ink-3">The page you asked for does not exist or was moved.</p>
+        <Link href="/market" className="inline-block rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-[#23313f]">
           Back to dashboard
         </Link>
       </div>

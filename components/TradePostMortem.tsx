@@ -93,46 +93,45 @@ export default function TradePostMortem({ entry, onUpdate }: Props) {
 
   if (existing && !open) {
     return (
-      <div className="mt-3 rounded-xl p-3 flex flex-col gap-2 transition-all duration-200" style={{ background: "linear-gradient(135deg, rgba(82,170,255,0.06), rgba(168,85,247,0.04))", border: "1px solid var(--border-strong)" }}>
-        <div className="flex items-center justify-between gap-2 flex-wrap">
+      <div className="mt-3 flex flex-col gap-2 rounded-lg bg-wash p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wider" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+            <span className="rounded-md bg-accent-soft px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-accent">
               AI Post-Mortem
             </span>
             <OutcomeBadge outcome={existing.outcome} />
           </div>
           <button
             onClick={() => setOpen(true)}
-            className="text-[10px] font-semibold px-2 py-1 rounded-md transition-all duration-200 hover:scale-105"
-            style={{ background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-2)" }}
+            className="rounded-md border border-line-2 bg-paper px-2 py-1 text-[10px] font-bold text-ink-2 transition-colors hover:bg-wash hover:text-ink"
           >
             Re-analyze
           </button>
         </div>
-        <p className="text-xs leading-5" style={{ color: "var(--text)" }}>
+        <p className="text-xs leading-5 text-ink">
           <span className="font-semibold">Why:</span> {existing.rootCause}
         </p>
-        <p className="text-xs leading-5" style={{ color: "var(--text-2)" }}>
-          <span className="font-semibold" style={{ color: "var(--accent)" }}>Lesson:</span> {existing.lesson}
+        <p className="text-xs leading-5 text-ink-2">
+          <span className="font-semibold text-accent">Lesson:</span> {existing.lesson}
         </p>
         {existing.mistakes.length > 0 && (
           <div className="flex flex-wrap gap-1.5 pt-1">
             {existing.mistakes.map((m, i) => (
-              <span key={`m-${i}`} className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--red-bg)", color: "var(--red)" }}>− {m}</span>
+              <span key={`m-${i}`} className="rounded bg-down-soft px-2 py-0.5 text-[10px] text-down">− {m}</span>
             ))}
           </div>
         )}
         {existing.strengths.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {existing.strengths.map((s, i) => (
-              <span key={`s-${i}`} className="text-[10px] px-2 py-0.5 rounded" style={{ background: "var(--green-bg)", color: "var(--green)" }}>+ {s}</span>
+              <span key={`s-${i}`} className="rounded bg-up-soft px-2 py-0.5 text-[10px] text-up">+ {s}</span>
             ))}
           </div>
         )}
         {existing.tags.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {existing.tags.map((t, i) => (
-              <span key={`t-${i}`} className="text-[10px] px-2 py-0.5 rounded font-mono" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid var(--border)", color: "var(--text-3)" }}>#{t}</span>
+              <span key={`t-${i}`} className="rounded border border-line bg-paper px-2 py-0.5 font-mono text-[10px] text-ink-3">#{t}</span>
             ))}
           </div>
         )}
@@ -144,26 +143,23 @@ export default function TradePostMortem({ entry, onUpdate }: Props) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="mt-3 w-full py-2 px-3 rounded-lg text-[11px] font-semibold transition-all duration-200 hover:scale-[1.01] active:scale-95 flex items-center justify-center gap-2"
-        style={{ background: "linear-gradient(135deg, rgba(82,170,255,0.1), rgba(168,85,247,0.08))", border: "1px solid var(--border-strong)", color: "var(--accent)" }}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-line-2 px-3 py-2 text-[11px] font-bold text-ink transition-colors hover:bg-wash"
       >
-        <span>🔍</span>
         <span>{isClosed ? "Why did this happen? · AI Post-Mortem" : "Reflect on this open trade"}</span>
       </button>
     );
   }
 
   return (
-    <div className="mt-3 rounded-xl p-3 flex flex-col gap-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-strong)" }}>
+    <div className="mt-3 flex flex-col gap-3 rounded-lg bg-wash p-3">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>AI Post-Mortem</span>
-        <button onClick={() => setOpen(false)} className="text-[11px]" style={{ color: "var(--text-3)" }}>Cancel</button>
+        <span className="text-xs font-bold text-ink">AI Post-Mortem</span>
+        <button onClick={() => setOpen(false)} className="text-[11px] font-semibold text-ink-3 hover:text-ink">Cancel</button>
       </div>
 
-      <div className="relative group">
+      <div className="group relative">
         <div
-          className="rounded-lg border-dashed border-2 p-3 cursor-pointer flex flex-col items-center justify-center gap-1 transition-all hover:bg-white/5"
-          style={{ borderColor: "var(--border)" }}
+          className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-line-2 bg-paper p-3 transition-colors hover:border-accent"
           onClick={() => !imagePreview && fileRef.current?.click()}
         >
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
@@ -172,16 +168,15 @@ export default function TradePostMortem({ entry, onUpdate }: Props) {
             <img src={imagePreview} alt="preview" className="max-h-40 rounded-md" />
           ) : (
             <>
-              <span className="text-lg">📸</span>
-              <span className="text-[11px] font-semibold" style={{ color: "var(--text-2)" }}>Upload PnL / chart screenshot</span>
-              <span className="text-[10px]" style={{ color: "var(--text-3)" }}>Optional · helps the AI see what really happened</span>
+              <span className="text-[11px] font-semibold text-ink-2">Upload PnL / chart screenshot</span>
+              <span className="text-[10px] text-ink-3">Optional · helps the AI see what really happened</span>
             </>
           )}
         </div>
         {imagePreview && (
-          <button 
+          <button
             onClick={() => setImagePreview(null)}
-            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-lg"
+            className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-down text-xs text-paper opacity-0 transition-opacity group-hover:opacity-100"
           >
             ✕
           </button>
@@ -193,18 +188,17 @@ export default function TradePostMortem({ entry, onUpdate }: Props) {
         value={context}
         onChange={(e) => setContext(e.target.value)}
         placeholder="Optional context: market conditions, why you entered, what surprised you..."
-        className="w-full bg-transparent p-2 rounded-lg text-xs resize-none border focus:outline-none"
-        style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+        className="w-full resize-none rounded-lg border border-line bg-paper p-2 text-xs text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
       />
 
       {error && (
-        <div className="text-[11px] p-2 rounded" style={{ background: "var(--red-bg)", color: "var(--red)" }}>{error}</div>
+        <div className="rounded bg-down-soft p-2 text-[11px] text-down">{error}</div>
       )}
 
       <button
         onClick={runAnalysis}
         disabled={loading}
-        className="glow-btn py-2 text-[11px] font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-[1.01] active:scale-95"
+        className="rounded-lg bg-ink py-2 text-[11px] font-bold uppercase tracking-wider text-paper transition-colors hover:bg-[#23313f] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? "Analyzing…" : existing ? "Re-run Analysis" : "Analyze Trade"}
       </button>
@@ -213,14 +207,14 @@ export default function TradePostMortem({ entry, onUpdate }: Props) {
 }
 
 function OutcomeBadge({ outcome }: { outcome: PostMortemAnalysis["outcome"] }) {
-  const styles = outcome === "WIN"
-    ? { background: "var(--green-bg)", color: "var(--green)" }
+  const tone = outcome === "WIN"
+    ? "bg-up-soft text-up"
     : outcome === "LOSS"
-      ? { background: "var(--red-bg)", color: "var(--red)" }
+      ? "bg-down-soft text-down"
       : outcome === "BREAKEVEN"
-        ? { background: "var(--surface-2)", color: "var(--text-2)" }
-        : { background: "var(--accent-dim)", color: "var(--accent)" };
+        ? "bg-paper text-ink-2 border border-line"
+        : "bg-accent-soft text-accent";
   return (
-    <span className="text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider" style={styles}>{outcome}</span>
+    <span className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${tone}`}>{outcome}</span>
   );
 }

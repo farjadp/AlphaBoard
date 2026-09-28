@@ -10,50 +10,53 @@ function LoginForm() {
   const registered = searchParams.get('registered');
 
   return (
-    <div className="max-w-md w-full p-8 bg-gray-800 rounded-xl shadow-xl">
-      <h2 className="text-2xl font-bold text-center mb-6">Login to AlphaBoard</h2>
-      
+    <div className="panel w-full max-w-md p-8">
+      <p className="mb-6 text-center font-display text-2xl font-extrabold text-ink">AlphaBoard</p>
+      <h2 className="mb-6 text-center text-lg font-bold text-ink">Login to AlphaBoard</h2>
+
       {registered && (
-        <div className="bg-green-500/10 border border-green-500/50 text-green-400 p-3 rounded mb-4 text-sm text-center">
+        <div className="mb-4 rounded-lg bg-up-soft p-3 text-center text-sm text-up">
           Registration successful! Please log in.
         </div>
       )}
 
       {errorMessage && (
-        <div className="bg-red-500/10 border border-red-500/50 text-red-500 p-3 rounded mb-4 text-sm">
+        <div className="mb-4 rounded-lg bg-down-soft p-3 text-sm text-down">
           {errorMessage}
         </div>
       )}
-      
+
       <form action={dispatch} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
-          <input 
-            name="email" 
-            type="email" 
-            required 
-            className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-blue-500"
+          <label htmlFor="email" className="mb-1 block text-sm font-semibold text-ink-2">Email</label>
+          <input
+            id="email"
+            name="email"
+            type="email"
+            required
+            className="w-full rounded-lg border border-line bg-paper px-4 py-2 text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
-          <input 
-            name="password" 
-            type="password" 
-            required 
-            className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-blue-500"
+          <label htmlFor="password" className="mb-1 block text-sm font-semibold text-ink-2">Password</label>
+          <input
+            id="password"
+            name="password"
+            type="password"
+            required
+            className="w-full rounded-lg border border-line bg-paper px-4 py-2 text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
           />
         </div>
-        
-        <button 
-          type="submit" 
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
+
+        <button
+          type="submit"
+          className="w-full rounded-lg bg-ink px-4 py-2.5 font-bold text-paper transition-colors hover:bg-[#23313f]"
         >
           Log In
         </button>
       </form>
-      
-      <p className="mt-4 text-center text-sm text-gray-400">
+
+      <p className="mt-4 text-center text-sm text-ink-3">
         No account yet? Ask an administrator for an invite link.
       </p>
     </div>
@@ -62,8 +65,8 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-900 text-white">
-      <Suspense fallback={<div className="p-8">Loading...</div>}>
+    <div className="flex min-h-screen items-center justify-center bg-page p-4 text-ink">
+      <Suspense fallback={<div className="p-8 text-ink-3">Loading...</div>}>
         <LoginForm />
       </Suspense>
     </div>

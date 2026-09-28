@@ -16,15 +16,15 @@ export default async function InvitesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Invites</h1>
-        <p className="text-sm text-gray-400 mt-1">Registration is invite-only. Links are single-use and expire after 14 days by default.</p>
+        <h1 className="font-display text-2xl font-extrabold text-ink">Invites</h1>
+        <p className="mt-1 text-sm text-ink-3">Registration is invite-only. Links are single-use and expire after 14 days by default.</p>
       </div>
 
       <InviteCreator />
 
-      <section className="rounded-xl border border-gray-800 overflow-hidden">
+      <section className="panel overflow-hidden">
         <table className="w-full text-left text-sm">
-          <thead className="bg-gray-900 text-gray-400">
+          <thead className="border-b border-line bg-wash text-xs text-ink-3">
             <tr>
               <th className="p-3 font-medium">Email</th>
               <th className="p-3 font-medium">Role</th>
@@ -35,21 +35,21 @@ export default async function InvitesPage() {
           </thead>
           <tbody>
             {invites.length === 0 && (
-              <tr><td colSpan={5} className="p-6 text-center text-gray-500">No invites yet.</td></tr>
+              <tr><td colSpan={5} className="p-6 text-center text-ink-3">No invites yet.</td></tr>
             )}
             {invites.map((i) => {
               const state = inviteState(i);
               return (
-                <tr key={i.id} className="border-t border-gray-800">
-                  <td className="p-3">{i.email ?? <span className="text-gray-500">any</span>}</td>
+                <tr key={i.id} className="border-t border-line text-ink">
+                  <td className="p-3">{i.email ?? <span className="text-ink-3">any</span>}</td>
                   <td className="p-3">{i.role}</td>
                   <td className="p-3">
                     <span className={
-                      state === "valid" ? "text-emerald-400" : state === "used" ? "text-gray-400" : "text-amber-400"
+                      state === "valid" ? "rounded bg-up-soft px-1.5 py-0.5 text-xs font-bold text-up" : state === "used" ? "rounded bg-wash px-1.5 py-0.5 text-xs font-bold text-ink-3" : "rounded bg-amber-soft px-1.5 py-0.5 text-xs font-bold text-amber"
                     }>{state}</span>
                   </td>
-                  <td className="p-3 text-gray-400">{i.expiresAt.toISOString().slice(0, 10)}</td>
-                  <td className="p-3 text-gray-400">{i.usedBy?.email ?? "—"}</td>
+                  <td className="num p-3 text-ink-2">{i.expiresAt.toISOString().slice(0, 10)}</td>
+                  <td className="p-3 text-ink-2">{i.usedBy?.email ?? "—"}</td>
                 </tr>
               );
             })}

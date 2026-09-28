@@ -36,51 +36,53 @@ function RegisterForm() {
 
   if (!token) {
     return (
-      <div className="max-w-md w-full p-8 bg-gray-800 rounded-xl shadow-xl text-center">
-        <h1 className="text-2xl font-bold mb-3">Invite required</h1>
-        <p className="text-sm text-gray-400 mb-6">
+      <div className="panel w-full max-w-md p-8 text-center">
+        <p className="mb-6 text-center font-display text-2xl font-extrabold text-ink">AlphaBoard</p>
+        <h1 className="mb-3 text-lg font-bold text-ink">Invite required</h1>
+        <p className="mb-6 text-sm text-ink-3">
           AlphaBoard is invite-only. Ask an administrator for an invitation link, then open it here.
         </p>
-        <a href="/login" className="text-blue-400 hover:underline text-sm">Already have an account? Log in</a>
+        <a href="/login" className="text-sm font-semibold text-accent hover:underline">Already have an account? Log in</a>
       </div>
     );
   }
 
   return (
-    <div className="max-w-md w-full p-8 bg-gray-800 rounded-xl shadow-xl">
-      <h1 className="text-2xl font-bold text-center mb-1">Create your account</h1>
-      <p className="text-center text-xs text-gray-500 mb-6">You were invited to AlphaBoard.</p>
+    <div className="panel w-full max-w-md p-8">
+      <p className="mb-6 text-center font-display text-2xl font-extrabold text-ink">AlphaBoard</p>
+      <h1 className="mb-1 text-center text-lg font-bold text-ink">Create your account</h1>
+      <p className="mb-6 text-center text-xs text-ink-3">You were invited to AlphaBoard.</p>
 
       {error && (
-        <div role="alert" className="bg-red-500/10 border border-red-500/50 text-red-400 p-3 rounded mb-4 text-sm">
+        <div role="alert" className="mb-4 rounded-lg bg-down-soft p-3 text-sm text-down">
           {error}
         </div>
       )}
 
       <form onSubmit={onSubmit} className="space-y-4">
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-400 mb-1">Name</label>
+          <label htmlFor="name" className="mb-1 block text-sm font-semibold text-ink-2">Name</label>
           <input id="name" name="name" type="text" required minLength={2} autoComplete="name"
-            className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-blue-500" />
+            className="w-full rounded-lg border border-line bg-paper px-4 py-2 text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none" />
         </div>
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+          <label htmlFor="email" className="mb-1 block text-sm font-semibold text-ink-2">Email</label>
           <input id="email" name="email" type="email" required autoComplete="email"
-            className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-blue-500" />
+            className="w-full rounded-lg border border-line bg-paper px-4 py-2 text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none" />
         </div>
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-400 mb-1">Password <span className="text-gray-600">(10+ characters)</span></label>
+          <label htmlFor="password" className="mb-1 block text-sm font-semibold text-ink-2">Password <span className="font-normal text-ink-3">(10+ characters)</span></label>
           <input id="password" name="password" type="password" required minLength={10} autoComplete="new-password"
-            className="w-full bg-gray-900 border border-gray-700 rounded px-4 py-2 focus:outline-none focus:border-blue-500" />
+            className="w-full rounded-lg border border-line bg-paper px-4 py-2 text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none" />
         </div>
         <button type="submit" disabled={loading}
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors disabled:opacity-50">
+          className="w-full rounded-lg bg-ink px-4 py-2.5 font-bold text-paper transition-colors hover:bg-[#23313f] disabled:opacity-50">
           {loading ? "Creating account…" : "Create account"}
         </button>
       </form>
 
-      <p className="mt-4 text-center text-sm text-gray-400">
-        Already have an account? <a href="/login" className="text-blue-400 hover:underline">Log in</a>
+      <p className="mt-4 text-center text-sm text-ink-3">
+        Already have an account? <a href="/login" className="font-semibold text-accent hover:underline">Log in</a>
       </p>
     </div>
   );
@@ -88,8 +90,8 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-900 text-white p-4">
-      <Suspense fallback={<div className="p-8 text-gray-400">Loading…</div>}>
+    <main className="flex min-h-screen items-center justify-center bg-page p-4 text-ink">
+      <Suspense fallback={<div className="p-8 text-ink-3">Loading…</div>}>
         <RegisterForm />
       </Suspense>
     </main>

@@ -41,59 +41,57 @@ export default function SettingsPage() {
   const chosen = data?.models.find((m) => `${m.provider}::${m.id}` === current);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-[var(--bg)]">
+    <div className="min-h-screen bg-page">
       <NavBar />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-2xl mx-auto space-y-6">
-          <header>
-            <h1 className="text-2xl font-bold text-gray-100">Settings</h1>
-            <p className="text-sm text-gray-400 mt-1">Choose the AI model used for your strategy reports, post-mortems and chart studies.</p>
-          </header>
+      <main className="mx-auto max-w-3xl space-y-6 px-6 py-8">
+        <header>
+          <h1 className="font-display text-2xl font-extrabold text-ink">Settings</h1>
+          <p className="mt-1 text-sm text-ink-3">Choose the AI model used for your strategy reports, post-mortems and chart studies.</p>
+        </header>
 
-          {!data ? (
-            <p className="text-sm text-gray-400">{error ?? "Loading…"}</p>
-          ) : (
-            <>
-              <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="text-sm font-semibold text-gray-200">AI model</h2>
-                  <span className="text-xs text-gray-400">In use: <span className="text-gray-200">{data.effective?.label ?? "none configured"}</span></span>
-                </div>
-                <label htmlFor="model" className="sr-only">AI model</label>
-                <select id="model" value={current} disabled={saving} onChange={(e) => choose(e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-gray-950 px-3 py-2.5 text-sm text-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/40 disabled:opacity-60">
-                  <option value="default">Workspace default ({data.defaults.label})</option>
-                  {data.providers.map((p) => (
-                    <optgroup key={p.id} label={p.configured ? p.label : `${p.label} (not configured on this server)`}>
-                      {data.models.filter((m) => m.provider === p.id).map((m) => (
-                        <option key={m.id} value={`${m.provider}::${m.id}`} disabled={!p.configured}>
-                          {m.label} · ${m.priceInPerM}/${m.priceOutPerM} per 1M tokens{m.vision ? "" : " · no images"}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-                {chosen && !chosen.vision && data.vision && (
-                  <p className="text-xs text-amber-300">This model cannot read images, so screenshot reading and chart studies will use {data.vision.label}.</p>
-                )}
-                {saveError && <p role="alert" className="text-xs text-red-300">{saveError}</p>}
-                <p className="text-xs text-gray-500">Prices are list prices per million input/output tokens, used to estimate cost. Reasoning models also bill their hidden reasoning tokens.</p>
-              </section>
+        {!data ? (
+          <p className="text-sm text-ink-3">{error ?? "Loading…"}</p>
+        ) : (
+          <>
+            <section className="panel space-y-4 p-5">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="text-sm font-bold text-ink">AI model</h2>
+                <span className="text-xs text-ink-3">In use: <span className="font-semibold text-ink">{data.effective?.label ?? "none configured"}</span></span>
+              </div>
+              <label htmlFor="model" className="sr-only">AI model</label>
+              <select id="model" value={current} disabled={saving} onChange={(e) => choose(e.target.value)}
+                className="w-full rounded-lg border border-line bg-paper px-3 py-2.5 text-sm text-ink focus:border-accent focus:outline-none disabled:opacity-60">
+                <option value="default">Workspace default ({data.defaults.label})</option>
+                {data.providers.map((p) => (
+                  <optgroup key={p.id} label={p.configured ? p.label : `${p.label} (not configured on this server)`}>
+                    {data.models.filter((m) => m.provider === p.id).map((m) => (
+                      <option key={m.id} value={`${m.provider}::${m.id}`} disabled={!p.configured}>
+                        {m.label} · ${m.priceInPerM}/${m.priceOutPerM} per 1M tokens{m.vision ? "" : " · no images"}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              {chosen && !chosen.vision && data.vision && (
+                <p className="rounded-lg bg-amber-soft px-3 py-2 text-xs text-amber">This model cannot read images, so screenshot reading and chart studies will use {data.vision.label}.</p>
+              )}
+              {saveError && <p role="alert" className="text-xs text-down">{saveError}</p>}
+              <p className="text-xs text-ink-3">Prices are list prices per million input/output tokens, used to estimate cost. Reasoning models also bill their hidden reasoning tokens.</p>
+            </section>
 
-              <section className="rounded-xl border border-white/10 bg-white/[0.03] p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-200">Today&apos;s AI usage</h2>
-                <div className="flex justify-between text-sm text-gray-300 tabular-nums">
-                  <span>{fmt(data.usage.tokens)} / {fmt(data.usage.quota)} tokens</span>
-                  <span>≈ ${data.usage.costUsd.toFixed(3)} · {data.usage.calls} call{data.usage.calls === 1 ? "" : "s"}</span>
-                </div>
-                <div className="h-2 rounded-full bg-white/10 overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Daily AI allowance used">
-                  <div className={`h-full ${pct >= 90 ? "bg-red-400" : pct >= 70 ? "bg-amber-300" : "bg-emerald-400"}`} style={{ width: `${pct}%` }} />
-                </div>
-                <p className="text-xs text-gray-500">Resets at {new Date(data.usage.resetsAt).toLocaleString()} (00:00 UTC). Ask an administrator if you need a higher limit.</p>
-              </section>
-            </>
-          )}
-        </div>
+            <section className="panel space-y-3 p-5">
+              <h2 className="text-sm font-bold text-ink">Today&apos;s AI usage</h2>
+              <div className="num flex justify-between text-sm text-ink-2">
+                <span>{fmt(data.usage.tokens)} / {fmt(data.usage.quota)} tokens</span>
+                <span>≈ ${data.usage.costUsd.toFixed(3)} · {data.usage.calls} call{data.usage.calls === 1 ? "" : "s"}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-wash" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Daily AI allowance used">
+                <div className={`h-full ${pct >= 90 ? "bg-down" : pct >= 70 ? "bg-amber" : "bg-up"}`} style={{ width: `${pct}%` }} />
+              </div>
+              <p className="text-xs text-ink-3">Resets at {new Date(data.usage.resetsAt).toLocaleString()} (00:00 UTC). Ask an administrator if you need a higher limit.</p>
+            </section>
+          </>
+        )}
       </main>
     </div>
   );

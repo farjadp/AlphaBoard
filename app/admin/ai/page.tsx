@@ -16,18 +16,18 @@ export default async function AdminAiPage() {
   const providers = Object.entries(PROVIDERS).map(([id, p]) => ({ id, label: p.label, envKey: p.envKey, configured: configured.has(id as never) }));
 
   const table = (title: string, rows: typeof usage.byUser) => (
-    <section className="rounded-xl border border-gray-800 overflow-hidden">
-      <h3 className="bg-gray-900 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
+    <section className="panel overflow-hidden">
+      <h3 className="label-caps border-b border-line bg-wash px-3 py-2">{title}</h3>
       <table className="w-full text-left text-sm">
-        <thead className="text-gray-500"><tr><th className="p-2 font-medium"> </th><th className="p-2 font-medium text-right">Calls</th><th className="p-2 font-medium text-right">Errors</th><th className="p-2 font-medium text-right" title="Refused by the requested model and answered by a server-side fallback">Fallbacks</th><th className="p-2 font-medium text-right">Tokens</th><th className="p-2 font-medium text-right">Est. cost</th></tr></thead>
+        <thead className="text-xs text-ink-3"><tr><th className="p-2 font-medium"> </th><th className="p-2 font-medium text-right">Calls</th><th className="p-2 font-medium text-right">Errors</th><th className="p-2 font-medium text-right" title="Refused by the requested model and answered by a server-side fallback">Fallbacks</th><th className="p-2 font-medium text-right">Tokens</th><th className="p-2 font-medium text-right">Est. cost</th></tr></thead>
         <tbody>
-          {rows.length === 0 && <tr><td colSpan={6} className="p-3 text-center text-gray-500">No usage yet.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={6} className="p-3 text-center text-ink-3">No usage yet.</td></tr>}
           {rows.map((r) => (
-            <tr key={r.key} className="border-t border-gray-800 tabular-nums">
-              <td className="p-2 text-gray-200">{r.key}</td>
+            <tr key={r.key} className="num border-t border-line text-ink-2">
+              <td className="p-2 font-sans text-ink">{r.key}</td>
               <td className="p-2 text-right">{r.calls}</td>
-              <td className={`p-2 text-right ${r.errors ? "text-amber-400" : "text-gray-500"}`}>{r.errors}</td>
-              <td className={`p-2 text-right ${r.fallbacks ? "text-sky-400" : "text-gray-500"}`}>{r.fallbacks}</td>
+              <td className={`p-2 text-right ${r.errors ? "text-amber" : "text-ink-3"}`}>{r.errors}</td>
+              <td className={`p-2 text-right ${r.fallbacks ? "text-accent" : "text-ink-3"}`}>{r.fallbacks}</td>
               <td className="p-2 text-right">{r.tokens.toLocaleString("en-US")}</td>
               <td className="p-2 text-right">{usd(r.costUsd)}</td>
             </tr>
@@ -40,15 +40,15 @@ export default async function AdminAiPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">AI</h1>
-        <p className="text-sm text-gray-400 mt-1">Default models, image model, per-user allowance, and the last 7 days of usage.</p>
+        <h1 className="font-display text-2xl font-extrabold text-ink">AI</h1>
+        <p className="mt-1 text-sm text-ink-3">Default models, image model, per-user allowance, and the last 7 days of usage.</p>
       </div>
 
       <section className="grid gap-2 sm:grid-cols-4">
         {providers.map((p) => (
-          <div key={p.id} className="rounded-lg border border-gray-800 p-3 text-sm">
-            <p className="font-medium text-gray-200">{p.label}</p>
-            <p className={p.configured ? "text-emerald-400 text-xs" : "text-gray-500 text-xs"}>{p.configured ? "Configured" : `Set ${p.envKey}`}</p>
+          <div key={p.id} className="panel p-3 text-sm">
+            <p className="font-semibold text-ink">{p.label}</p>
+            <p className={p.configured ? "text-xs font-semibold text-up" : "text-xs text-ink-3"}>{p.configured ? "Configured" : `Set ${p.envKey}`}</p>
           </div>
         ))}
       </section>
@@ -57,7 +57,7 @@ export default async function AdminAiPage() {
 
       <section className="grid gap-3 sm:grid-cols-5 text-sm">
         {[["Calls", usage.total.calls.toLocaleString("en-US")], ["Errors", String(usage.total.errors)], ["Fallbacks", String(usage.total.fallbacks)], ["Tokens", usage.total.tokens.toLocaleString("en-US")], ["Est. cost", usd(usage.total.costUsd)]].map(([k, v]) => (
-          <div key={k} className="rounded-lg border border-gray-800 p-3"><p className="text-xs text-gray-500">{k} · 7 days</p><p className="text-lg font-semibold tabular-nums">{v}</p></div>
+          <div key={k} className="panel p-3"><p className="label-caps">{k} · 7 days</p><p className="num text-lg font-semibold text-ink">{v}</p></div>
         ))}
       </section>
 

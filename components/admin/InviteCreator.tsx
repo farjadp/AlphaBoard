@@ -33,33 +33,35 @@ export default function InviteCreator() {
   }
 
   return (
-    <form onSubmit={create} className="rounded-xl border border-gray-800 bg-gray-900 p-5 space-y-4">
+    <form onSubmit={create} className="panel space-y-4 p-5">
       <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
         <input
           type="email" value={email} onChange={(e) => setEmail(e.target.value)}
           placeholder="Bind to an email (optional)"
-          className="bg-gray-950 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+          aria-label="Bind to an email (optional)"
+          className="rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
         />
         <select value={role} onChange={(e) => setRole(e.target.value as "USER" | "ADMIN")}
-          className="bg-gray-950 border border-gray-700 rounded px-3 py-2 text-sm">
+          aria-label="Role"
+          className="rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none">
           <option value="USER">User</option>
           <option value="ADMIN">Admin</option>
         </select>
         <button type="submit" disabled={busy}
-          className="bg-gray-100 text-gray-900 font-semibold rounded px-4 py-2 text-sm hover:bg-white disabled:opacity-50">
+          className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-[#23313f] disabled:opacity-50">
           {busy ? "Creating…" : "Create invite"}
         </button>
       </div>
 
-      {error && <p role="alert" className="text-sm text-red-400">{error}</p>}
+      {error && <p role="alert" className="text-sm text-down">{error}</p>}
 
       {url && (
-        <div className="rounded-lg border border-emerald-800 bg-emerald-950/40 p-3 text-sm">
-          <p className="text-emerald-300 font-medium mb-1">Invite link (shown once — copy it now):</p>
+        <div className="rounded-lg bg-up-soft p-3 text-sm">
+          <p className="mb-1 font-semibold text-up">Invite link (shown once — copy it now):</p>
           <div className="flex gap-2">
-            <code className="flex-1 break-all text-emerald-100 text-xs">{url}</code>
+            <code className="flex-1 break-all font-mono text-xs text-ink">{url}</code>
             <button type="button" onClick={() => navigator.clipboard.writeText(url)}
-              className="shrink-0 rounded border border-emerald-700 px-2 py-1 text-xs hover:bg-emerald-900">
+              className="shrink-0 rounded-lg border border-line-2 bg-paper px-2 py-1 text-xs font-bold text-ink hover:bg-wash">
               Copy
             </button>
           </div>

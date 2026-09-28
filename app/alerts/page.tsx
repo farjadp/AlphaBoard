@@ -63,23 +63,25 @@ export default function AlertsPage() {
   const triggeredAlerts = alerts.filter(a => a.triggered);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className="min-h-screen bg-page">
       <NavBar />
-      
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-          
+
+      <main className="mx-auto max-w-6xl px-6 py-8">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+
           {/* Left Col: Create Alert Form */}
-          <div className="md:col-span-1 space-y-6 animate-fade-up">
-            <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Price Alerts</h1>
-            <p className="text-sm" style={{ color: "var(--text-3)" }}>Set triggers to catch important price movements automatically.</p>
-            
-            <form onSubmit={handleAddAlert} className="glass-card p-5 space-y-5">
+          <div className="space-y-6 animate-fade-up md:col-span-1">
+            <div>
+              <h1 className="font-display text-2xl font-extrabold text-ink">Price Alerts</h1>
+              <p className="mt-1 text-sm text-ink-3">Set triggers to catch important price movements automatically.</p>
+            </div>
+
+            <form onSubmit={handleAddAlert} className="panel space-y-5 p-5">
               <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: "var(--text-2)" }}>Asset</label>
-                <select 
-                  className="w-full bg-transparent p-2.5 rounded-lg text-sm border focus:outline-none"
-                  style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                <label htmlFor="alert-asset" className="label-caps mb-2 block">Asset</label>
+                <select
+                  id="alert-asset"
+                  className="w-full rounded-lg border border-line bg-paper p-2.5 text-sm text-ink focus:border-accent focus:outline-none"
                   value={selectedSymbol}
                   onChange={(e) => setSelectedSymbol(e.target.value)}
                 >
@@ -91,26 +93,18 @@ export default function AlertsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: "var(--text-2)" }}>Alert me when price drops/rises</label>
-                <div className="flex bg-gray-800/50 p-1 rounded-lg" style={{ background: "var(--surface)" }}>
-                  <button 
+                <label className="label-caps mb-2 block">Alert me when price drops/rises</label>
+                <div className="flex rounded-lg bg-wash p-1">
+                  <button
                     type="button"
-                    className="flex-1 py-1.5 text-xs font-medium rounded-md transition-colors"
-                    style={{ 
-                      background: condition === "above" ? "var(--green-bg)" : "transparent",
-                      color: condition === "above" ? "var(--green)" : "var(--text-3)" 
-                    }}
+                    className={`flex-1 rounded-md py-1.5 text-xs font-bold transition-colors ${condition === "above" ? "bg-up-soft text-up" : "text-ink-3 hover:text-ink"}`}
                     onClick={() => setCondition("above")}
                   >
                     Goes Above
                   </button>
-                  <button 
+                  <button
                     type="button"
-                    className="flex-1 py-1.5 text-xs font-medium rounded-md transition-colors"
-                    style={{ 
-                      background: condition === "below" ? "var(--red-bg)" : "transparent",
-                      color: condition === "below" ? "var(--red)" : "var(--text-3)" 
-                    }}
+                    className={`flex-1 rounded-md py-1.5 text-xs font-bold transition-colors ${condition === "below" ? "bg-down-soft text-down" : "text-ink-3 hover:text-ink"}`}
                     onClick={() => setCondition("below")}
                   >
                     Drops Below
@@ -119,27 +113,27 @@ export default function AlertsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold mb-2" style={{ color: "var(--text-2)" }}>Target Price (USD)</label>
+                <label htmlFor="alert-target" className="label-caps mb-2 block">Target Price (USD)</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm" style={{ color: "var(--text-3)" }}>$</span>
-                  <input 
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-3">$</span>
+                  <input
+                    id="alert-target"
                     type="number"
                     step="any"
                     required
                     value={targetPrice}
                     onChange={(e) => setTargetPrice(e.target.value)}
                     placeholder={getCurrentPrice(selectedSymbol).toString()}
-                    className="w-full bg-transparent py-2.5 pl-7 pr-3 rounded-lg text-sm font-mono focus:outline-none focus:ring-1"
-                    style={{ color: "var(--text)", border: "1px solid var(--border)", backgroundColor: "var(--surface)" }}
+                    className="num w-full rounded-lg border border-line bg-paper py-2.5 pl-7 pr-3 text-sm text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
                   />
                 </div>
-                <p className="text-[10px] mt-1.5" style={{ color: "var(--text-3)" }}>Current: {formatPrice(getCurrentPrice(selectedSymbol))}</p>
+                <p className="mt-1.5 text-[10px] text-ink-3">Current: <span className="num">{formatPrice(getCurrentPrice(selectedSymbol))}</span></p>
               </div>
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={watchlist.length === 0}
-                className="w-full glow-btn py-3 text-xs font-bold uppercase tracking-wider disabled:opacity-50"
+                className="w-full cursor-pointer rounded-lg bg-ink py-3 text-xs font-bold uppercase tracking-wider text-paper hover:bg-[#23313f] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Create Alert
               </button>
@@ -147,15 +141,15 @@ export default function AlertsPage() {
           </div>
 
           {/* Right Col: Alerts List */}
-          <div className="md:col-span-2 space-y-6 animate-fade-up" style={{ animationDelay: "100ms" }}>
-            
+          <div className="space-y-6 animate-fade-up [animation-delay:100ms] md:col-span-2">
+
             {/* Active Alerts */}
             <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider mb-4" style={{ color: "var(--text)" }}>Active Alerts ({activeAlerts.length})</h3>
-              
+              <h3 className="label-caps mb-4 text-ink">Active Alerts ({activeAlerts.length})</h3>
+
               {activeAlerts.length === 0 ? (
-                <div className="glass-card p-8 text-center" style={{ borderStyle: "dashed" }}>
-                  <p className="text-sm" style={{ color: "var(--text-3)" }}>No active alerts. Add one to start tracking.</p>
+                <div className="rounded-[14px] border border-dashed border-line-2 bg-paper p-8 text-center">
+                  <p className="text-sm text-ink-3">No active alerts. Add one to start tracking.</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -165,40 +159,36 @@ export default function AlertsPage() {
                     if (currentPrice > 0) {
                       diffPercent = Math.abs((currentPrice - alert.targetPrice) / currentPrice) * 100;
                     }
-                    
+
                     return (
-                      <div key={alert.id} className="glass-card p-4 flex items-center justify-between group">
+                      <div key={alert.id} className="panel group flex items-center justify-between p-4">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg" style={{ background: "var(--surface-2)" }}>
-                            {findAsset(alert.symbol)?.icon || "📈"}
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-wash text-lg font-bold text-ink-2">
+                            {findAsset(alert.symbol)?.icon || alert.symbol.charAt(0)}
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="font-bold text-sm" style={{ color: "var(--text)" }}>{alert.symbol}</span>
-                              <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded" style={{
-                                background: alert.condition === "above" ? "var(--green-bg)" : "var(--red-bg)",
-                                color: alert.condition === "above" ? "var(--green)" : "var(--red)"
-                              }}>{alert.condition}</span>
+                              <span className="text-sm font-bold text-ink">{alert.symbol}</span>
+                              <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase ${alert.condition === "above" ? "bg-up-soft text-up" : "bg-down-soft text-down"}`}>{alert.condition}</span>
                             </div>
-                            <div className="flex items-center gap-3 mt-1 text-xs tabular-nums">
-                              <span style={{ color: "var(--text-2)" }}>Target: <span className="font-bold text-white">${alert.targetPrice}</span></span>
-                              <span style={{ color: "var(--text-3)" }}>•</span>
-                              <span style={{ color: "var(--text-3)" }}>Now: {currentPrice > 0 ? formatPrice(currentPrice) : "Loading..."}</span>
+                            <div className="num mt-1 flex items-center gap-3 text-xs">
+                              <span className="text-ink-2">Target: <span className="font-bold text-ink">${alert.targetPrice}</span></span>
+                              <span className="text-ink-3">•</span>
+                              <span className="text-ink-3">Now: {currentPrice > 0 ? formatPrice(currentPrice) : "Loading..."}</span>
                             </div>
                           </div>
                         </div>
-                        
+
                         <div className="flex items-center gap-4">
-                          <div className="text-right hidden sm:block">
-                            <p className="text-[10px] uppercase" style={{ color: "var(--text-3)" }}>Distance</p>
-                            <p className="text-xs font-mono font-medium" style={{ color: diffPercent < 1 ? "var(--yellow)" : "var(--text-2)" }}>
+                          <div className="hidden text-right sm:block">
+                            <p className="label-caps">Distance</p>
+                            <p className={`num text-xs font-medium ${diffPercent < 1 ? "text-amber" : "text-ink-2"}`}>
                               {diffPercent.toFixed(2)}%
                             </p>
                           </div>
-                          <button 
+                          <button
                             onClick={() => removeAlert(alert.id)}
-                            className="p-2 rounded-md transition-colors opacity-50 hover:opacity-100 hover:bg-white/5"
-                            style={{ color: "var(--red)" }}
+                            className="rounded-md p-2 text-ink-3 transition-colors hover:bg-down-soft hover:text-down"
                             title="Delete Alert"
                           >
                             ✕
@@ -214,31 +204,28 @@ export default function AlertsPage() {
             {/* Triggered Alerts */}
             {triggeredAlerts.length > 0 && (
               <div className="mt-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Triggered History</h3>
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="label-caps">Triggered History</h3>
                 </div>
-                
-                <div className="space-y-3 opacity-75">
+
+                <div className="space-y-3">
                   {triggeredAlerts.map(alert => (
-                    <div key={alert.id} className="glass-card p-4 flex items-center justify-between" style={{ borderLeft: "3px solid var(--accent)" }}>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">🔔</span>
-                        <div>
-                          <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
-                            <span className="font-bold">{alert.symbol}</span> crossed {alert.condition} <span className="font-bold">${alert.targetPrice}</span>
-                          </p>
-                          <p className="text-[10px]" style={{ color: "var(--text-3)" }}>
-                            Triggered on {new Date(alert.triggeredAt || alert.createdAt).toLocaleString()}
-                          </p>
-                        </div>
+                    <div key={alert.id} className="panel flex items-center justify-between bg-accent-soft p-4">
+                      <div>
+                        <p className="text-sm font-medium text-ink-2">
+                          <span className="font-bold text-ink">{alert.symbol}</span> crossed {alert.condition} <span className="num font-bold text-ink">${alert.targetPrice}</span>
+                        </p>
+                        <p className="text-[10px] text-ink-3">
+                          Triggered on {new Date(alert.triggeredAt || alert.createdAt).toLocaleString()}
+                        </p>
                       </div>
-                      <button onClick={() => removeAlert(alert.id)} className="text-xs text-gray-500 hover:text-white">Clear</button>
+                      <button onClick={() => removeAlert(alert.id)} className="rounded-md px-2 py-1 text-xs font-bold text-ink-3 hover:bg-wash hover:text-ink">Clear</button>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            
+
           </div>
         </div>
       </main>
