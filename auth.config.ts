@@ -7,6 +7,7 @@ export function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;
   if (pathname.startsWith("/api/auth/")) return true;      // NextAuth + register
   if (pathname.startsWith("/legal/")) return true;
+  if (pathname === "/api/cron/tick") return true;       // authenticates itself (CRON_SECRET or admin)
   return false;
 }
 

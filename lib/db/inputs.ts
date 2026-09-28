@@ -76,3 +76,25 @@ export const ChartLessonInput = z.object({
     bias: opt(z.string().max(600)),
   })).min(1).max(3),
 });
+
+// ─── Paper trading (P4) ─────────────────────────────────────────────────────
+const price = z.number().finite().positive();
+
+export const PaperOrderInput = z.object({
+  symbol: z.string().trim().min(1).max(30),
+  side: z.enum(["LONG", "SHORT"]),
+  margin: z.number().finite().positive().max(100_000_000),
+  leverage: z.number().finite().min(1).max(20),
+  stopLoss: opt(price),
+  takeProfit: opt(price),
+  signalId: opt(z.string().max(40)),
+});
+
+export const PaperExitsInput = z.object({
+  stopLoss: price.nullable(),
+  takeProfit: price.nullable(),
+});
+
+export const PaperResetInput = z.object({
+  startingBalance: z.number().finite().min(100).max(10_000_000).default(10_000),
+});

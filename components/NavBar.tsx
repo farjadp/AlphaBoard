@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: "/setup", label: "Setup" },
   { href: "/alerts", label: "Alerts" },
   { href: "/archive", label: "Archive" },
+  { href: "/paper", label: "Paper" },
   { href: "/journal", label: "Journal" },
   { href: "/academy", label: "Academy" },
 ];

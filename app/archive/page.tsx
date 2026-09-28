@@ -104,6 +104,14 @@ function HistoryCard({ item, onRemove }: { item: ArchivedSignal, onRemove: () =>
           >
             Log to Journal
           </Link>
+          {item.signal !== "HOLD" && (
+            <Link
+              href={`/paper?signal=${encodeURIComponent(item.id)}`}
+              className="mt-2 inline-flex w-full items-center justify-center rounded-md border border-[var(--accent)] bg-[var(--accent-dim)] py-2 text-[10px] font-bold uppercase tracking-wider text-[var(--accent)] transition-colors hover:bg-[var(--surface-hover)]"
+            >
+              Trade on paper
+            </Link>
+          )}
         </div>
 
         {/* Mid Col: Execution Plan */}

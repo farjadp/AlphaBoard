@@ -37,6 +37,7 @@ model User {
   chartLessons   ChartLesson[]
   priceAlerts    PriceAlert[]
   aiUsage        AiUsage[]
+  paperAccount   PaperAccount?
 }
 
 model Invite {
@@ -203,6 +204,8 @@ model Signal {
   model               String
   createdAt           DateTime @default(now())
 
+  paperPositions PaperPosition[]
+
   @@unique([userId, legacyId])
   @@index([userId, createdAt])
   @@index([symbol, createdAt])
@@ -268,4 +271,102 @@ model AiUsage {
 
   @@index([userId, createdAt])
   @@index([createdAt])
+}
+
+// ─── Paper trading (P4) ──────────────────────────────────────────────────────
+// Isolated margin, market orders. Math lives in lib/paper/engine.ts; persistence in lib/paper/account.ts.
+
+enum PaperSide {
+  LONG
+  SHORT
+}
+
+enum PaperCloseReason {
+  MANUAL
+  STOP_LOSS
+  TAKE_PROFIT
+  LIQUIDATION
+}
+
+enum PaperOrderAction {
+  BUY
+  SELL
+}
+
+model PaperAccount {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startingBalance Float
+  cashBalance     Float
+  currency        String    @default("USDT")
+  /// Last time the tick wrote an equity snapshot for this account.
+  snapshotAt      DateTime?
+  resetAt         DateTime?
+  createdAt       DateTime  @default(now())
+
+  positions PaperPosition[]
+  orders    PaperOrder[]
+  equity    EquitySnapshot[]
+}
+
+model PaperPosition {
+  id            String            @id @default(cuid())
+  accountId     String
+  account       PaperAccount      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  symbol        String
+  side          PaperSide
+  qty           Float
+  entryPrice    Float
+  leverage      Float
+  margin        Float
+  stopLoss      Float?
+  takeProfit    Float?
+  signalId      String?
+  signal        Signal?           @relation(fields: [signalId], references: [id], onDelete: SetNull)
+  /// Entry + exit taker fees charged so far.
+  fees          Float
+  openedAt      DateTime          @default(now())
+  /// Candles that started before this time have already been scanned for SL/TP.
+  lastCheckedAt DateTime          @default(now())
+  closedAt      DateTime?
+  closePrice    Float?
+  realizedPnl   Float?
+  closeReason   PaperCloseReason?
+
+  orders PaperOrder[]
+
+  @@index([accountId, closedAt])
+  @@index([closedAt, symbol])
+}
+
+model PaperOrder {
+  id             String           @id @default(cuid())
+  accountId      String
+  account        PaperAccount     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  positionId     String?
+  position       PaperPosition?   @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  symbol         String
+  action         PaperOrderAction
+  type           String           @default("MARKET")
+  qty            Float
+  requestedPrice Float
+  fillPrice      Float
+  slippage       Float
+  fee            Float
+  status         String           @default("FILLED")
+  reason         String?
+  createdAt      DateTime         @default(now())
+
+  @@index([accountId, createdAt])
+}
+
+model EquitySnapshot {
+  id        String       @id @default(cuid())
+  accountId String
+  account   PaperAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  equity    Float
+  at        DateTime     @default(now())
+
+  @@index([accountId, at])
 }

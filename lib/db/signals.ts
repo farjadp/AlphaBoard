@@ -42,3 +42,9 @@ export async function deleteSignal(userId: string, id: string) {
 export async function clearSignals(userId: string) {
   await prisma.signal.deleteMany({ where: { userId } });
 }
+
+/** One of the user's own signals (null when missing or someone else's). */
+export async function getSignal(userId: string, id: string) {
+  const row = await prisma.signal.findFirst({ where: { id, userId } });
+  return row ? signalToDto(row) : null;
+}

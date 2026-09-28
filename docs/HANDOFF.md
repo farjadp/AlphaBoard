@@ -1,6 +1,6 @@
 # AlphaBoard v2 — Session Handoff
 
-_Last updated: 2026-09-28 · branch `v2` · last commit `f46df3c`_
+_Last updated: 2026-09-28 · branch `v2` · after P4_
 
 Read this first in a new session. Source of truth for the plan: `docs/superpowers/specs/2026-09-27-alphaboard-v2-design.md`.
 Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
@@ -13,12 +13,12 @@ Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
 | P1 · Data integrity | ✅ Done | `lib/market` services (cached), real intraday data for all assets, trend vs stretch scoring, all mocks removed, futures/long-short via Binance→Bybit→OKX, zod-validated AI output |
 | P2 · Persistence | ✅ Done | All user data in Postgres (7 models), owner-only attachments, resource store with optimistic UI, `/import` for v1 browser data, account menu |
 | P3 · AI providers | ✅ Done | `lib/ai`: OpenAI / Anthropic (official SDK, structured outputs) / OpenRouter / DeepSeek, verified price catalog, `AiUsage` logging, per-user daily token quota, `/settings`, `/admin/ai`, `/admin/users` |
-| **P4 · Paper trading** | ⏭ **Next** | Paper account (10k USDT), fills with 0.05% fee + 0.05% slippage, SL/TP on candle high/low, 60s tick job (`instrumentation.ts` + `/api/cron/tick`), equity curve, "trade on paper" from a signal |
-| P5 · Signal evaluation | Pending | Evaluate archived `Signal`s vs later candles (TP/SL/expired, R-multiple), performance page, calibration |
+| P4 · Paper trading | ✅ Done | `lib/paper` engine (isolated margin, 0.05% fee + 0.05% slippage, liquidation, SL/TP on 5m candle high/low + live quote), 60s tick (`lib/jobs`, `instrumentation.ts`, `POST /api/cron/tick`), `/paper` (ticket, positions, history, equity curve, reset), "Trade on paper" from Archive signals. Plan: `docs/superpowers/plans/2026-09-28-p4-paper-trading.md` |
+| **P5 · Signal evaluation** | ⏭ **Next** | Evaluate archived `Signal`s vs later candles (TP/SL/expired, R-multiple), performance page, calibration |
 | P6 · Alerts | Partial | Client bugs fixed in P1; still only evaluates while `/alerts` is open → move to the tick job + notification center + optional Telegram |
 | P7 · UI & release | Pending | Tailwind tokens (remove inline styles), Manrope font, drop purple gradients, landing + SEO, disclaimer acceptance, a11y, `/impeccable` audit, tag `v2.0.0` |
 
-Quality gates at handoff: **115 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems (all rules on), production build clean.
+Quality gates at handoff: **149 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems (all rules on), production build clean.
 
 ## Local environment
 
@@ -42,10 +42,15 @@ Quality gates at handoff: **115 tests passing** (`npm run test:db`), `tsc` clean
 ## Before the first production deploy (Railway project `AlphaBoard-Trading`)
 
 1. Reset the production database (it was created with `db push`, has no migration history); the seed recreates the admin.
-2. Set env: `AUTH_SECRET`, `AUTH_TRUST_HOST=true`, `APP_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, AI keys, optional `CRON_SECRET`.
+2. Set env: `AUTH_SECRET`, `AUTH_TRUST_HOST=true`, `APP_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, AI keys, optional `CRON_SECRET`. Keep a single replica (the tick is in-process).
 3. Push `v2`, let CI pass, open a PR to `main`.
 
-## Open decisions for Farjad
+## Decisions taken (2026-09-28)
 
-- Default AI model: live test showed `gpt-5.4-mini` ~2.5× faster and ~2.3× cheaper than `gpt-4o` for the strategy report (Admin → AI). Not changed without his decision.
-- Claude Opus 5 has server-side refusal fallbacks enabled by default (can be turned off).
+- Default AI model → `gpt-5.4-mini` (built-in default; vision model stays `gpt-4o`). An admin value saved in Admin → AI still wins.
+- Claude Opus 5 refusal fallbacks stay on; every fallback is recorded (`AiUsage.fallbackFrom`) and shown in Admin → AI (Fallbacks column, `requested → served` in By model).
+
+## Tick job
+
+- Runs every 60s in-process (single instance). Disable with `TICK_DISABLED=1`; external trigger: `POST /api/cron/tick` with `Authorization: Bearer $CRON_SECRET` (or an admin session). Last run: `tick` on `/api/health`.
+- P5 (signal evaluation) and P6 (alerts) plug into `runTick()` in `lib/jobs/tick.ts`.

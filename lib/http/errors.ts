@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 
 /** Typed HTTP error the route wrapper turns into a JSON response. */
 export class HttpError extends Error {
@@ -29,6 +30,11 @@ export function errorResponse(err: unknown, requestId?: string) {
       { error: err.message, code: err.code, requestId },
       { status: err.status, headers },
     );
+  }
+  if (err instanceof ZodError) {
+    const issue = err.issues[0];
+    const where = issue?.path.length ? `${issue.path.join(".")}: ` : "";
+    return NextResponse.json({ error: `${where}${issue?.message ?? "Invalid input"}`, code: "VALIDATION", requestId }, { status: 400 });
   }
   return NextResponse.json(
     { error: "Internal server error", code: "INTERNAL", requestId },
