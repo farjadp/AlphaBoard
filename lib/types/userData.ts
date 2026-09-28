@@ -168,4 +168,6 @@ export interface PriceAlert {
   createdAt: string;
   triggered: boolean;
   triggeredAt?: string;
+  /** Price the server saw when the level crossed (P6). */
+  triggerPrice?: number;
 }

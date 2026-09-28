@@ -122,6 +122,7 @@ export function alertToDto(r: AlertRow): PriceAlert {
     condition: r.condition,
     triggered: r.triggered,
     triggeredAt: r.triggeredAt?.toISOString(),
+    triggerPrice: u(r.triggerPrice),
     createdAt: r.createdAt.toISOString(),
   });
 }

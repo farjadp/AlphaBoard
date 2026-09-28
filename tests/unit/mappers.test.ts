@@ -57,7 +57,7 @@ describe("db → client mappers", () => {
   });
 
   it("alert: dates serialize to ISO strings", () => {
-    const dto = alertToDto({ id: "a", userId: "u", legacyId: null, symbol: "XAU/USD", targetPrice: 4200, condition: "above", triggered: true, triggeredAt: d, createdAt: d });
-    expect(dto).toEqual({ id: "a", symbol: "XAU/USD", targetPrice: 4200, condition: "above", triggered: true, triggeredAt: d.toISOString(), createdAt: d.toISOString() });
+    const dto = alertToDto({ id: "a", userId: "u", legacyId: null, symbol: "XAU/USD", targetPrice: 4200, condition: "above", triggered: true, triggeredAt: d, triggerPrice: 4201.5, lastCheckedAt: d, createdAt: d });
+    expect(dto).toEqual({ id: "a", symbol: "XAU/USD", targetPrice: 4200, condition: "above", triggered: true, triggeredAt: d.toISOString(), triggerPrice: 4201.5, createdAt: d.toISOString() });
   });
 });

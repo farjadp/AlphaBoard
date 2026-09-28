@@ -22,6 +22,10 @@ model User {
   aiProvider           String?
   aiModel              String?
   dailyTokenQuota      Int       @default(200000)
+  /// Telegram delivery (P6): chat linked via `/start <code>` sent to the bot.
+  telegramChatId       String?   @unique
+  telegramLinkCode     String?   @unique
+  telegramLinkExpires  DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
@@ -38,6 +42,7 @@ model User {
   priceAlerts    PriceAlert[]
   aiUsage        AiUsage[]
   paperAccount   PaperAccount?
+  notifications  Notification[]
 }
 
 model Invite {
@@ -235,16 +240,20 @@ model ChartLesson {
 }
 
 model PriceAlert {
-  id          String         @id @default(cuid())
-  userId      String
-  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  legacyId    String?
-  symbol      String
-  targetPrice Float
-  condition   AlertCondition
-  triggered   Boolean        @default(false)
-  triggeredAt DateTime?
-  createdAt   DateTime       @default(now())
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legacyId      String?
+  symbol        String
+  targetPrice   Float
+  condition     AlertCondition
+  triggered     Boolean        @default(false)
+  triggeredAt   DateTime?
+  /// Price at which the server saw the level cross (the level itself, or the open on a gap).
+  triggerPrice  Float?
+  /// Candles that started before this time have already been checked.
+  lastCheckedAt DateTime       @default(now())
+  createdAt     DateTime       @default(now())
 
   @@unique([userId, legacyId])
   @@index([userId, triggered])
@@ -399,4 +408,22 @@ model SignalEvaluation {
   createdAt     DateTime      @default(now())
 
   @@index([status, lastCheckedAt])
+}
+
+// ─── Notifications (P6) ──────────────────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// price_alert | paper_close
+  type      String
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
 }
