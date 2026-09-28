@@ -46,6 +46,11 @@ export const MODELS: ModelInfo[] = [
   { provider: "deepseek", id: "deepseek-v4-pro", label: "DeepSeek V4 Pro", vision: false, reasoning: false, priceInPerM: 1.32, priceOutPerM: 3.96 },
 ];
 
+/** Price lookup for whichever model answered (a fallback model may not be selectable, so match by id too). */
+export function priceFor(provider: string, id: string, requested: ModelInfo): ModelInfo {
+  return findModel(provider, id) ?? requested;
+}
+
 export function findModel(provider: string | null | undefined, id: string | null | undefined): ModelInfo | undefined {
   return MODELS.find((m) => m.provider === provider && m.id === id);
 }
@@ -64,7 +69,8 @@ export interface AiSettings {
 
 export const DEFAULT_AI_SETTINGS: AiSettings = {
   provider: "openai",
-  model: "gpt-4o",
+  // gpt-5.4-mini: ~2.5× faster and ~2.3× cheaper than gpt-4o on the strategy report (live test 2026-09-28).
+  model: "gpt-5.4-mini",
   visionProvider: "openai",
   visionModel: "gpt-4o",
   defaultDailyTokenQuota: 200_000,

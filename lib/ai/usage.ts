@@ -24,8 +24,10 @@ export interface UsageRow {
   latencyMs: number;
   status: "ok" | "error";
   errorCode?: string;
+  /** Requested model that declined; `model` is then the fallback that answered. */
+  fallbackFrom?: string;
 }
 
 export async function recordUsage(row: UsageRow): Promise<void> {
-  await prisma.aiUsage.create({ data: { ...row, errorCode: row.errorCode ?? null } });
+  await prisma.aiUsage.create({ data: { ...row, errorCode: row.errorCode ?? null, fallbackFrom: row.fallbackFrom ?? null } });
 }

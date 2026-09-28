@@ -52,8 +52,8 @@ describe.skipIf(!run)("AI orchestration (Postgres)", () => {
 
     const first = await ai(req);                 // 0 used → allowed → 400 tokens
     expect(first.data).toEqual({ ok: true });
-    expect(first.meta).toMatchObject({ provider: "openai", model: "gpt-4o", inputTokens: 300, outputTokens: 100 });
-    expect(first.meta.costUsd).toBeCloseTo((300 * 2.5 + 100 * 10) / 1e6, 10);
+    expect(first.meta).toMatchObject({ provider: "openai", model: "gpt-5.4-mini", inputTokens: 300, outputTokens: 100 });
+    expect(first.meta.costUsd).toBeCloseTo((300 * 0.75 + 100 * 4.5) / 1e6, 10);
     await ai(req);                               // 400 used → allowed → 800
     await ai(req);                               // 800 used → allowed → 1200
     await expect(ai(req)).rejects.toMatchObject({ code: "AI_QUOTA", status: 429 });
@@ -92,6 +92,16 @@ describe.skipIf(!run)("AI orchestration (Postgres)", () => {
     const image = await ai({ feature: "t", userId: u, system: "s", user: [{ type: "image_url", image_url: { url: "data:image/png;base64,AA==" } }], schema, maxTokens: 10 });
     expect(image.meta).toMatchObject({ provider: "openai", model: "gpt-4o-mini", visionFallback: true });
     expect(seen).toEqual(["deepseek:deepseek-v4-pro", "openai:gpt-4o-mini"]);
+  });
+
+  it("records which model a refusal fell back from, priced at the model that answered", async () => {
+    const u = (await prisma.user.create({ data: { email: `ai-fb-${Date.now()}@test.local`, passwordHash: "x", aiProvider: "anthropic", aiModel: "claude-opus-5" } })).id;
+    const ai = createAi(deps({ anthropic: fakeProvider("anthropic", { model: "claude-sonnet-5", fellBack: true }, calls) }));
+    const out = await ai({ feature: "t", userId: u, system: "s", user: "hi", schema, maxTokens: 10 });
+    expect(out.meta).toMatchObject({ model: "claude-sonnet-5", fallbackFrom: "claude-opus-5" });
+    expect(out.meta.costUsd).toBeCloseTo((300 * 2 + 100 * 10) / 1e6, 10);
+    const [row] = await prisma.aiUsage.findMany({ where: { userId: u } });
+    expect(row).toMatchObject({ status: "ok", model: "claude-sonnet-5", fallbackFrom: "claude-opus-5" });
   });
 
   it("settings reject models that are not in the catalog", async () => {

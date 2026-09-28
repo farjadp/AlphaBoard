@@ -19,14 +19,15 @@ export default async function AdminAiPage() {
     <section className="rounded-xl border border-gray-800 overflow-hidden">
       <h3 className="bg-gray-900 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
       <table className="w-full text-left text-sm">
-        <thead className="text-gray-500"><tr><th className="p-2 font-medium"> </th><th className="p-2 font-medium text-right">Calls</th><th className="p-2 font-medium text-right">Errors</th><th className="p-2 font-medium text-right">Tokens</th><th className="p-2 font-medium text-right">Est. cost</th></tr></thead>
+        <thead className="text-gray-500"><tr><th className="p-2 font-medium"> </th><th className="p-2 font-medium text-right">Calls</th><th className="p-2 font-medium text-right">Errors</th><th className="p-2 font-medium text-right" title="Refused by the requested model and answered by a server-side fallback">Fallbacks</th><th className="p-2 font-medium text-right">Tokens</th><th className="p-2 font-medium text-right">Est. cost</th></tr></thead>
         <tbody>
-          {rows.length === 0 && <tr><td colSpan={5} className="p-3 text-center text-gray-500">No usage yet.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={6} className="p-3 text-center text-gray-500">No usage yet.</td></tr>}
           {rows.map((r) => (
             <tr key={r.key} className="border-t border-gray-800 tabular-nums">
               <td className="p-2 text-gray-200">{r.key}</td>
               <td className="p-2 text-right">{r.calls}</td>
               <td className={`p-2 text-right ${r.errors ? "text-amber-400" : "text-gray-500"}`}>{r.errors}</td>
+              <td className={`p-2 text-right ${r.fallbacks ? "text-sky-400" : "text-gray-500"}`}>{r.fallbacks}</td>
               <td className="p-2 text-right">{r.tokens.toLocaleString("en-US")}</td>
               <td className="p-2 text-right">{usd(r.costUsd)}</td>
             </tr>
@@ -54,8 +55,8 @@ export default async function AdminAiPage() {
 
       <AiSettingsForm initial={settings} models={MODELS} providers={providers} />
 
-      <section className="grid gap-3 sm:grid-cols-4 text-sm">
-        {[["Calls", usage.total.calls.toLocaleString("en-US")], ["Errors", String(usage.total.errors)], ["Tokens", usage.total.tokens.toLocaleString("en-US")], ["Est. cost", usd(usage.total.costUsd)]].map(([k, v]) => (
+      <section className="grid gap-3 sm:grid-cols-5 text-sm">
+        {[["Calls", usage.total.calls.toLocaleString("en-US")], ["Errors", String(usage.total.errors)], ["Fallbacks", String(usage.total.fallbacks)], ["Tokens", usage.total.tokens.toLocaleString("en-US")], ["Est. cost", usd(usage.total.costUsd)]].map(([k, v]) => (
           <div key={k} className="rounded-lg border border-gray-800 p-3"><p className="text-xs text-gray-500">{k} · 7 days</p><p className="text-lg font-semibold tabular-nums">{v}</p></div>
         ))}
       </section>

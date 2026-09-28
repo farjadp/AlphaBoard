@@ -65,4 +65,13 @@ describe("Anthropic adapter", () => {
     expect(normalizeAnthropicMessage({ model: "m", stop_reason: "refusal", content: [], usage: { input_tokens: 1, output_tokens: 0 }, stop_details: { type: "refusal", category: "cyber", explanation: "x" } }))
       .toMatchObject({ finishReason: "refusal", refusal: "cyber" });
   });
+  it("flags answers served by a server-side fallback model", () => {
+    const rescued = normalizeAnthropicMessage({
+      model: "claude-opus-4-8", stop_reason: "end_turn",
+      content: [{ type: "fallback" }, { type: "text", text: "{}" }],
+      usage: { input_tokens: 40, output_tokens: 9, iterations: [{ type: "message" }, { type: "fallback_message" }] },
+    });
+    expect(rescued).toMatchObject({ model: "claude-opus-4-8", fellBack: true });
+    expect(normalizeAnthropicMessage({ model: "claude-opus-5", stop_reason: "end_turn", content: [], usage: { input_tokens: 1, output_tokens: 1, iterations: [{ type: "message" }] } }).fellBack).toBeFalsy();
+  });
 });

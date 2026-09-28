@@ -262,6 +262,8 @@ model AiUsage {
   latencyMs    Int      @default(0)
   status       String
   errorCode    String?
+  /// Requested model that refused; `model` is the server-side fallback that answered.
+  fallbackFrom String?
   createdAt    DateTime @default(now())
 
   @@index([userId, createdAt])

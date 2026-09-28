@@ -4,7 +4,7 @@
  */
 import type { z } from "zod";
 import { logger } from "@/lib/http/logger";
-import { estimateCostUsd, resolveModel, type AiSettings } from "./catalog";
+import { estimateCostUsd, priceFor, resolveModel, type AiSettings } from "./catalog";
 import { AiError } from "./errors";
 import { parseModelJson } from "./json";
 import { anthropicProvider } from "./providers/anthropic";
@@ -35,6 +35,8 @@ export interface AiMeta {
   outputTokens: number;
   costUsd: number;
   visionFallback: boolean;
+  /** Set when the requested model refused and a server-side fallback answered. */
+  fallbackFrom?: string;
 }
 
 export function createAi(deps: AiDeps) {
@@ -68,14 +70,18 @@ export function createAi(deps: AiDeps) {
     }
 
     const { inputTokens, outputTokens } = result.usage;
-    const costUsd = result.costUsd ?? estimateCostUsd(resolved.info, inputTokens, outputTokens);
-    const meta: AiMeta = { provider: resolved.provider, model: result.model || resolved.model, inputTokens, outputTokens, costUsd, visionFallback: !!resolved.visionFallback };
-    const row = { ...base, model: meta.model, inputTokens, outputTokens, costUsd, latencyMs: Date.now() - started };
+    const servedBy = result.model || resolved.model;
+    // Top-level usage covers only the answering attempt, which bills at that model's rates.
+    const costUsd = result.costUsd ?? estimateCostUsd(priceFor(resolved.provider, servedBy, resolved.info), inputTokens, outputTokens);
+    const fallbackFrom = result.fellBack ? resolved.model : undefined;
+    const meta: AiMeta = { provider: resolved.provider, model: servedBy, inputTokens, outputTokens, costUsd, visionFallback: !!resolved.visionFallback, ...(fallbackFrom ? { fallbackFrom } : {}) };
+    const row = { ...base, model: meta.model, inputTokens, outputTokens, costUsd, latencyMs: Date.now() - started, fallbackFrom };
 
     try {
       const data = parseModelJson(result, req.schema);
       await deps.recordUsage({ ...row, status: "ok" });
-      logger.info({ ...row }, "ai call ok");
+      if (fallbackFrom) logger.warn({ ...row }, "ai refusal served by fallback model");
+      else logger.info({ ...row }, "ai call ok");
       return { data, meta };
     } catch (e) {
       // The provider billed these tokens even though the answer was unusable.

@@ -24,6 +24,8 @@ export interface CompletionResult {
   usage: { inputTokens: number; outputTokens: number };
   /** The model that actually served the request (may differ after a fallback). */
   model: string;
+  /** True when the requested model declined and a server-side fallback model answered instead. */
+  fellBack?: boolean;
   /** Provider-reported cost when available (OpenRouter); otherwise estimated from the catalog. */
   costUsd?: number;
 }

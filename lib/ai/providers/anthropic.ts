@@ -42,7 +42,11 @@ type RawMessage = {
   model: string;
   stop_reason: string | null;
   content: Array<{ type: string; text?: string; thinking?: string }>;
-  usage: { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null };
+  usage: {
+    input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number | null; cache_read_input_tokens?: number | null;
+    /** Per-attempt breakdown; a `fallback_message` entry means a fallback model produced the answer. */
+    iterations?: Array<{ type: string }> | null;
+  };
   stop_details?: { type?: string; category?: string | null; explanation?: string | null } | null;
 };
 
@@ -59,6 +63,7 @@ export function normalizeAnthropicMessage(msg: RawMessage): CompletionResult {
       outputTokens: msg.usage.output_tokens,
     },
     model: msg.model,
+    fellBack: (msg.usage.iterations ?? []).some((i) => i.type === "fallback_message"),
   };
 }
 
