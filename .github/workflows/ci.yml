@@ -26,6 +26,7 @@ jobs:
           --health-interval 5s --health-timeout 3s --health-retries 10
     env:
       DATABASE_URL: postgresql://alphaboard:alphaboard@localhost:5432/alphaboard?schema=public
+      TEST_DATABASE_URL: postgresql://alphaboard:alphaboard@localhost:5432/alphaboard?schema=test
       AUTH_SECRET: ci-only-secret-not-for-production-0123456789
       AUTH_TRUST_HOST: "true"
       NEXT_TELEMETRY_DISABLED: "1"

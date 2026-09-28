@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { AuthError } from "next-auth";
-import { signIn } from "@/auth";
+import { signIn, signOut } from "@/auth";
 import { limiters } from "@/lib/http/rateLimit";
 
 export async function authenticate(_prev: string | undefined, formData: FormData): Promise<string | undefined> {
@@ -23,4 +23,9 @@ export async function authenticate(_prev: string | undefined, formData: FormData
     }
     throw error; // NEXT_REDIRECT must propagate
   }
+}
+
+/** Ends the session. The client follows up with a full page load so no cached user data survives. */
+export async function signOutAction(): Promise<void> {
+  await signOut({ redirect: false });
 }

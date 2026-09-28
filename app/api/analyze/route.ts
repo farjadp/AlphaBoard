@@ -14,19 +14,21 @@ import { openaiChatJson } from "@/lib/ai/openai";
 import { AnalysisSchema } from "@/lib/ai/schemas";
 import { AiError } from "@/lib/ai/errors";
 import { buildAnalyzePrompt, sanitizeLessons } from "@/lib/ai/prompts/analyze";
+import { lessonsForPrompt } from "@/lib/db/lessons";
+import { chartLessonsForPrompt } from "@/lib/db/chartLessons";
+import { archiveAnalysis } from "@/lib/db/signals";
 
 export const dynamic = "force-dynamic";
 
 const Body = z.object({
   symbol: z.string(),
   timeframe: z.string().optional(),
-  pastLessons: z.unknown().optional(),
-  chartLessons: z.unknown().optional(),
 });
 
 /**
- * Strategy report. The client sends only symbol + timeframe (+ its own lessons); every market
- * input is fetched and computed here, so the model never sees client-fabricated indicators.
+ * Strategy report. The client sends only symbol + timeframe. Market inputs are fetched and computed
+ * here, and the trader's lessons are read from their own rows, so nothing in the prompt is
+ * client-supplied. Every report is archived with the exact price the model saw.
  */
 export const POST = route(async (req) => {
   const user = await requireUser();
@@ -35,13 +37,15 @@ export const POST = route(async (req) => {
   const asset = requireAsset(body.symbol);
   const timeframe = requireTimeframe(body.timeframe, "1H");
 
-  const [report, quote, futures, news, balanceSheet, cashflow] = await Promise.all([
+  const [report, quote, futures, news, balanceSheet, cashflow, pastLessons, chartLessons] = await Promise.all([
     getIndicatorReport(asset, timeframe),
     getQuote(asset),
     getFutures(asset),
     getNews(asset),
     getBalanceSheet(asset),
     getCashflow(asset),
+    lessonsForPrompt(user.id, asset.symbol),
+    chartLessonsForPrompt(user.id),
   ]);
 
   if (!report.available || !quote) {
@@ -51,7 +55,7 @@ export const POST = route(async (req) => {
     );
   }
 
-  const lessons = sanitizeLessons(body);
+  const lessons = sanitizeLessons({ pastLessons, chartLessons });
   const prompt = buildAnalyzePrompt({
     symbol: asset.symbol,
     assetName: asset.name,
@@ -79,8 +83,12 @@ export const POST = route(async (req) => {
   const far = [analysis.entry, analysis.stopLoss, analysis.takeProfit].some((p) => p > 0 && Math.abs(p / quote.price - 1) > 0.5);
   if (far) throw new AiError("AI_SCHEMA", "levels far from live price");
 
+  const model = process.env.OPENAI_MODEL ?? "gpt-4o";
+  const archived = await archiveAnalysis(user.id, analysis, { symbol: asset.symbol, timeframe, priceAtSignal: quote.price, provider: "openai", model });
+
   return NextResponse.json({
     ...analysis,
+    id: archived.id,
     context: {
       symbol: asset.symbol,
       timeframe,

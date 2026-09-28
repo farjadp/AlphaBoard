@@ -1,105 +1,49 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { createLocalStore, useLocalStore, STORAGE_FULL_MESSAGE, type WriteResult } from "@/lib/client/localStore";
-import { computePnl, DEFAULT_FEE_RATE_PERCENT, type TradePosition } from "@/lib/journal/pnl";
+import { useCallback } from "react";
+import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
+import { withDerivedPnl } from "@/lib/journal/derive";
+import { computePnl, DEFAULT_FEE_RATE_PERCENT } from "@/lib/journal/pnl";
+import type { JournalEntry, PostMortemAnalysis, TradeEmotion, TradePosition } from "@/lib/types/userData";
 
 export { computePnl, DEFAULT_FEE_RATE_PERCENT };
-export type { TradePosition };
-export type TradeEmotion = "Confident" | "FOMO" | "Panic" | "Neutral" | "Greed" | "Revenge";
-
-export interface PostMortemAnalysis {
-  outcome: "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
-  rootCause: string;
-  mistakes: string[];
-  strengths: string[];
-  lesson: string;
-  tags: string[];
-  generatedAt: string;
-}
-
-export interface JournalEntry {
-  id: string;
-  timestamp: string; // ISO String
-  symbol: string;
-  position: TradePosition;
-  entryPrice: number;
-  exitPrice?: number;
-  pnlPercent?: number; // NET pnl% (after fees)
-  grossPnlPercent?: number; // GROSS pnl% (raw price move × leverage)
-  feeRatePercent?: number; // per-side taker fee % (e.g. 0.05 for 0.05%). Undefined = use DEFAULT_FEE_RATE_PERCENT
-  pnlSource?: "calculated" | "exchange"; // "exchange" means pnlPercent was provided directly (e.g. from screenshot) and should not be recomputed
-  emotion: TradeEmotion;
-  notes: string;
-  leverage?: number;
-  margin?: number;
-  marginMode?: "Cross" | "Isolated";
-  status: "OPEN" | "CLOSED";
-  screenshotUrl?: string; // base64 data URL of post-mortem screenshot
-  postMortem?: PostMortemAnalysis;
-}
+export type { JournalEntry, PostMortemAnalysis, TradeEmotion, TradePosition };
 
 const EMPTY: JournalEntry[] = [];
+const journalResource = createResource<JournalEntry[]>("/api/journal", { fallback: EMPTY, select: (j) => (j as { entries: JournalEntry[] }).entries });
 
-const journalStore = createLocalStore<JournalEntry[]>("alphaboard_trading_journal", EMPTY, {
-  parse: (raw) => (Array.isArray(raw) ? (raw as JournalEntry[]).filter((e) => e && typeof e.id === "string") : EMPTY),
-});
-
-/** Recompute status/PnL for an entry from its raw fields (exchange-provided PnL is never overwritten). */
-function withDerivedPnl(entry: JournalEntry): JournalEntry {
-  const next = { ...entry };
-  const exchangeLocked = next.pnlSource === "exchange" && typeof next.pnlPercent === "number";
-  if (next.exitPrice && next.exitPrice > 0) {
-    next.status = "CLOSED";
-    const pnl = computePnl({
-      entryPrice: next.entryPrice,
-      exitPrice: next.exitPrice,
-      position: next.position,
-      leverage: next.leverage,
-      feeRatePercent: next.feeRatePercent,
-    });
-    if (pnl) {
-      next.grossPnlPercent = pnl.gross;
-      if (!exchangeLocked) {
-        next.pnlPercent = pnl.net;
-        next.pnlSource = "calculated";
-      }
-    }
-  } else if (exchangeLocked) {
-    next.status = "CLOSED"; // exchange PnL without an exit price still means the trade closed
-  }
-  return next;
-}
+type NewEntry = Omit<JournalEntry, "id" | "timestamp" | "status">;
 
 export function useJournal() {
-  const entries = useLocalStore(journalStore);
-  const [storageError, setStorageError] = useState<string | null>(null);
+  const { data: entries, loaded, error } = useResource(journalResource);
 
-  // v1 swallowed quota errors: the UI looked saved, then the data vanished on reload.
-  const commit = useCallback((fn: (prev: JournalEntry[]) => JournalEntry[]) => {
-    const res: WriteResult = journalStore.update(fn);
-    setStorageError(res.ok ? null : res.quotaExceeded ? STORAGE_FULL_MESSAGE : "The journal could not be saved in this browser.");
-    return res.ok;
+  const addEntry = useCallback((entryData: NewEntry) => {
+    const tmp = withDerivedPnl({ ...entryData, id: tempId(), timestamp: new Date().toISOString(), status: "OPEN" });
+    return journalResource.mutate<{ entry: JournalEntry }>({
+      optimistic: (d) => [tmp, ...d],
+      request: jsonRequest("/api/journal", "POST", entryData),
+      apply: (d, body) => d.map((e) => (e.id === tmp.id ? body.entry : e)),
+    }).then(() => true, () => false);
   }, []);
 
-  const addEntry = useCallback((entryData: Omit<JournalEntry, "id" | "timestamp" | "status"> & { pnlPercent?: number; pnlSource?: JournalEntry["pnlSource"] }) => {
-    const exchangeProvided = entryData.pnlSource === "exchange" && typeof entryData.pnlPercent === "number";
-    const entry = withDerivedPnl({
-      ...entryData,
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      status: "OPEN",
-      pnlSource: exchangeProvided ? "exchange" : undefined,
-    });
-    return commit((prev) => [entry, ...prev]);
-  }, [commit]);
-
+  /** A data-URL screenshotUrl uploads a new screenshot; the server returns the stored URL. */
   const updateEntry = useCallback((id: string, updates: Partial<JournalEntry>) => {
-    return commit((prev) => prev.map((e) => (e.id === id ? withDerivedPnl({ ...e, ...updates }) : e)));
-  }, [commit]);
+    return journalResource.mutate<{ entry: JournalEntry }>({
+      optimistic: (d) => d.map((e) => (e.id === id ? withDerivedPnl({ ...e, ...updates }) : e)),
+      request: jsonRequest(`/api/journal/${id}`, "PATCH", updates),
+      apply: (d, body) => d.map((e) => (e.id === id ? body.entry : e)),
+    }).then(() => true, () => false);
+  }, []);
 
-  const removeEntry = useCallback((id: string) => commit((prev) => prev.filter((e) => e.id !== id)), [commit]);
-  const clearJournal = useCallback(() => commit(() => []), [commit]);
+  const removeEntry = useCallback((id: string) => journalResource.mutate({
+    optimistic: (d) => d.filter((e) => e.id !== id),
+    request: jsonRequest(`/api/journal/${id}`, "DELETE"),
+  }).then(() => true, () => false), []);
 
-  return { entries, addEntry, removeEntry, updateEntry, clearJournal, storageError };
+  const clearJournal = useCallback(() => journalResource.mutate({
+    optimistic: () => [],
+    request: jsonRequest("/api/journal", "DELETE"),
+  }).then(() => true, () => false), []);
+
+  return { entries, loaded, addEntry, removeEntry, updateEntry, clearJournal, storageError: error };
 }

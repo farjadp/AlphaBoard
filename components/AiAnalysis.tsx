@@ -4,9 +4,7 @@ import { useMemo, useState } from "react";
 import { REPORT_TIMEFRAME_OPTIONS, type ReportTimeframe } from "./StatsPanel";
 import type { CandlestickPatternMatch } from "@/lib/candlestickPatterns";
 import type { ChartPatternMatch } from "@/lib/chartPatterns";
-import { useSignalHistory } from "@/hooks/useSignalHistory";
-import { getRelevantLessons } from "@/hooks/useTradeLessons";
-import { useChartAcademy } from "@/hooks/useChartAcademy";
+import { invalidateSignals } from "@/hooks/useSignalHistory";
 import PatternMiniVisual from "./PatternMiniVisual";
 
 interface MultiTimeframeIndicator {
@@ -95,8 +93,6 @@ export default function AiAnalysis({ symbol, indicators, selectedTimeframe, onTi
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { archiveSignal } = useSignalHistory();
-  const { getLessonsForPrompt } = useChartAcademy();
   const activePattern = indicators?.candlestickPattern;
   const activeChartPattern = indicators?.chartPattern;
   const multiTimeframes = indicators?.multiTimeframes ?? [];
@@ -119,17 +115,12 @@ export default function AiAnalysis({ symbol, indicators, selectedTimeframe, onTi
     setResult(null);
     onResultChange?.(null);
     try {
-      // Only choices + the trader's own lessons are sent. Price, indicators, news, futures and
-      // fundamentals are fetched and computed on the server.
+      // Only the choice is sent. Price, indicators, news, futures, fundamentals and the trader's
+      // lessons are gathered on the server, which also archives the result.
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          symbol,
-          timeframe: selectedTimeframe,
-          pastLessons: getRelevantLessons({ symbol, limit: 6 }),
-          chartLessons: getLessonsForPrompt(5),
-        }),
+        body: JSON.stringify({ symbol, timeframe: selectedTimeframe }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -138,20 +129,7 @@ export default function AiAnalysis({ symbol, indicators, selectedTimeframe, onTi
       setResult(data);
       onResultChange?.(data);
 
-      archiveSignal({
-        symbol,
-        price: data.context?.priceAtSignal ?? 0,
-        signal: data.signal,
-        confidence: data.confidence,
-        timeframe: data.timeframe,
-        entry: data.entry,
-        stopLoss: data.stopLoss,
-        takeProfit: data.takeProfit,
-        tradeStyle: data.tradeStyle,
-        risk_management: data.risk_management,
-        reasoning: data.reasoning,
-        indicators_breakdown: data.indicators_breakdown,
-      });
+      invalidateSignals();
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
       onResultChange?.(null);

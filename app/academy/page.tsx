@@ -54,6 +54,7 @@ export default function AcademyPage() {
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"analyze" | "lessons">("analyze");
   const [activeTF, setActiveTF] = useState(0);
 
@@ -95,11 +96,12 @@ export default function AcademyPage() {
     }
   };
 
-  const handleSave = () => {
-    if (!result) return;
-    let id: string;
+  const handleSave = async () => {
+    if (!result || saving) return;
+    setSaving(true);
+    setError(null);
     try {
-      id = addLesson({
+      const id = await addLesson({
       overallSignal: result.overallSignal,
       confluenceScore: result.confluenceScore,
       summary: result.summary,
@@ -119,11 +121,12 @@ export default function AcademyPage() {
         };
       }),
       });
+      setSavedId(id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save the lesson");
-      return;
+    } finally {
+      setSaving(false);
     }
-    setSavedId(id);
   };
 
   return (
@@ -321,11 +324,12 @@ export default function AcademyPage() {
                     ) : (
                       <button
                         onClick={handleSave}
+                        disabled={saving}
                         style={{
                           padding: "7px 16px", borderRadius: "8px", fontSize: "11px", fontWeight: 700, cursor: "pointer",
                           background: "var(--gradient-accent)", color: "#fff", border: "none",
                         }}
-                      >💾 ذخیره در مغز</button>
+                      >{saving ? "در حال ذخیره…" : "💾 ذخیره در مغز"}</button>
                     )}
                   </div>
                   <ConfluenceMeter score={result.confluenceScore} />

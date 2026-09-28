@@ -90,6 +90,15 @@ docker compose --profile full up --build     # app + postgres
 
 The image runs as a non-root user, applies migrations at boot, and exposes `GET /api/health`.
 
+### Your data
+
+Everything a trader creates (journal, lessons, signal archive, chart studies, alerts, watchlist) is stored in PostgreSQL and scoped to their account; screenshots are stored as owner-only attachments. Data saved in the browser by earlier versions can be moved into the account at **/import**.
+
+| Command | What it does |
+| --- | --- |
+| `npm test` | Unit tests |
+| `npm run test:db` | Unit + Postgres-backed tests (uses schema `test` on the local dev database) |
+
 ### Security model (v2)
 
 - Every page except `/`, `/login`, `/register`, `/legal` requires a session; every Route Handler and Server Action calls `requireUser()` / `requireAdmin()` from `lib/auth/dal.ts`.

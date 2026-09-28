@@ -1,49 +1,43 @@
 "use client";
 
 import { useCallback } from "react";
-import { createLocalStore, useLocalStore } from "@/lib/client/localStore";
+import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
+import type { PriceAlert } from "@/lib/types/userData";
 
-export interface PriceAlert {
-  id: string;
-  symbol: string;
-  targetPrice: number;
-  condition: "above" | "below";
-  createdAt: string;
-  triggered: boolean;
-  triggeredAt?: string;
-}
+export type { PriceAlert };
 
 const EMPTY: PriceAlert[] = [];
+const alertsResource = createResource<PriceAlert[]>("/api/alerts", { fallback: EMPTY, select: (j) => (j as { alerts: PriceAlert[] }).alerts });
 
-const alertsStore = createLocalStore<PriceAlert[]>("alphaboard_price_alerts", EMPTY, {
-  parse: (raw) => (Array.isArray(raw) ? (raw as PriceAlert[]).filter((a) => a && typeof a.id === "string" && typeof a.targetPrice === "number") : EMPTY),
-});
+const replace = (list: PriceAlert[], id: string, next: PriceAlert | null) =>
+  next ? list.map((a) => (a.id === id ? next : a)) : list;
 
 export function useAlerts() {
-  const alerts = useLocalStore(alertsStore);
+  const { data: alerts, loaded, error } = useResource(alertsResource);
 
   const addAlert = useCallback((symbol: string, targetPrice: number, condition: "above" | "below") => {
-    const alert: PriceAlert = {
-      id: crypto.randomUUID(),
-      symbol,
-      targetPrice,
-      condition,
-      createdAt: new Date().toISOString(),
-      triggered: false,
-    };
-    alertsStore.update((prev) => [alert, ...prev]);
+    const tmp: PriceAlert = { id: tempId(), symbol, targetPrice, condition, createdAt: new Date().toISOString(), triggered: false };
+    return alertsResource.mutate<{ alert: PriceAlert }>({
+      optimistic: (d) => [tmp, ...d],
+      request: jsonRequest("/api/alerts", "POST", { symbol, targetPrice, condition }),
+      apply: (d, body) => replace(d, tmp.id, body.alert),
+    }).catch(() => undefined);
   }, []);
 
-  const removeAlert = useCallback((id: string) => {
-    alertsStore.update((prev) => prev.filter((a) => a.id !== id));
-  }, []);
+  const removeAlert = useCallback((id: string) => alertsResource.mutate({
+    optimistic: (d) => d.filter((a) => a.id !== id),
+    request: jsonRequest(`/api/alerts/${id}`, "DELETE"),
+  }).catch(() => undefined), []);
 
-  /** Idempotent and always applied to the latest state, so several alerts can fire in one tick. */
+  /** Idempotent on the server, so several alerts firing in one tick are all recorded. */
   const markTriggered = useCallback((id: string) => {
-    alertsStore.update((prev) =>
-      prev.map((a) => (a.id === id && !a.triggered ? { ...a, triggered: true, triggeredAt: new Date().toISOString() } : a)),
-    );
+    if (id.startsWith("tmp-")) return;
+    return alertsResource.mutate<{ alert: PriceAlert | null }>({
+      optimistic: (d) => d.map((a) => (a.id === id && !a.triggered ? { ...a, triggered: true, triggeredAt: new Date().toISOString() } : a)),
+      request: jsonRequest(`/api/alerts/${id}`, "PATCH"),
+      apply: (d, body) => replace(d, id, body.alert),
+    }).catch(() => undefined);
   }, []);
 
-  return { alerts, addAlert, removeAlert, markTriggered };
+  return { alerts, loaded, error, addAlert, removeAlert, markTriggered };
 }

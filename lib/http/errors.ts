@@ -14,6 +14,7 @@ export class HttpError extends Error {
 
 export const unauthorized = (msg = "Authentication required") => new HttpError(401, msg, "UNAUTHORIZED");
 export const forbidden = (msg = "Insufficient permissions") => new HttpError(403, msg, "FORBIDDEN");
+export const notFound = (msg = "Not found") => new HttpError(404, msg, "NOT_FOUND");
 export const badRequest = (msg = "Invalid request", code = "BAD_REQUEST") => new HttpError(400, msg, code);
 export const tooManyRequests = (retryAfterMs: number) =>
   Object.assign(new HttpError(429, "Too many requests", "RATE_LIMITED"), { retryAfterMs });

@@ -10,6 +10,7 @@ import { useTradfiQuotes, type TradfiQuote } from "@/hooks/useTradfiQuotes";
 import { formatPrice } from "@/lib/binance";
 import type { BinanceTicker } from "@/lib/binance";
 import { assetHref, findAsset } from "@/lib/assetCatalog";
+import { hasLegacyData, useHydrated } from "@/lib/client/legacy";
 
 interface DashboardScreenProps {
   routeSymbol: string;
@@ -39,6 +40,8 @@ export default function DashboardScreen({ routeSymbol }: DashboardScreenProps) {
   const change = binanceTicker?.change ?? tradfiQuote?.change ?? 0;
   const volume = binanceTicker?.volume ?? (tradfiQuote?.volume || undefined);
   const positive = change >= 0;
+  const hydrated = useHydrated();
+  const showImportBanner = hydrated && hasLegacyData();
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg)" }}>
@@ -53,6 +56,12 @@ export default function DashboardScreen({ routeSymbol }: DashboardScreenProps) {
 
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto space-y-6">
+            {showImportBanner && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                <span>This browser still holds AlphaBoard data from an earlier version. Import it so it is saved to your account.</span>
+                <Link href="/import" className="rounded-lg bg-amber-300 px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-amber-200">Import now</Link>
+              </div>
+            )}
             <div className="flex items-end justify-between animate-fade-up">
               <div>
                 <div className="flex items-center gap-3 mb-1">

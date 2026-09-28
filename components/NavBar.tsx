@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useNow } from "@/lib/client/useNow";
+import AccountMenu from "@/components/account/AccountMenu";
 
 const NAV_LINKS = [
   { href: "/", label: "Dashboard" },
@@ -243,6 +244,7 @@ export default function NavBar({ connected = true }: { connected?: boolean }) {
           <span style={{ color: connected ? "var(--green)" : "var(--text-3)", fontWeight: 500 }}>
             {connected ? "LIVE" : "connecting…"}
           </span>
+          <span className="ml-3"><AccountMenu /></span>
         </div>
       </div>
 

@@ -6,7 +6,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   resolve: {
-    alias: { "@": here },
+    alias: { "@": here, "server-only": path.join(here, "tests/setup/serverOnly.ts") },
   },
   // Keep vite's file crawling/watching away from the (slow, cloud-synced) project root.
   cacheDir: path.join(process.env.TMPDIR ?? "/tmp", "alphaboard-vite"),
@@ -19,6 +19,10 @@ export default defineConfig({
     globals: false,
     clearMocks: true,
     pool: "forks",
+    setupFiles: ["tests/setup/env.ts"],
+    globalSetup: ["tests/setup/globalSetup.ts"],
+    // DB suites share one schema; run files sequentially so they cannot interfere.
+    fileParallelism: false,
     server: { deps: { inline: [] } },
   },
 });

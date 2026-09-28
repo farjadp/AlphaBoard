@@ -1,56 +1,61 @@
 "use client";
 
 import { useCallback } from "react";
-import { DEFAULT_WATCHLIST, ASSET_CATALOG, findAsset, type Asset } from "@/lib/assetCatalog";
-import { createLocalStore, useHydrated, useLocalStore } from "@/lib/client/localStore";
+import { DEFAULT_WATCHLIST, findAsset, type Asset } from "@/lib/assetCatalog";
+import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
 
 const MAX_ITEMS = 5;
 
-const watchlistStore = createLocalStore<string[]>("alphaboard_watchlist_v2", DEFAULT_WATCHLIST, {
-  parse: (raw) => {
-    if (!Array.isArray(raw)) throw new Error("watchlist: not an array");
-    const valid = Array.from(new Set(raw.filter((s): s is string => typeof s === "string" && ASSET_CATALOG.some((a) => a.symbol === s))));
-    return valid.length ? valid.slice(0, MAX_ITEMS) : DEFAULT_WATCHLIST;
-  },
+const watchlistResource = createResource<string[]>("/api/watchlist", {
+  fallback: DEFAULT_WATCHLIST,
+  select: (j) => (j as { symbols: string[] }).symbols,
 });
 
+function save(next: string[]) {
+  const symbols = next.slice(0, MAX_ITEMS);
+  return watchlistResource
+    .mutate<{ symbols: string[] }>({
+      optimistic: () => symbols,
+      request: jsonRequest("/api/watchlist", "PUT", { symbols }),
+      apply: (_d, body) => body.symbols,
+    })
+    .catch(() => undefined); // error is exposed via the resource state
+}
+
 export function useWatchlist() {
-  const symbols = useLocalStore(watchlistStore);
-  const hydrated = useHydrated();
+  const { data: symbols, loaded, error } = useResource(watchlistResource);
 
   const addAsset = useCallback((symbol: string) => {
-    watchlistStore.update((prev) => (prev.includes(symbol) || prev.length >= MAX_ITEMS ? prev : [...prev, symbol]));
+    const prev = watchlistResource.peek();
+    if (prev.includes(symbol) || prev.length >= MAX_ITEMS) return;
+    void save([...prev, symbol]);
   }, []);
 
   const removeAsset = useCallback((symbol: string) => {
-    watchlistStore.update((prev) => prev.filter((s) => s !== symbol));
+    void save(watchlistResource.peek().filter((s) => s !== symbol));
   }, []);
 
   const reorder = useCallback((from: number, to: number) => {
-    watchlistStore.update((prev) => {
-      const next = [...prev];
-      const [item] = next.splice(from, 1);
-      next.splice(to, 0, item);
-      return next;
-    });
+    const next = [...watchlistResource.peek()];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    void save(next);
   }, []);
 
-  const save = useCallback((next: string[]) => { watchlistStore.update(() => next.slice(0, MAX_ITEMS)); }, []);
   const isSelected = useCallback((symbol: string) => symbols.includes(symbol), [symbols]);
-
-  /** Full Asset objects for the current watchlist, preserving order */
   const watchlist: Asset[] = symbols.map(findAsset).filter((a): a is Asset => !!a);
 
   return {
     symbols,
     watchlist,
-    hydrated,
+    hydrated: loaded,
+    error,
     isFull: symbols.length >= MAX_ITEMS,
     maxItems: MAX_ITEMS,
     addAsset,
     removeAsset,
     reorder,
     isSelected,
-    save,
+    save: useCallback((next: string[]) => { void save(next); }, []),
   };
 }

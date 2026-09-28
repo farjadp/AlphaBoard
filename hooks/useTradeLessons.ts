@@ -1,54 +1,36 @@
 "use client";
 
 import { useCallback } from "react";
-import { createLocalStore, useLocalStore } from "@/lib/client/localStore";
+import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
+import type { LessonOutcome, TradeLesson } from "@/lib/types/userData";
 
-export type LessonOutcome = "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
-
-export interface TradeLesson {
-  id: string;
-  tradeId: string;
-  symbol: string;
-  position: "LONG" | "SHORT" | "SPOT";
-  outcome: LessonOutcome;
-  pnlPercent?: number;
-  timeframe?: string;
-  rootCause: string;
-  mistakes: string[];
-  strengths: string[];
-  lesson: string;
-  tags: string[];
-  emotion?: string;
-  timestamp: string;
-}
+export type { LessonOutcome, TradeLesson };
 
 const EMPTY: TradeLesson[] = [];
-
-const lessonsStore = createLocalStore<TradeLesson[]>("alphaboard_trade_lessons", EMPTY, {
-  parse: (raw) => (Array.isArray(raw) ? (raw as TradeLesson[]).filter((l) => l && typeof l.id === "string") : EMPTY),
-});
+const lessonsResource = createResource<TradeLesson[]>("/api/lessons", { fallback: EMPTY, select: (j) => (j as { lessons: TradeLesson[] }).lessons });
 
 export function useTradeLessons() {
-  const lessons = useLocalStore(lessonsStore);
+  const { data: lessons, loaded, error } = useResource(lessonsResource);
 
+  /** One lesson per trade: saving again for the same trade replaces it. */
   const addLesson = useCallback((lesson: Omit<TradeLesson, "id" | "timestamp">) => {
-    const entry: TradeLesson = { ...lesson, id: crypto.randomUUID(), timestamp: new Date().toISOString() };
-    lessonsStore.update((prev) => [entry, ...prev.filter((l) => l.tradeId !== entry.tradeId)].slice(0, 200));
-    return entry;
+    const tmp: TradeLesson = { ...lesson, id: tempId(), timestamp: new Date().toISOString() };
+    return lessonsResource.mutate<{ lesson: TradeLesson }>({
+      optimistic: (d) => [tmp, ...d.filter((l) => !lesson.tradeId || l.tradeId !== lesson.tradeId)],
+      request: jsonRequest("/api/lessons", "POST", lesson),
+      apply: (d, body) => d.map((l) => (l.id === tmp.id ? body.lesson : l)),
+    }).catch(() => undefined);
   }, []);
 
-  const removeLesson = useCallback((id: string) => { lessonsStore.update((prev) => prev.filter((l) => l.id !== id)); }, []);
-  const clearLessons = useCallback(() => { lessonsStore.update(() => []); }, []);
+  const removeLesson = useCallback((id: string) => lessonsResource.mutate({
+    optimistic: (d) => d.filter((l) => l.id !== id),
+    request: jsonRequest(`/api/lessons/${id}`, "DELETE"),
+  }).catch(() => undefined), []);
 
-  return { lessons, addLesson, removeLesson, clearLessons };
-}
+  const clearLessons = useCallback(() => lessonsResource.mutate({
+    optimistic: () => [],
+    request: jsonRequest("/api/lessons", "DELETE"),
+  }).catch(() => undefined), []);
 
-/**
- * Read lessons synchronously (for non-hook contexts, e.g. building an API payload).
- * Same-symbol lessons first, then the most recent others.
- */
-export function getRelevantLessons({ symbol, limit = 6 }: { symbol?: string; limit?: number } = {}): TradeLesson[] {
-  const sorted = [...lessonsStore.read()].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  if (!symbol) return sorted.slice(0, limit);
-  return [...sorted.filter((l) => l.symbol === symbol), ...sorted.filter((l) => l.symbol !== symbol)].slice(0, limit);
+  return { lessons, loaded, error, addLesson, removeLesson, clearLessons };
 }

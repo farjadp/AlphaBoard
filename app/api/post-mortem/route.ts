@@ -5,6 +5,8 @@ import { requireUser } from "@/lib/auth/dal";
 import { readJson } from "@/lib/http/errors";
 import { enforceRateLimit } from "@/lib/http/rateLimit";
 import { parseImageDataUrl } from "@/lib/http/images";
+import { badRequest } from "@/lib/http/errors";
+import { attachmentAsDataUrl, attachmentIdFromUrl } from "@/lib/db/attachments";
 import { openaiChatJson, type ContentPart } from "@/lib/ai/openai";
 import { PostMortemSchema } from "@/lib/ai/schemas";
 
@@ -41,7 +43,15 @@ export const POST = route(async (req) => {
   const user = await requireUser();
   enforceRateLimit(req, "ai");
   const b = Body.parse(await readJson(req, 2_300_000));
-  if (b.image) parseImageDataUrl(b.image);
+  // The screenshot is either freshly uploaded (data URL) or already stored on the trade.
+  const storedId = attachmentIdFromUrl(b.image);
+  if (storedId) {
+    const dataUrl = await attachmentAsDataUrl(user.id, storedId);
+    if (!dataUrl) throw badRequest("Unknown screenshot", "BAD_ATTACHMENT");
+    b.image = dataUrl;
+  } else if (b.image) {
+    parseImageDataUrl(b.image);
+  }
   const outcome = deriveOutcome(b);
 
   const tradeBlock = [

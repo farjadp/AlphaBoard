@@ -1,5 +1,19 @@
 ## [Unreleased] — v2 in progress
 
+### P2 · Persistence (2026-09-28)
+- **Your data lives in your account:** journal, post-mortem lessons, AI signal archive, chart-academy studies, price alerts and watchlist moved from browser localStorage to PostgreSQL, scoped per user.
+- **Screenshots** are stored as compressed attachments and served only to their owner.
+- **Import browser data** (`/import`, also linked from a dashboard banner): previews what is found, compresses and uploads images, and imports idempotently (running it twice adds nothing; a later run can attach images that failed earlier).
+- **AI strategy reports** are archived on the server at generation time, with the exact price the model saw; the prompt now reads the trader's own lessons from the database instead of accepting them from the client.
+- **Account menu**: sign out (clears all cached data), import, admin link. Data refreshes when you return to the tab.
+- **Tests:** 84 (including Postgres-backed isolation tests proving one user cannot read, change, or reference another user's data).
+
+### P1 · Data integrity (2026-09-28)
+- Server-side market-data layer with caching; real intraday candles for indices, commodities and FX; trend and stretch scored separately.
+- Removed every fabricated value (mock prices, fixed long/short panel, fake news, mock AI output); real funding, open interest and long/short ratio.
+- Validated AI output for all AI routes; images accepted only as size-capped inline data.
+- Fixed WebSocket leak, alert bugs, journal upload hang, PnL on zero entry; ESLint rules re-enabled.
+
 ### P0 · Foundation (2026-09-27)
 - **Security:** invite-only registration, `requireUser()`/`requireAdmin()` data-access layer, every API route authenticated and rate-limited, strict security headers, capped request bodies.
 - **Ops:** PostgreSQL migrations (`prisma migrate`, no more `db push`), admin bootstrap seed, `/api/health`, pino JSON logging with request ids, error/404 pages.

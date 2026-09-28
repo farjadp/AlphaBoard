@@ -28,6 +28,14 @@ model User {
   invitesCreated Invite[]   @relation("InviteCreator")
   inviteUsed     Invite?    @relation("InviteConsumer")
   auditLogs      AuditLog[]
+
+  watchlist      WatchlistItem[]
+  attachments    Attachment[]
+  journalEntries JournalEntry[]
+  tradeLessons   TradeLesson[]
+  signals        Signal[]
+  chartLessons   ChartLesson[]
+  priceAlerts    PriceAlert[]
 }
 
 model Invite {
@@ -64,4 +72,175 @@ model AuditLog {
 
   @@index([userId, createdAt])
   @@index([action, createdAt])
+}
+
+// ─── User data (P2) ──────────────────────────────────────────────────────────
+// Every row is owned by a user; repositories in lib/db always filter by userId.
+// legacyId = the id the row had in browser localStorage, so /import is idempotent.
+
+enum TradePosition {
+  LONG
+  SHORT
+  SPOT
+}
+
+enum TradeStatus {
+  OPEN
+  CLOSED
+}
+
+enum AlertCondition {
+  above
+  below
+}
+
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  symbol    String
+  position  Int
+  createdAt DateTime @default(now())
+
+  @@unique([userId, symbol])
+  @@index([userId, position])
+}
+
+/// Uploaded images (trade screenshots, chart studies). Compressed client-side to ≤1.5 MB.
+model Attachment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mime      String
+  bytes     Bytes
+  size      Int
+  createdAt DateTime @default(now())
+
+  journalEntries JournalEntry[]
+
+  @@index([userId])
+}
+
+model JournalEntry {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legacyId        String?
+  symbol          String
+  position        TradePosition
+  status          TradeStatus   @default(OPEN)
+  entryPrice      Float
+  exitPrice       Float?
+  pnlPercent      Float?
+  grossPnlPercent Float?
+  feeRatePercent  Float?
+  pnlSource       String?
+  emotion         String
+  notes           String        @default("")
+  leverage        Float?
+  margin          Float?
+  marginMode      String?
+  screenshotId    String?
+  screenshot      Attachment?   @relation(fields: [screenshotId], references: [id], onDelete: SetNull)
+  postMortem      Json?
+  openedAt        DateTime      @default(now())
+  closedAt        DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  lesson TradeLesson?
+
+  @@unique([userId, legacyId])
+  @@index([userId, openedAt])
+}
+
+model TradeLesson {
+  id             String        @id @default(cuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legacyId       String?
+  journalEntryId String?       @unique
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id], onDelete: SetNull)
+  symbol         String
+  position       TradePosition
+  outcome        String
+  pnlPercent     Float?
+  timeframe      String?
+  rootCause      String
+  mistakes       String[]
+  strengths      String[]
+  lesson         String
+  tags           String[]
+  emotion        String?
+  createdAt      DateTime      @default(now())
+
+  @@unique([userId, legacyId])
+  @@index([userId, createdAt])
+}
+
+/// Every AI strategy report, archived at generation time with the price the model saw.
+model Signal {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legacyId            String?
+  symbol              String
+  timeframe           String
+  signal              String
+  confidence          Int
+  priceAtSignal       Float
+  entry               Float
+  stopLoss            Float
+  takeProfit          Float
+  tradeStyle          String?
+  riskManagement      Json?
+  supportResistance   Json?
+  safeEntries         Json?
+  reasoning           String
+  indicatorsBreakdown Json?
+  provider            String
+  model               String
+  createdAt           DateTime @default(now())
+
+  @@unique([userId, legacyId])
+  @@index([userId, createdAt])
+  @@index([symbol, createdAt])
+}
+
+model ChartLesson {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legacyId        String?
+  symbol          String?
+  overallSignal   String
+  confluenceScore Int
+  summary         String
+  lesson          String
+  patterns        String[]
+  tags            String[]
+  mistakes        String[]
+  strengths       String[]
+  /// [{ timeframe, attachmentId, annotations, signal, bias }]
+  charts          Json
+  createdAt       DateTime @default(now())
+
+  @@unique([userId, legacyId])
+  @@index([userId, createdAt])
+}
+
+model PriceAlert {
+  id          String         @id @default(cuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legacyId    String?
+  symbol      String
+  targetPrice Float
+  condition   AlertCondition
+  triggered   Boolean        @default(false)
+  triggeredAt DateTime?
+  createdAt   DateTime       @default(now())
+
+  @@unique([userId, legacyId])
+  @@index([userId, triggered])
 }
