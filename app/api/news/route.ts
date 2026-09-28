@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { findAsset } from "@/lib/assetCatalog";
+import { route } from "@/lib/http/route";
+import { requireUser } from "@/lib/auth/dal";
+import { tooManyRequests } from "@/lib/http/errors";
+import { clientIp, limiters } from "@/lib/http/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -120,7 +124,7 @@ function getMockNews(symbol: string): NewsItem[] {
 }
 
 // ─── Main handler ─────────────────────────────────────────────────────────────
-export async function GET(req: Request) {
+async function GET_impl(req: Request) {
   const { searchParams } = new URL(req.url);
   const symbol = searchParams.get("symbol") ?? "";
 
@@ -162,3 +166,11 @@ export async function GET(req: Request) {
   // 4. Final fallback: mock news
   return NextResponse.json({ items: getMockNews(symbol || "this asset"), source: "mock" });
 }
+
+
+export const GET = route(async (req) => {
+  await requireUser();
+  const rl = limiters.api.check(clientIp(req));
+  if (!rl.allowed) throw tooManyRequests(rl.retryAfterMs);
+  return GET_impl(req);
+});

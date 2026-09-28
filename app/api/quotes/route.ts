@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import YahooFinance from "yahoo-finance2";
 import { ASSET_CATALOG } from "@/lib/assetCatalog";
+import { route } from "@/lib/http/route";
+import { requireUser } from "@/lib/auth/dal";
+import { tooManyRequests } from "@/lib/http/errors";
+import { clientIp, limiters } from "@/lib/http/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +25,7 @@ for (const a of ASSET_CATALOG) {
   if (a.yahooSymbol) YAHOO_MAP[a.symbol] = a.yahooSymbol;
 }
 
-export async function GET(req: Request) {
+async function GET_impl(req: Request) {
   const { searchParams } = new URL(req.url);
   const raw = searchParams.get("symbols") ?? "";
 
@@ -60,3 +64,11 @@ export async function GET(req: Request) {
 
   return NextResponse.json(results);
 }
+
+
+export const GET = route(async (req) => {
+  await requireUser();
+  const rl = limiters.api.check(clientIp(req));
+  if (!rl.allowed) throw tooManyRequests(rl.retryAfterMs);
+  return GET_impl(req);
+});

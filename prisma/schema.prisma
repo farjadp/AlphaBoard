@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -10,60 +7,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  password      String
-  role          String    @default("USER") // "USER" or "ADMIN"
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id                   String    @id @default(cuid())
+  email                String    @unique
+  passwordHash         String
+  name                 String?
+  role                 Role      @default(USER)
+  disclaimerAcceptedAt DateTime?
+  aiProvider           String?
+  aiModel              String?
+  dailyTokenQuota      Int       @default(200000)
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  charts        UserChart[]
-  tradeLogs     TradeLog[]
-  progress      UserProgress[]
+  invitesCreated Invite[]   @relation("InviteCreator")
+  inviteUsed     Invite?    @relation("InviteConsumer")
+  auditLogs      AuditLog[]
 }
 
-model UserChart {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  symbol      String   // e.g., BTCUSDT
-  config      String   // Storing JSON stringified config for SQLite compatibility
-  createdAt   DateTime @default(now())
+model Invite {
+  id          String    @id @default(cuid())
+  tokenHash   String    @unique
+  email       String?
+  role        Role      @default(USER)
+  createdById String
+  createdBy   User      @relation("InviteCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  usedAt      DateTime?
+  usedById    String?   @unique
+  usedBy      User?     @relation("InviteConsumer", fields: [usedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
 }
 
-model TradeLog {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  asset       String
-  entryPrice  Float
-  exitPrice   Float?
-  leverage    Float?
-  margin      Float?
-  pnl         Float?
-  screenshot  String?
-  notes       String?
-  createdAt   DateTime @default(now())
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }
 
-model CourseLesson {
-  id          String   @id @default(cuid())
-  title       String
-  content     String   // Markdown
-  order       Int      @default(0)
-  progress    UserProgress[]
-}
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  target    String?
+  meta      Json?
+  ip        String?
+  createdAt DateTime @default(now())
 
-model UserProgress {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  lessonId    String
-  lesson      CourseLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
-  completed   Boolean  @default(true)
-  completedAt DateTime @default(now())
-
-  @@unique([userId, lessonId])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
 }

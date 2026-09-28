@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { formatMarketCap } from "@/lib/binance";
+import { route } from "@/lib/http/route";
+import { requireUser } from "@/lib/auth/dal";
+import { tooManyRequests } from "@/lib/http/errors";
+import { clientIp, limiters } from "@/lib/http/rateLimit";
 
-export async function GET() {
+async function GET_impl() {
   try {
     const res = await fetch("https://api.coingecko.com/api/v3/global", {
       next: { revalidate: 60 },
@@ -34,3 +38,11 @@ export async function GET() {
     });
   }
 }
+
+
+export const GET = route(async (req) => {
+  await requireUser();
+  const rl = limiters.api.check(clientIp(req));
+  if (!rl.allowed) throw tooManyRequests(rl.retryAfterMs);
+  return GET_impl();
+});

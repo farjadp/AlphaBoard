@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
+import { route } from "@/lib/http/route";
+import { requireUser } from "@/lib/auth/dal";
+import { tooManyRequests } from "@/lib/http/errors";
+import { clientIp, limiters } from "@/lib/http/rateLimit";
 
-export async function POST(req: Request) {
+async function POST_impl(req: Request) {
   try {
     const body = await req.json();
     const apiKey = process.env.OPENAI_API_KEY;
@@ -156,3 +160,11 @@ ${body.symbol} ...
     );
   }
 }
+
+
+export const POST = route(async (req) => {
+  await requireUser();
+  const rl = limiters.ai.check(clientIp(req));
+  if (!rl.allowed) throw tooManyRequests(rl.retryAfterMs);
+  return POST_impl(req);
+});

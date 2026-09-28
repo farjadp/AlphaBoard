@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { ASSET_CATALOG } from "@/lib/assetCatalog";
+import { route } from "@/lib/http/route";
+import { requireUser } from "@/lib/auth/dal";
+import { tooManyRequests } from "@/lib/http/errors";
+import { clientIp, limiters } from "@/lib/http/rateLimit";
 
 export const revalidate = 300; // Cache for 5 minutes
 
@@ -31,7 +35,7 @@ const SYMBOL_TO_SLUG: Record<string, string> = {
 
 const TRADFI_SYMBOLS = ASSET_CATALOG.filter((asset) => asset.category !== "crypto").map((asset) => asset.symbol);
 
-export async function GET() {
+async function GET_impl() {
   try {
     const [feesRes, revRes] = await Promise.all([
       fetch("https://api.llama.fi/overview/fees?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true&dataType=dailyFees", {
@@ -82,3 +86,11 @@ export async function GET() {
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }
+
+
+export const GET = route(async (req) => {
+  await requireUser();
+  const rl = limiters.api.check(clientIp(req));
+  if (!rl.allowed) throw tooManyRequests(rl.retryAfterMs);
+  return GET_impl();
+});

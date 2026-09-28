@@ -4,6 +4,10 @@ import YahooFinance from "yahoo-finance2";
 import { ASSET_CATALOG } from "@/lib/assetCatalog";
 import { detectCandlestickPatterns, type Candle } from "@/lib/candlestickPatterns";
 import { detectChartPatterns } from "@/lib/chartPatterns";
+import { route } from "@/lib/http/route";
+import { requireUser } from "@/lib/auth/dal";
+import { tooManyRequests } from "@/lib/http/errors";
+import { clientIp, limiters } from "@/lib/http/rateLimit";
 
 const yf = new YahooFinance();
 type PairDef = (typeof ASSET_CATALOG)[number];
@@ -482,7 +486,7 @@ function buildUnavailableSnapshot(timeframe: string): IndicatorSnapshot {
   };
 }
 
-export async function GET(req: Request) {
+async function GET_impl(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const symbol = searchParams.get("symbol");
@@ -546,3 +550,11 @@ export async function GET(req: Request) {
     }, { status: 500 });
   }
 }
+
+
+export const GET = route(async (req) => {
+  await requireUser();
+  const rl = limiters.api.check(clientIp(req));
+  if (!rl.allowed) throw tooManyRequests(rl.retryAfterMs);
+  return GET_impl(req);
+});
