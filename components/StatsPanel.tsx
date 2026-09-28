@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { PAIRS } from "@/lib/mockData";
-import { formatPrice, formatVolume, formatSupply, pairToSymbol } from "@/lib/binance";
+import { formatPrice, formatVolume, formatSupply } from "@/lib/binance";
 import type { BinanceTicker } from "@/lib/binance";
 import type { TradfiQuote } from "@/hooks/useTradfiQuotes";
 import type { CandlestickPatternMatch } from "@/lib/candlestickPatterns";
@@ -12,11 +11,10 @@ import type { AnalysisResult } from "./AiAnalysis";
 import PatternMiniVisual from "./PatternMiniVisual";
 import NewsFeed from "./NewsFeed";
 import { findAsset } from "@/lib/assetCatalog";
+import { CONSENSUS_TIMEFRAMES, REPORT_TIMEFRAMES, TIMEFRAMES, type TimeframeKey } from "@/lib/market/timeframes";
+import type { FuturesSnapshot } from "@/lib/market/futures";
+import type { BalanceSheet, Cashflow, GlobalMarket } from "@/lib/market/fundamentals";
 
-interface FuturesData { fundingRate: string; openInterest: string; }
-interface GlobalData { btcDominance: string; ethDominance: string; totalMarketCap: string; }
-interface CashflowData { fees24h: number | null; fees7d: number | null; fees30d: number | null; revenue24h: number | null; revenue7d: number | null; revenue30d: number | null; }
-interface BalanceSheetData { marketCap: number | null; fdv: number | null; circulatingSupply: number | null; maxSupply: number | null; }
 interface MacdData { MACD?: number; signal?: number; histogram?: number; }
 interface BollingerBandsData { lower: number; middle: number; upper: number; pb?: number; }
 interface MultiTimeframeIndicator {
@@ -27,13 +25,20 @@ interface MultiTimeframeIndicator {
   ema20: number | null;
   emaSignal: string;
   trendSignal: "Bullish" | "Bearish" | "Neutral";
+  stretchSignal?: "Overbought" | "Oversold" | "Neutral";
   atr?: number | null;
   candlestickPattern?: CandlestickPatternMatch;
   chartPattern?: ChartPatternMatch;
   available: boolean;
+  unavailableReason?: string;
+  candleCount?: number;
+  lastCandleTime?: number | null;
 }
 interface IndicatorsData {
   timeframe?: string;
+  available?: boolean;
+  trendSignal?: "Bullish" | "Bearish" | "Neutral";
+  stretchSignal?: "Overbought" | "Oversold" | "Neutral";
   rsi: number;
   rsiSignal: string;
   macd: MacdData;
@@ -61,41 +66,27 @@ interface IndicatorsData {
 }
 
 type TimeframeSortMode = "default" | "bullish_first" | "bearish_first" | "neutral_first";
-export type ReportTimeframe = "1M" | "1W" | "1D" | "4H" | "1H" | "15M";
+export type ReportTimeframe = TimeframeKey;
 
-const TIMEFRAME_ORDER = ["1Y", "3M", "1M", "1W", "4H", "45M", "15M", "5M"];
-export const REPORT_TIMEFRAME_OPTIONS: Array<{ key: ReportTimeframe; label: string }> = [
-  { key: "1M", label: "Monthly" },
-  { key: "1W", label: "Weekly" },
-  { key: "1D", label: "Daily" },
-  { key: "4H", label: "4H" },
-  { key: "1H", label: "1H" },
-  { key: "15M", label: "15M" },
-];
-
-// Timeframes that require intraday data (only available for crypto via Binance)
-const CRYPTO_ONLY_TIMEFRAMES: ReportTimeframe[] = ["4H", "15M"];
-
-function getTimeframeOptions(isCrypto: boolean) {
-  if (isCrypto) return REPORT_TIMEFRAME_OPTIONS;
-  return REPORT_TIMEFRAME_OPTIONS.filter((opt) => !CRYPTO_ONLY_TIMEFRAMES.includes(opt.key));
-}
+const TIMEFRAME_ORDER: string[] = CONSENSUS_TIMEFRAMES;
+// Yahoo serves real 5m/15m/60m bars for indices, commodities and FX, so every timeframe is
+// available for every asset (v1 fed daily candles into "intraday" slots for non-crypto).
+export const REPORT_TIMEFRAME_OPTIONS: Array<{ key: ReportTimeframe; label: string }> =
+  REPORT_TIMEFRAMES.map((key) => ({ key, label: TIMEFRAMES[key].label }));
 
 interface StatsPanelProps { symbol: string; ticker?: BinanceTicker; tradfiQuote?: TradfiQuote; }
 
 export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelProps) {
-  const pair = PAIRS.find((p) => p.symbol === symbol);
   const asset = findAsset(symbol);
   const isCrypto = asset?.category === "crypto";
-  const timeframeOptions = getTimeframeOptions(isCrypto);
-  const [futures, setFutures] = useState<FuturesData | null>(null);
-  const [global, setGlobal] = useState<GlobalData | null>(null);
-  const [cashflow, setCashflow] = useState<CashflowData | null>(null);
-  const [balanceSheet, setBalanceSheet] = useState<BalanceSheetData | null>(null);
+  const timeframeOptions = REPORT_TIMEFRAME_OPTIONS;
+  const [futures, setFutures] = useState<FuturesSnapshot | null>(null);
+  const [global, setGlobal] = useState<GlobalMarket | null>(null);
+  const [cashflow, setCashflow] = useState<Cashflow | null>(null);
+  const [balanceSheet, setBalanceSheet] = useState<BalanceSheet | null>(null);
   const [indicators, setIndicators] = useState<IndicatorsData | null>(null);
   const [aiRecommendation, setAiRecommendation] = useState<AnalysisResult | null>(null);
   const [aiRecommendationLoading, setAiRecommendationLoading] = useState(false);
-  // Non-crypto assets use daily data — default to 1D; crypto defaults to 1H
   const [selectedTimeframe, setSelectedTimeframe] = useState<ReportTimeframe>(isCrypto ? "1H" : "1D");
 
   function handleTimeframeChange(next: ReportTimeframe) {
@@ -106,53 +97,37 @@ export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelPr
     setAiRecommendationLoading(false);
   }
 
-  // Fetch funding rate + open interest from Binance Futures
+  // Funding, open interest and long/short ratio come from our server (Binance → Bybit → OKX chain).
   useEffect(() => {
-    const sym = pairToSymbol(symbol);
+    if (!isCrypto) return;
     let cancelled = false;
-    async function fetchFutures() {
-      try {
-        const [premRes, oiRes] = await Promise.all([
-          fetch(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${sym}`),
-          fetch(`https://fapi.binance.com/fapi/v1/openInterest?symbol=${sym}`),
-        ]);
-        if (!premRes.ok || !oiRes.ok) {
-          if (!cancelled) setFutures(null);
-          return;
-        }
-        const prem = await premRes.json();
-        const oi = await oiRes.json();
-        if (cancelled) return;
-        const rate = (parseFloat(prem.lastFundingRate) * 100).toFixed(4) + "%";
-        const oiVal = formatVolume(parseFloat(oi.openInterest) * (ticker?.price ?? 0));
-        setFutures({ fundingRate: rate, openInterest: oiVal });
-      } catch {
-        if (!cancelled) setFutures(null);
-      }
-    }
-    fetchFutures();
-    const id = setInterval(fetchFutures, 30_000);
+    const load = () => fetch(`/api/futures?symbol=${encodeURIComponent(symbol)}`)
+      .then((r) => (r.ok ? r.json() : { futures: null }))
+      .then((d) => { if (!cancelled) setFutures(d.futures ?? null); })
+      .catch(() => { if (!cancelled) setFutures(null); });
+    load();
+    const id = setInterval(load, 60_000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [symbol, ticker?.price]);
+  }, [symbol, isCrypto]);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/global").then((r) => r.json()).then((d) => { if (!cancelled) setGlobal(d); }).catch(() => {});
+    fetch("/api/global").then((r) => r.json()).then((d) => { if (!cancelled) setGlobal(d.global ?? null); }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/cashflow").then((r) => r.json()).then((d) => {
-      if (!cancelled) setCashflow(d[symbol] ?? null);
+    fetch(`/api/cashflow?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).then((d) => {
+      if (!cancelled) setCashflow(d.cashflow ?? null);
     }).catch(() => { if (!cancelled) setCashflow(null); });
     return () => { cancelled = true; };
   }, [symbol]);
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/balancesheet").then((r) => r.json()).then((d) => {
-      if (!cancelled) setBalanceSheet(d[symbol] ?? null);
+    fetch(`/api/balancesheet?symbol=${encodeURIComponent(symbol)}`).then((r) => r.json()).then((d) => {
+      if (!cancelled) setBalanceSheet(d.balanceSheet ?? null);
     }).catch(() => { if (!cancelled) setBalanceSheet(null); });
     return () => { cancelled = true; };
   }, [symbol]);
@@ -165,8 +140,6 @@ export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelPr
     return () => { cancelled = true; };
   }, [selectedTimeframe, symbol]);
 
-  const price = ticker?.price ?? tradfiQuote?.price ?? pair?.price ?? 0;
-  const change = ticker?.change ?? tradfiQuote?.change ?? pair?.change ?? 0;
   const high = ticker?.high ?? (tradfiQuote?.high || undefined);
   const low = ticker?.low ?? (tradfiQuote?.low || undefined);
   const volume = ticker?.volume ?? (tradfiQuote?.volume || undefined);
@@ -178,11 +151,6 @@ export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelPr
         <AiAnalysis
           key={`${symbol}-${selectedTimeframe}`}
           symbol={symbol}
-          price={price}
-          priceChange={change}
-          cashflow={cashflow}
-          balanceSheet={balanceSheet}
-          futures={futures}
           indicators={indicators}
           selectedTimeframe={selectedTimeframe}
           onTimeframeChange={handleTimeframeChange}
@@ -194,34 +162,7 @@ export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelPr
 
       {/* Column 2: Derivatives & Cashflow */}
       <div className="xl:col-span-4 flex flex-col gap-4">
-        {futures && (
-          <Card title="Perpetual Futures" icon="⚡">
-            <StatRow label="Funding Rate" value={futures.fundingRate} />
-            <StatRow label="Open Interest" value={futures.openInterest} last />
-          </Card>
-        )}
-
-        {/* Long/Short bar */}
-        <div className="glass-card p-4 flex flex-col gap-3 transition-all duration-300 hover:scale-[1.01] hover:shadow-xl">
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-xs font-medium" style={{ color: "var(--text-3)" }}>Long / Short</p>
-            <span className="px-2 py-1 rounded-md text-[10px] font-semibold transition-all duration-200 hover:scale-105" style={{ background: "rgba(52, 211, 153, 0.12)", color: "var(--green)", border: "1px solid rgba(52, 211, 153, 0.2)", boxShadow: "0 0 10px rgba(52, 211, 153, 0.1)" }}>
-              +18% Skew
-            </span>
-          </div>
-          <div className="flex rounded-full overflow-hidden h-2.5 transition-all duration-300" style={{ background: "var(--border)" }}>
-            <div className="transition-all duration-500" style={{ width: "59%", background: "linear-gradient(90deg, #34d399, #22d3ee)", boxShadow: "0 0 12px var(--green-glow)" }} />
-            <div className="transition-all duration-500" style={{ width: "41%", background: "linear-gradient(90deg, #f87171, #fb923c)", boxShadow: "0 0 12px var(--red-glow)" }} />
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs font-medium">
-            <div className="rounded-xl px-3 py-2 transition-all duration-200 hover:scale-[1.02] hover:shadow-md" style={{ background: "rgba(52, 211, 153, 0.08)", border: "1px solid rgba(52, 211, 153, 0.14)" }}>
-              <span style={{ color: "var(--green)" }}>59% Long</span>
-            </div>
-            <div className="rounded-xl px-3 py-2 text-right transition-all duration-200 hover:scale-[1.02] hover:shadow-md" style={{ background: "rgba(248, 113, 113, 0.08)", border: "1px solid rgba(248, 113, 113, 0.14)" }}>
-              <span style={{ color: "var(--red)" }}>41% Short</span>
-            </div>
-          </div>
-        </div>
+        {isCrypto && <DerivativesCard futures={futures} />}
 
         <AiRecommendationCard result={aiRecommendation} loading={aiRecommendationLoading} />
       </div>
@@ -243,13 +184,24 @@ export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelPr
             </div>
             <div className="grid grid-cols-2 gap-2">
               <DetailPill label="24h Volume" value={volume ? formatVolume(volume) : "—"} />
-              <DetailPill label="Total Mkt Cap" value={global?.totalMarketCap ?? "—"} />
-              <DetailPill label="BTC Dom." value={global?.btcDominance ?? "—"} signal="Bullish" />
-              <DetailPill label="ETH Dom." value={global?.ethDominance ?? "—"} />
+              {isCrypto ? (
+                <>
+                  <DetailPill label="Crypto Mkt Cap" value={global?.totalMarketCapLabel ?? "—"} />
+                  <DetailPill label="BTC Dom." value={global?.btcDominancePct != null ? `${global.btcDominancePct.toFixed(1)}%` : "—"} />
+                  <DetailPill label="ETH Dom." value={global?.ethDominancePct != null ? `${global.ethDominancePct.toFixed(1)}%` : "—"} />
+                </>
+              ) : (
+                <>
+                  <DetailPill label="24h High" value={high ? formatPrice(high) : "—"} />
+                  <DetailPill label="24h Low" value={low ? formatPrice(low) : "—"} />
+                  <DetailPill label="Source" value="Yahoo Finance" />
+                </>
+              )}
             </div>
           </div>
         </Card>
 
+        {isCrypto && (
         <Card title="Balance Sheet" icon="🏦">
           <div className="p-4 flex flex-col gap-4">
             <div className="flex items-center justify-between rounded-2xl p-3" style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.08), rgba(82,170,255,0.05))", border: "1px solid rgba(168,85,247,0.12)" }}>
@@ -263,12 +215,14 @@ export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelPr
               <DetailPill label="Market Cap" value={balanceSheet?.marketCap ? formatVolume(balanceSheet.marketCap) : "—"} />
               <DetailPill label="FDV" value={balanceSheet?.fdv ? formatVolume(balanceSheet.fdv) : "—"} />
               <DetailPill label="Circulating" value={balanceSheet?.circulatingSupply ? formatSupply(balanceSheet.circulatingSupply, symbol) : "—"} />
-              <DetailPill label="Max Supply" value={balanceSheet?.maxSupply ? formatSupply(balanceSheet.maxSupply, symbol) : "—"} />
+              <DetailPill label="Max Supply" value={balanceSheet?.maxSupply ? formatSupply(balanceSheet.maxSupply, symbol) : balanceSheet ? "No hard cap" : "—"} />
             </div>
           </div>
         </Card>
+        )}
 
-        <Card title="Cashflow Statement" icon="💰">
+        {isCrypto && cashflow && (
+        <Card title="Chain Fees & Revenue" icon="💰">
           <div className="p-4 flex flex-col gap-4">
             <div className="flex items-center justify-between rounded-2xl p-3" style={{ background: "linear-gradient(135deg, rgba(248,113,113,0.08), rgba(251,146,60,0.05))", border: "1px solid rgba(248,113,113,0.12)" }}>
               <div className="flex items-center gap-2">
@@ -279,23 +233,25 @@ export default function StatsPanel({ symbol, ticker, tradfiQuote }: StatsPanelPr
             </div>
             <div className="grid grid-cols-2 gap-2">
               <DetailPill label="Fees (24h)" value={cashflow?.fees24h ? formatVolume(cashflow.fees24h) : "—"} />
-              <DetailPill label="Revenue (24h)" value={cashflow?.revenue24h ? formatVolume(cashflow.revenue24h) : "—"} signal="Bearish" />
+              <DetailPill label="Revenue (7d)" value={cashflow?.revenue7d ? formatVolume(cashflow.revenue7d) : "—"} />
               <DetailPill label="Fees (7d)" value={cashflow?.fees7d ? formatVolume(cashflow.fees7d) : "—"} />
               <DetailPill label="Revenue (30d)" value={cashflow?.revenue30d ? formatVolume(cashflow.revenue30d) : "—"} />
             </div>
+            <p className="text-[10px]" style={{ color: "var(--text-3)" }}>Source: DefiLlama</p>
           </div>
         </Card>
+        )}
 
-        <PatternCard timeframe={indicators?.timeframe || "1H"} pattern={indicators?.candlestickPattern} matches={indicators?.candlestickMatches} />
+        <PatternCard timeframe={indicators?.timeframe || selectedTimeframe} pattern={indicators?.candlestickPattern} matches={indicators?.candlestickMatches} />
 
-        <ChartPatternCard timeframe={indicators?.timeframe || "1H"} pattern={indicators?.chartPattern} matches={indicators?.chartPatternMatches} />
+        <ChartPatternCard timeframe={indicators?.timeframe || selectedTimeframe} pattern={indicators?.chartPattern} matches={indicators?.chartPatternMatches} />
 
         <div className="md:col-span-2 xl:col-span-3">
           <MultiTimeframeIndicatorsCard key={symbol} indicators={indicators?.multiTimeframes} consensusScore={indicators?.consensusScore} />
         </div>
 
         <div className="md:col-span-2 xl:col-span-2">
-          <NewsFeed symbol={symbol} />
+          <NewsFeed key={symbol} symbol={symbol} />
         </div>
       </div>
     </div>
@@ -582,7 +538,7 @@ function MultiTimeframeIndicatorsCard({
         </div>
 
         <div className="hidden lg:grid grid-cols-[80px_100px_120px_120px_140px_1fr] gap-3 px-3 text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>
-          <span>Range</span>
+          <span>Timeframe</span>
           <span>Trend</span>
           <span>RSI</span>
           <span>MACD</span>
@@ -600,7 +556,7 @@ function MultiTimeframeIndicatorsCard({
               onClick={() => setCollapsedRows((current) => ({ ...current, [item.timeframe]: !collapsed }))}
               className="w-full grid grid-cols-1 lg:grid-cols-[80px_110px_120px_120px_140px_1fr_28px] gap-3 items-center text-left transition-all duration-200 hover:translate-x-0.5"
             >
-                  <MetricBlock label="Range" value={item.timeframe} strong />
+                  <MetricBlock label="Timeframe" value={item.timeframe} strong />
                   <div className="flex flex-col gap-1 min-w-0">
                     <span className="text-[10px] uppercase tracking-wider lg:hidden" style={{ color: "var(--text-3)" }}>Trend</span>
                     <TimeframeTrendBadge tone={item.available ? item.trendSignal : "Neutral"} label={item.available ? item.trendSignal : "Unavailable"} subdued={!item.available} />
@@ -616,11 +572,12 @@ function MultiTimeframeIndicatorsCard({
                 </button>
 
                 {!collapsed && (
-                  <div className="mt-3 pt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3" style={{ borderTop: "1px solid var(--border)" }}>
+                  <div className="mt-3 pt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3" style={{ borderTop: "1px solid var(--border)" }}>
                     <DetailPill label="Trend Bias" value={item.available ? item.trendSignal : "Unavailable"} signal={item.available ? item.trendSignal : undefined} />
+                    <DetailPill label="Stretch (RSI/BB)" value={item.available ? item.stretchSignal ?? "Neutral" : "Unavailable"} signal={item.stretchSignal === "Overbought" ? "Bearish" : item.stretchSignal === "Oversold" ? "Bullish" : undefined} />
                     <DetailPill label="Candlestick" value={item.available ? item.candlestickPattern?.name || "No Clear Pattern" : "Unavailable"} signal={item.available ? item.candlestickPattern?.bias : undefined} />
                     <DetailPill label="Chart Pattern" value={item.available ? item.chartPattern?.name || "No Clear Chart Pattern" : "Unavailable"} signal={item.available ? item.chartPattern?.bias : undefined} />
-                    <DetailPill label="Status" value={item.available ? "Live" : "Unavailable"} signal={item.available ? "Bullish" : undefined} />
+                    <DetailPill label="Data" value={item.available ? `${item.candleCount ?? "?"} candles${item.lastCandleTime ? ` · last ${new Date(item.lastCandleTime).toISOString().slice(0, 16).replace("T", " ")} UTC` : ""}` : item.unavailableReason ?? "Unavailable"} />
                   </div>
                 )}
               </div>
@@ -752,5 +709,37 @@ function StatRow({ label, value, last, signal }: { label: string; value: string;
       <span className="text-xs" style={{ color: "var(--text-3)" }}>{label}</span>
       <span className="text-xs font-medium tabular-nums" style={{ color: signalColor || "var(--text)" }}>{value}</span>
     </div>
+  );
+}
+
+function DerivativesCard({ futures }: { futures: FuturesSnapshot | null }) {
+  if (!futures) {
+    return (
+      <Card title="Perpetual Futures" icon="⚡">
+        <p className="px-4 py-3 text-xs" style={{ color: "var(--text-3)" }}>No perpetual-futures data for this asset right now.</p>
+      </Card>
+    );
+  }
+  const hasRatio = futures.longPct !== null && futures.shortPct !== null;
+  return (
+    <Card title="Perpetual Futures" icon="⚡">
+      <StatRow label="Funding Rate" value={futures.fundingRatePct !== null ? `${futures.fundingRatePct.toFixed(4)}%` : "—"} />
+      <StatRow label="Open Interest" value={futures.openInterestUsd !== null ? formatVolume(futures.openInterestUsd) : "—"} last={!hasRatio} />
+      {hasRatio && (
+        <div className="px-4 py-3 flex flex-col gap-2">
+          <div className="flex justify-between text-[11px] font-medium">
+            <span style={{ color: "var(--green)" }}>{futures.longPct!.toFixed(1)}% long</span>
+            <span style={{ color: "var(--red)" }}>{futures.shortPct!.toFixed(1)}% short</span>
+          </div>
+          <div className="flex rounded-full overflow-hidden h-2" style={{ background: "var(--border)" }} role="img" aria-label={`${futures.longPct!.toFixed(1)} percent of accounts long`}>
+            <div style={{ width: `${futures.longPct}%`, background: "var(--green)" }} />
+            <div style={{ width: `${futures.shortPct}%`, background: "var(--red)" }} />
+          </div>
+          <p className="text-[10px]" style={{ color: "var(--text-3)" }}>
+            Account long/short ratio · {futures.contract ?? ""} on {futures.source}
+          </p>
+        </div>
+      )}
+    </Card>
   );
 }

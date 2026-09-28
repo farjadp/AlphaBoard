@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useNow } from "@/lib/client/useNow";
 
 const NAV_LINKS = [
   { href: "/", label: "Dashboard" },
@@ -198,19 +198,9 @@ function SessionBar({ tz, now }: { tz: string; now: Date }) {
 
 export default function NavBar({ connected = true }: { connected?: boolean }) {
   const pathname = usePathname();
-  const [now, setNow] = useState<Date | null>(null);
-  const [localTz, setLocalTz] = useState<string>("");
-  const [localCity, setLocalCity] = useState<string>("");
-
-  useEffect(() => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    setLocalTz(tz);
-    const parts = tz.split("/");
-    setLocalCity(parts[parts.length - 1].replace(/_/g, " "));
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useNow();
+  const localTz = now ? Intl.DateTimeFormat().resolvedOptions().timeZone : "";
+  const localCity = localTz ? localTz.split("/").at(-1)!.replace(/_/g, " ") : "";
 
   const localOffsetMins = now && localTz ? getOffsetMinutes(localTz, now) : null;
 

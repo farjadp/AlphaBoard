@@ -29,7 +29,7 @@ export function useTradfiQuotes(symbols: string[], intervalMs = 60_000) {
 
   useEffect(() => {
     mountedRef.current = true;
-    if (tradfiSymbols.length === 0) return;
+    if (!key) return;
 
     async function fetchQuotes() {
       try {

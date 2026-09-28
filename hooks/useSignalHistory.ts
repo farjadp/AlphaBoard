@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback } from "react";
+import { createLocalStore, useLocalStore } from "@/lib/client/localStore";
 
 export interface ArchivedSignal {
   id: string;
@@ -31,52 +32,24 @@ export interface ArchivedSignal {
   }>;
 }
 
-const STORAGE_KEY = "alphaboard_signal_history";
+const EMPTY: ArchivedSignal[] = [];
+const MAX_SIGNALS = 500;
+
+const historyStore = createLocalStore<ArchivedSignal[]>("alphaboard_signal_history", EMPTY, {
+  parse: (raw) => (Array.isArray(raw) ? (raw as ArchivedSignal[]).filter((s) => s && typeof s.id === "string") : EMPTY),
+});
 
 export function useSignalHistory() {
-  const [history, setHistory] = useState<ArchivedSignal[]>([]);
+  const history = useLocalStore(historyStore);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setHistory(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error("Failed to load signal history", e);
-    }
+  const archiveSignal = useCallback((signal: Omit<ArchivedSignal, "id" | "timestamp">) => {
+    const entry: ArchivedSignal = { ...signal, id: crypto.randomUUID(), timestamp: new Date().toISOString() };
+    const res = historyStore.update((prev) => [entry, ...prev].slice(0, MAX_SIGNALS));
+    if (!res.ok) console.error("Failed to archive signal", res.error);
   }, []);
 
-  const archiveSignal = (signal: Omit<ArchivedSignal, "id" | "timestamp">) => {
-    const newSignal: ArchivedSignal = {
-      ...signal,
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-      timestamp: new Date().toISOString(),
-    };
-
-    setHistory((prev) => {
-      const updated = [newSignal, ...prev].slice(0, 500); // Keep last 500
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error("Failed to save signal history", e);
-      }
-      return updated;
-    });
-  };
-
-  const clearHistory = () => {
-    setHistory([]);
-    localStorage.removeItem(STORAGE_KEY);
-  };
-
-  const removeSignal = (id: string) => {
-    setHistory((prev) => {
-      const updated = prev.filter((s) => s.id !== id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  };
+  const clearHistory = useCallback(() => { historyStore.update(() => []); }, []);
+  const removeSignal = useCallback((id: string) => { historyStore.update((prev) => prev.filter((s) => s.id !== id)); }, []);
 
   return { history, archiveSignal, clearHistory, removeSignal };
 }

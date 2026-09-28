@@ -1,24 +1,33 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import { useState, useRef, useMemo, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { useJournal, TradePosition, TradeEmotion, JournalEntry } from "@/hooks/useJournal";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { findAsset } from "@/lib/assetCatalog";
 import TradePostMortem from "@/components/TradePostMortem";
+import { compressImage } from "@/lib/client/image";
+import { apiErrorMessage } from "@/lib/client/apiError";
 
 function JournalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { entries, addEntry, removeEntry, updateEntry, clearJournal } = useJournal();
+  const { entries, addEntry, removeEntry, updateEntry, clearJournal, storageError } = useJournal();
   const { watchlist, symbols } = useWatchlist();
 
   // Form State
-  const [symbol, setSymbol] = useState<string>(symbols[0] || "");
-  const [position, setPosition] = useState<TradePosition>("LONG");
-  const [entryPrice, setEntryPrice] = useState<string>("");
-  const [exitPrice, setExitPrice] = useState<string>("");
+  // Pre-filled from the URL when arriving from the Strategy Archive ("Log this trade").
+  const [symbol, setSymbol] = useState<string>(() => {
+    const s = searchParams.get("symbol");
+    return s && findAsset(s) ? s : symbols[0] || "";
+  });
+  const [position, setPosition] = useState<TradePosition>(() => {
+    const p = searchParams.get("position");
+    return p === "SHORT" || p === "SPOT" ? p : "LONG";
+  });
+  const [entryPrice, setEntryPrice] = useState<string>(() => searchParams.get("entry") ?? "");
+  const [exitPrice, setExitPrice] = useState<string>(() => searchParams.get("exit") ?? "");
   const [emotion, setEmotion] = useState<TradeEmotion>("Neutral");
   const [notes, setNotes] = useState<string>("");
   const [leverage, setLeverage] = useState<string>("");
@@ -29,18 +38,6 @@ function JournalContent() {
   const [exchangePnlPercent, setExchangePnlPercent] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Pre-fill from URL if coming from Archive
-  useEffect(() => {
-    const s = searchParams.get("symbol");
-    const pos = searchParams.get("position") as TradePosition;
-    const ep = searchParams.get("entry");
-    const xp = searchParams.get("exit");
-    
-    if (s && symbols.includes(s)) setSymbol(s);
-    if (pos) setPosition(pos);
-    if (ep) setEntryPrice(ep);
-    if (xp) setExitPrice(xp);
-  }, [searchParams, symbols]);
 
   // Handle AI Screenshot Parsing
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,19 +46,17 @@ function JournalContent() {
 
     setIsUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Image = reader.result as string;
-        
-        const res = await fetch("/api/parse-screenshot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64Image })
-        });
-        
-        if (!res.ok) throw new Error("Failed to parse image");
-        
-        const data = await res.json();
+      // v1 did this inside FileReader.onloadend, so any failure escaped the try/catch and left the
+      // uploader spinning forever. Compress first (≤1.5 MB), then await the parse directly.
+      const image = await compressImage(file);
+      const res = await fetch("/api/parse-screenshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image }),
+      });
+      if (!res.ok) throw new Error(await apiErrorMessage(res, "Failed to read the screenshot"));
+      const data = await res.json();
+      {
         
         if (data.symbol) {
           // Try to match symbol cleanly (e.g. BTCUSDT -> BTC/USDT)
@@ -76,14 +71,13 @@ function JournalContent() {
         if (data.margin) setMargin(data.margin.toString());
         if (data.marginMode) setMarginMode(data.marginMode as "Cross" | "Isolated");
         if (typeof data.pnlPercent === "number") setExchangePnlPercent(data.pnlPercent);
-
-        setIsUploading(false);
-      };
-      reader.readAsDataURL(file);
+      }
     } catch (err) {
       console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to read the screenshot.");
+    } finally {
       setIsUploading(false);
-      alert("Failed to parse screenshot.");
+      if (e.target) e.target.value = "";
     }
   };
 
@@ -133,6 +127,12 @@ function JournalContent() {
               <p className="text-sm mt-1" style={{ color: "var(--text-3)" }}>Log trades, upload PnL screenshots, track emotional patterns.</p>
             </div>
 
+            {storageError && (
+              <div role="alert" className="rounded-lg p-3 text-xs" style={{ background: "var(--red-bg)", color: "var(--red)", border: "1px solid var(--red-dim)" }}>
+                {storageError}
+              </div>
+            )}
+
             <div 
               className="glass-card p-4 flex flex-col items-center justify-center text-center cursor-pointer border-dashed border-2 hover:bg-white/5 transition-colors relative"
               style={{ borderColor: "var(--border)" }}
@@ -161,6 +161,7 @@ function JournalContent() {
                   >
                     <option value="" disabled>Select Asset</option>
                     {watchlist.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
+                    {symbol && !watchlist.some((a) => a.symbol === symbol) && <option value={symbol}>{symbol}</option>}
                   </select>
                 </div>
                 <div>

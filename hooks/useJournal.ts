@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState } from "react";
+import { createLocalStore, useLocalStore, STORAGE_FULL_MESSAGE, type WriteResult } from "@/lib/client/localStore";
+import { computePnl, DEFAULT_FEE_RATE_PERCENT, type TradePosition } from "@/lib/journal/pnl";
 
-export type TradePosition = "LONG" | "SHORT" | "SPOT";
+export { computePnl, DEFAULT_FEE_RATE_PERCENT };
+export type { TradePosition };
 export type TradeEmotion = "Confident" | "FOMO" | "Panic" | "Neutral" | "Greed" | "Revenge";
 
 export interface PostMortemAnalysis {
@@ -36,130 +39,67 @@ export interface JournalEntry {
   postMortem?: PostMortemAnalysis;
 }
 
-/** Default taker fee per side (e.g. 0.05% on Binance/Bybit/Ourbit futures). Round-trip cost = 2× this × leverage. */
-export const DEFAULT_FEE_RATE_PERCENT = 0.05;
+const EMPTY: JournalEntry[] = [];
 
-const STORAGE_KEY = "alphaboard_trading_journal";
+const journalStore = createLocalStore<JournalEntry[]>("alphaboard_trading_journal", EMPTY, {
+  parse: (raw) => (Array.isArray(raw) ? (raw as JournalEntry[]).filter((e) => e && typeof e.id === "string") : EMPTY),
+});
 
-/**
- * Compute net PnL% from raw trade inputs, deducting round-trip taker fees.
- * Fees in % of margin = feeRate × 2 × leverage (entry + exit, both at leverage).
- */
-export function computePnl(params: {
-  entryPrice: number;
-  exitPrice: number;
-  position: TradePosition;
-  leverage?: number;
-  feeRatePercent?: number;
-}): { gross: number; net: number; feeImpact: number } {
-  const { entryPrice, exitPrice, position, leverage, feeRatePercent } = params;
-  const feeRate = typeof feeRatePercent === "number" ? feeRatePercent : DEFAULT_FEE_RATE_PERCENT;
-  const lev = leverage && leverage > 0 ? leverage : 1;
-  const diff = exitPrice - entryPrice;
-  let gross = (diff / entryPrice) * 100;
-  if (position === "SHORT") gross = -gross;
-  gross = gross * lev;
-  const feeImpact = feeRate * 2 * lev; // % of margin consumed by round-trip fees
-  const net = gross - feeImpact;
-  return { gross, net, feeImpact };
+/** Recompute status/PnL for an entry from its raw fields (exchange-provided PnL is never overwritten). */
+function withDerivedPnl(entry: JournalEntry): JournalEntry {
+  const next = { ...entry };
+  const exchangeLocked = next.pnlSource === "exchange" && typeof next.pnlPercent === "number";
+  if (next.exitPrice && next.exitPrice > 0) {
+    next.status = "CLOSED";
+    const pnl = computePnl({
+      entryPrice: next.entryPrice,
+      exitPrice: next.exitPrice,
+      position: next.position,
+      leverage: next.leverage,
+      feeRatePercent: next.feeRatePercent,
+    });
+    if (pnl) {
+      next.grossPnlPercent = pnl.gross;
+      if (!exchangeLocked) {
+        next.pnlPercent = pnl.net;
+        next.pnlSource = "calculated";
+      }
+    }
+  } else if (exchangeLocked) {
+    next.status = "CLOSED"; // exchange PnL without an exit price still means the trade closed
+  }
+  return next;
 }
 
 export function useJournal() {
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const entries = useLocalStore(journalStore);
+  const [storageError, setStorageError] = useState<string | null>(null);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setEntries(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error("Failed to load journal", e);
-    }
+  // v1 swallowed quota errors: the UI looked saved, then the data vanished on reload.
+  const commit = useCallback((fn: (prev: JournalEntry[]) => JournalEntry[]) => {
+    const res: WriteResult = journalStore.update(fn);
+    setStorageError(res.ok ? null : res.quotaExceeded ? STORAGE_FULL_MESSAGE : "The journal could not be saved in this browser.");
+    return res.ok;
   }, []);
 
-  const saveEntries = (newEntries: JournalEntry[]) => {
-    setEntries(newEntries);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newEntries));
-    } catch (e) {
-      console.error("Failed to save journal", e);
-    }
-  };
-
-  const addEntry = (entryData: Omit<JournalEntry, "id" | "timestamp" | "status"> & { pnlPercent?: number; pnlSource?: JournalEntry["pnlSource"] }) => {
-    let netPnl: number | undefined = entryData.pnlPercent;
-    let grossPnl: number | undefined;
-    let status: "OPEN" | "CLOSED" = "OPEN";
+  const addEntry = useCallback((entryData: Omit<JournalEntry, "id" | "timestamp" | "status"> & { pnlPercent?: number; pnlSource?: JournalEntry["pnlSource"] }) => {
     const exchangeProvided = entryData.pnlSource === "exchange" && typeof entryData.pnlPercent === "number";
-
-    if (entryData.exitPrice && entryData.exitPrice > 0) {
-      status = "CLOSED";
-      const { gross, net } = computePnl({
-        entryPrice: entryData.entryPrice,
-        exitPrice: entryData.exitPrice,
-        position: entryData.position,
-        leverage: entryData.leverage,
-        feeRatePercent: entryData.feeRatePercent,
-      });
-      grossPnl = gross;
-      if (!exchangeProvided) netPnl = net;
-    } else if (exchangeProvided) {
-      // Exchange PnL was provided but no exit price — still mark as closed.
-      status = "CLOSED";
-    }
-
-    const newEntry: JournalEntry = {
+    const entry = withDerivedPnl({
       ...entryData,
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
+      id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
-      pnlPercent: netPnl,
-      grossPnlPercent: grossPnl,
-      pnlSource: exchangeProvided ? "exchange" : (typeof netPnl === "number" ? "calculated" : undefined),
-      status,
-    };
+      status: "OPEN",
+      pnlSource: exchangeProvided ? "exchange" : undefined,
+    });
+    return commit((prev) => [entry, ...prev]);
+  }, [commit]);
 
-    saveEntries([newEntry, ...entries]);
-  };
+  const updateEntry = useCallback((id: string, updates: Partial<JournalEntry>) => {
+    return commit((prev) => prev.map((e) => (e.id === id ? withDerivedPnl({ ...e, ...updates }) : e)));
+  }, [commit]);
 
-  const updateEntry = (id: string, updates: Partial<JournalEntry>) => {
-    saveEntries(
-      entries.map((e) => {
-        if (e.id === id) {
-          const updated = { ...e, ...updates };
+  const removeEntry = useCallback((id: string) => commit((prev) => prev.filter((e) => e.id !== id)), [commit]);
+  const clearJournal = useCallback(() => commit(() => []), [commit]);
 
-          // If caller explicitly set pnlSource === "exchange" and pnlPercent, honor it and skip formula.
-          const exchangeLocked = updated.pnlSource === "exchange" && typeof updated.pnlPercent === "number";
-
-          if (updated.exitPrice && updated.exitPrice > 0) {
-            updated.status = "CLOSED";
-            const { gross, net } = computePnl({
-              entryPrice: updated.entryPrice,
-              exitPrice: updated.exitPrice,
-              position: updated.position,
-              leverage: updated.leverage,
-              feeRatePercent: updated.feeRatePercent,
-            });
-            updated.grossPnlPercent = gross;
-            if (!exchangeLocked) {
-              updated.pnlPercent = net;
-              updated.pnlSource = "calculated";
-            }
-          }
-          return updated;
-        }
-        return e;
-      })
-    );
-  };
-
-  const removeEntry = (id: string) => {
-    saveEntries(entries.filter((e) => e.id !== id));
-  };
-
-  const clearJournal = () => {
-    saveEntries([]);
-  };
-
-  return { entries, addEntry, removeEntry, updateEntry, clearJournal };
+  return { entries, addEntry, removeEntry, updateEntry, clearJournal, storageError };
 }

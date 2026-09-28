@@ -13,7 +13,12 @@ export function useBinanceTickers(binanceSymbols: string[]) {
   const key = binanceSymbols.join(",");
 
   useEffect(() => {
+    const binanceSymbols = key ? key.split(",") : [];
     if (binanceSymbols.length === 0) return;
+    // v1 bug: cleanup cleared the timer *before* close(); onclose then scheduled a fresh
+    // reconnect for the old symbol set, leaking one socket per watchlist change.
+    let disposed = false;
+    let attempt = 0;
 
     const streams = binanceSymbols
       .map((s) => s.toLowerCase() + "@ticker")
@@ -27,8 +32,9 @@ export function useBinanceTickers(binanceSymbols: string[]) {
         const symbolsParam = JSON.stringify(binanceSymbols.map(s => s.toUpperCase()));
         const restUrl = `https://data-api.binance.vision/api/v3/ticker/24hr?symbols=${symbolsParam}`;
         const res = await fetch(restUrl);
-        if (res.ok) {
+        if (res.ok && !disposed) {
           const data = await res.json();
+          if (disposed) return;
           setTickers((prev) => {
             const next = { ...prev };
             for (const item of data) {
@@ -53,10 +59,11 @@ export function useBinanceTickers(binanceSymbols: string[]) {
     // 2. Connect WebSocket for live updates
 
     function connect() {
+      if (disposed) return;
       const ws = new WebSocket(url);
       wsRef.current = ws;
 
-      ws.onopen = () => setConnected(true);
+      ws.onopen = () => { attempt = 0; setConnected(true); };
 
       ws.onmessage = (evt) => {
         try {
@@ -89,8 +96,10 @@ export function useBinanceTickers(binanceSymbols: string[]) {
       };
 
       ws.onclose = () => {
+        if (disposed) return;
         setConnected(false);
-        retryRef.current = setTimeout(connect, 3000);
+        const delay = Math.min(30_000, 1_000 * 2 ** attempt++); // 1s, 2s, 4s … capped at 30s
+        retryRef.current = setTimeout(connect, delay);
       };
 
       ws.onerror = () => ws.close();
@@ -99,9 +108,12 @@ export function useBinanceTickers(binanceSymbols: string[]) {
     connect();
 
     return () => {
+      disposed = true;
       if (retryRef.current) clearTimeout(retryRef.current);
-      wsRef.current?.close();
+      const ws = wsRef.current;
+      if (ws) { ws.onclose = null; ws.onerror = null; ws.onmessage = null; ws.close(); }
       wsRef.current = null;
+      setConnected(false);
     };
   }, [key]);
 

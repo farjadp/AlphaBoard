@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback } from "react";
+import { createLocalStore, useHydrated, useLocalStore, STORAGE_FULL_MESSAGE } from "@/lib/client/localStore";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -67,68 +68,33 @@ export interface ChartLesson {
 
 // ─── Storage ──────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "alphaboard_chart_academy";
-const MAX_LESSONS = 20; // keep last 20 lessons to avoid bloating localStorage
+const MAX_LESSONS = 20; // chart images are large; P2 moves them to server storage
+const EMPTY: ChartLesson[] = [];
+
+const academyStore = createLocalStore<ChartLesson[]>("alphaboard_chart_academy", EMPTY, {
+  parse: (raw) => (Array.isArray(raw) ? (raw as ChartLesson[]).filter((l) => l && typeof l.id === "string") : EMPTY),
+});
 
 // ─── Hook ────────────────────────────────────────────────────────────────────
 
 export function useChartAcademy() {
-  const [lessons, setLessons] = useState<ChartLesson[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const lessons = useLocalStore(academyStore);
+  const hydrated = useHydrated();
 
-  // Load from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setLessons(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error("useChartAcademy: failed to load lessons", e);
-    }
-    setHydrated(true);
+  /** Returns the new lesson id, or throws with a user-facing message if it could not be saved. */
+  const addLesson = useCallback((lesson: Omit<ChartLesson, "id" | "createdAt">) => {
+    const entry: ChartLesson = { ...lesson, id: crypto.randomUUID(), createdAt: new Date().toISOString() };
+    const res = academyStore.update((prev) => [entry, ...prev].slice(0, MAX_LESSONS));
+    if (!res.ok) throw new Error(res.quotaExceeded ? STORAGE_FULL_MESSAGE : "The lesson could not be saved in this browser.");
+    return entry.id;
   }, []);
 
-  const persist = (updated: ChartLesson[]) => {
-    setLessons(updated);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (e) {
-      console.error("useChartAcademy: failed to save lessons", e);
-    }
-  };
+  const removeLesson = useCallback((id: string) => { academyStore.update((prev) => prev.filter((l) => l.id !== id)); }, []);
+  const clearLessons = useCallback(() => { academyStore.update(() => []); }, []);
 
-  const addLesson = (lesson: Omit<ChartLesson, "id" | "createdAt">) => {
-    const newLesson: ChartLesson = {
-      ...lesson,
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 8),
-      createdAt: new Date().toISOString(),
-    };
-    // Prepend and cap at MAX_LESSONS
-    const updated = [newLesson, ...lessons].slice(0, MAX_LESSONS);
-    persist(updated);
-    return newLesson.id;
-  };
-
-  const removeLesson = (id: string) => {
-    persist(lessons.filter((l) => l.id !== id));
-  };
-
-  const clearLessons = () => {
-    persist([]);
-  };
-
-  /** Returns the last N lessons formatted for the analyze API prompt */
-  const getLessonsForPrompt = (n = 5): Array<{
-    symbol?: string;
-    signal: string;
-    lesson: string;
-    patterns: string[];
-    tags: string[];
-    confluenceScore: number;
-    createdAt: string;
-  }> => {
-    return lessons.slice(0, n).map((l) => ({
+  /** Compact text-only summaries for the strategy prompt (never the chart images). */
+  const getLessonsForPrompt = useCallback((n = 5) =>
+    academyStore.read().slice(0, n).map((l) => ({
       symbol: l.symbol,
       signal: l.overallSignal,
       lesson: l.lesson,
@@ -136,15 +102,7 @@ export function useChartAcademy() {
       tags: l.tags,
       confluenceScore: l.confluenceScore,
       createdAt: l.createdAt,
-    }));
-  };
+    })), []);
 
-  return {
-    lessons,
-    hydrated,
-    addLesson,
-    removeLesson,
-    clearLessons,
-    getLessonsForPrompt,
-  };
+  return { lessons, hydrated, addLesson, removeLesson, clearLessons, getLessonsForPrompt };
 }

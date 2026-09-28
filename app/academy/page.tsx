@@ -4,6 +4,7 @@ import { useState } from "react";
 import NavBar from "@/components/NavBar";
 import { AnnotatedCanvas, DropZone, SignalBadge, ConfluenceMeter } from "@/components/AcademyUI";
 import { useChartAcademy, Timeframe, Annotation } from "@/hooks/useChartAcademy";
+import { apiErrorMessage } from "@/lib/client/apiError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,7 +84,7 @@ export default function AcademyPage() {
         }),
       });
 
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await apiErrorMessage(res, "Chart analysis failed"));
       const data: AnalysisResult = await res.json();
       setResult(data);
       setActiveTF(0);
@@ -96,7 +97,9 @@ export default function AcademyPage() {
 
   const handleSave = () => {
     if (!result) return;
-    const id = addLesson({
+    let id: string;
+    try {
+      id = addLesson({
       overallSignal: result.overallSignal,
       confluenceScore: result.confluenceScore,
       summary: result.summary,
@@ -115,7 +118,11 @@ export default function AcademyPage() {
           bias: tf.bias,
         };
       }),
-    });
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save the lesson");
+      return;
+    }
     setSavedId(id);
   };
 

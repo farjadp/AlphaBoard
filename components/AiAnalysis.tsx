@@ -6,11 +6,9 @@ import type { CandlestickPatternMatch } from "@/lib/candlestickPatterns";
 import type { ChartPatternMatch } from "@/lib/chartPatterns";
 import { useSignalHistory } from "@/hooks/useSignalHistory";
 import { getRelevantLessons } from "@/hooks/useTradeLessons";
+import { useChartAcademy } from "@/hooks/useChartAcademy";
 import PatternMiniVisual from "./PatternMiniVisual";
 
-interface CashflowData { fees24h?: number | null; revenue24h?: number | null; fees7d?: number | null; revenue30d?: number | null; }
-interface BalanceSheetData { marketCap?: number | null; fdv?: number | null; }
-interface FuturesData { fundingRate?: string; openInterest?: string; }
 interface MultiTimeframeIndicator {
   timeframe: string;
   trendSignal: "Bullish" | "Bearish" | "Neutral";
@@ -35,11 +33,6 @@ interface IndicatorsData {
 
 interface AiAnalysisProps {
   symbol: string;
-  price: number;
-  priceChange: number;
-  cashflow: CashflowData | null;
-  balanceSheet: BalanceSheetData | null;
-  futures: FuturesData | null;
   indicators: IndicatorsData | null;
   selectedTimeframe: ReportTimeframe;
   onTimeframeChange: (timeframe: ReportTimeframe) => void;
@@ -80,13 +73,30 @@ export interface AnalysisResult {
     signal: "Bullish" | "Bearish" | "Neutral";
     explanation: string;
   }>;
+  /** What the server actually used — recorded with the archived signal. */
+  context?: {
+    symbol: string;
+    timeframe: string;
+    priceAtSignal: number;
+    priceSource: string;
+    priceAsOf: string;
+    lessonsUsed: { past: number; chart: number };
+    generatedAt: string;
+  };
 }
 
-export default function AiAnalysis({ symbol, price, priceChange, cashflow, balanceSheet, futures, indicators, selectedTimeframe, onTimeframeChange, onResultChange, onLoadingChange, timeframeOptions }: AiAnalysisProps) {
+const AI_ERROR_HINTS: Record<string, string> = {
+  AI_NOT_CONFIGURED: "AI analysis is not configured on the server (missing API key).",
+  MARKET_DATA_UNAVAILABLE: "Live market data is unavailable right now, so no analysis was generated. Try again shortly or pick another timeframe.",
+  RATE_LIMITED: "Too many analyses in a short time. Please wait a few minutes.",
+};
+
+export default function AiAnalysis({ symbol, indicators, selectedTimeframe, onTimeframeChange, onResultChange, onLoadingChange, timeframeOptions }: AiAnalysisProps) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const { archiveSignal } = useSignalHistory();
+  const { getLessonsForPrompt } = useChartAcademy();
   const activePattern = indicators?.candlestickPattern;
   const activeChartPattern = indicators?.chartPattern;
   const multiTimeframes = indicators?.multiTimeframes ?? [];
@@ -109,30 +119,28 @@ export default function AiAnalysis({ symbol, price, priceChange, cashflow, balan
     setResult(null);
     onResultChange?.(null);
     try {
-      const newsRes = await fetch(`/api/news?symbol=${encodeURIComponent(symbol)}`);
-      let news: string[] = [];
-      if (newsRes.ok) {
-        const newsData = await newsRes.json() as { items?: Array<{ headline?: string | null }> };
-        news = newsData.items ? newsData.items.map((item) => item.headline || "").filter(Boolean).slice(0, 3) : [];
-      }
-
-      // Read past lessons to provide context for the AI Engine
-      const pastLessons = getRelevantLessons({ symbol, limit: 6 });
-
+      // Only choices + the trader's own lessons are sent. Price, indicators, news, futures and
+      // fundamentals are fetched and computed on the server.
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, price, priceChange, cashflow, balanceSheet, futures, indicators, news, selectedTimeframe, pastLessons }),
+        body: JSON.stringify({
+          symbol,
+          timeframe: selectedTimeframe,
+          pastLessons: getRelevantLessons({ symbol, limit: 6 }),
+          chartLessons: getLessonsForPrompt(5),
+        }),
       });
-      if (!res.ok) throw new Error("Failed to fetch AI analysis");
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(AI_ERROR_HINTS[data.code] ?? data.error ?? "Failed to generate the analysis.");
+      }
       setResult(data);
       onResultChange?.(data);
-      
-      // Archive the signal with exact current time
+
       archiveSignal({
         symbol,
-        price,
+        price: data.context?.priceAtSignal ?? 0,
         signal: data.signal,
         confidence: data.confidence,
         timeframe: data.timeframe,

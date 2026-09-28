@@ -3,6 +3,8 @@
 import { useRef, useState } from "react";
 import { JournalEntry, PostMortemAnalysis } from "@/hooks/useJournal";
 import { useTradeLessons } from "@/hooks/useTradeLessons";
+import { compressImage } from "@/lib/client/image";
+import { apiErrorMessage } from "@/lib/client/apiError";
 
 interface Props {
   entry: JournalEntry;
@@ -21,12 +23,16 @@ export default function TradePostMortem({ entry, onUpdate }: Props) {
   const existing = entry.postMortem;
   const isClosed = entry.status === "CLOSED";
 
-  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setImagePreview(reader.result as string);
-    reader.readAsDataURL(file);
+    try {
+      setImagePreview(await compressImage(file));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load the image");
+    } finally {
+      e.target.value = "";
+    }
   }
 
   async function runAnalysis() {
@@ -52,7 +58,7 @@ export default function TradePostMortem({ entry, onUpdate }: Props) {
           image: imagePreview || undefined,
         }),
       });
-      if (!res.ok) throw new Error("Failed to analyze trade");
+      if (!res.ok) throw new Error(await apiErrorMessage(res, "Failed to analyze the trade"));
       const data = await res.json();
       const postMortem: PostMortemAnalysis = {
         outcome: data.outcome,

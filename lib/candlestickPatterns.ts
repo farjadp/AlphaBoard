@@ -1,4 +1,5 @@
 export interface Candle {
+  time?: number; // candle open time, epoch ms (optional for legacy callers)
   open: number;
   high: number;
   low: number;
@@ -91,7 +92,7 @@ function detectSingleCandlePatterns(candles: Candle[]) {
       bias: "Neutral",
       confidence: 62 + (0.1 - bodyRatio) * 120,
       candles: 1,
-      description: "بدنه‌ی کندل خیلی کوچک است و بازار در این لحظه حالت بلاتکلیف و تردید دارد.",
+      description: "Very small body: the market is undecided and momentum has stalled.",
     }));
   }
 
@@ -102,7 +103,7 @@ function detectSingleCandlePatterns(candles: Candle[]) {
       bias: "Bullish",
       confidence: 76 + lowerRatio * 18,
       candles: 1,
-      description: "سایه‌ی پایینی بلند و بدنه‌ی نزدیک سقف نشان می‌دهد فشار فروش جمع شده و احتمال برگشت صعودی وجود دارد.",
+      description: "Long lower shadow with a close near the high: selling was absorbed and a bullish reversal is possible.",
     }));
   }
 
@@ -113,7 +114,7 @@ function detectSingleCandlePatterns(candles: Candle[]) {
       bias: "Bearish",
       confidence: 76 + upperRatio * 18,
       candles: 1,
-      description: "سایه‌ی بالایی بلند و بسته‌شدن نزدیک کف می‌تواند نشانه‌ی رد شدن قیمت و ضعف خریداران باشد.",
+      description: "Long upper shadow with a close near the low: price was rejected higher and buyers look weak.",
     }));
   }
 
@@ -125,8 +126,8 @@ function detectSingleCandlePatterns(candles: Candle[]) {
       confidence: 70 + lowerRatio * 18 + (trend !== "sideways" ? 6 : 0),
       candles: 1,
       description: trend === "up"
-        ? "بعد از یک حرکت صعودی، این ساختار می‌تواند هشدار خستگی روند و ریسک برگشت نزولی باشد."
-        : "سایه‌ی پایینی بلند و بسته‌شدن بالاتر می‌تواند نشانه‌ی جمع‌آوری قیمت و برگشت صعودی باشد.",
+        ? "After an advance, this shape can signal trend exhaustion and a bearish reversal risk."
+        : "Long lower shadow with a higher close can signal accumulation and a bullish reversal.",
     }));
   }
 
@@ -138,8 +139,8 @@ function detectSingleCandlePatterns(candles: Candle[]) {
       confidence: 70 + upperRatio * 18 + (trend !== "sideways" ? 6 : 0),
       candles: 1,
       description: trend === "up"
-        ? "سایه‌ی بالایی بلند بعد از رشد می‌تواند نشان دهد فروشندگان سقف را پس زده‌اند."
-        : "در انتهای افت، این فرم می‌تواند اولین نشانه‌ی تلاش خریداران برای برگشت باشد.",
+        ? "A long upper shadow after a rally can show sellers rejecting the highs."
+        : "At the end of a decline, this shape can be the first sign of buyers attempting a reversal.",
     }));
   }
 
@@ -150,7 +151,7 @@ function detectSingleCandlePatterns(candles: Candle[]) {
       bias: "Neutral",
       confidence: 58 + (0.38 - bodyRatio) * 80,
       candles: 1,
-      description: "بدنه‌ی کوچک با دو سایه نشان‌دهنده‌ی نوسان بالا و عدم قطعیت کوتاه‌مدت بازار است.",
+      description: "Small body with two long shadows: high volatility and short-term indecision.",
     }));
   }
 
@@ -176,7 +177,7 @@ function detectDoubleCandlePatterns(candles: Candle[]) {
       bias: "Bullish",
       confidence: 84,
       candles: 2,
-      description: "کندل صعودی بدنه‌ی کندل نزولی قبلی را پوشانده و می‌تواند نشانه‌ی چرخش قدرت به نفع خریداران باشد.",
+      description: "The bullish candle's body engulfs the prior bearish body, suggesting control is shifting to buyers.",
     }));
   }
 
@@ -187,7 +188,7 @@ function detectDoubleCandlePatterns(candles: Candle[]) {
       bias: "Bearish",
       confidence: 84,
       candles: 2,
-      description: "کندل نزولی بدنه‌ی کندل قبلی را کاملاً پوشانده و احتمال تغییر مومنتوم به سمت فروشندگان را بالا می‌برد.",
+      description: "The bearish candle fully engulfs the prior body, raising the odds of momentum shifting to sellers.",
     }));
   }
 
@@ -198,7 +199,7 @@ function detectDoubleCandlePatterns(candles: Candle[]) {
       bias: "Bullish",
       confidence: 78,
       candles: 2,
-      description: "بازگشت پرقدرت کندل دوم به داخل بدنه‌ی کندل نزولی قبلی، نشانه‌ای از تضعیف فشار فروش است.",
+      description: "The second candle recovers deep into the prior bearish body, a sign that selling pressure is fading.",
     }));
   }
 
@@ -209,7 +210,7 @@ function detectDoubleCandlePatterns(candles: Candle[]) {
       bias: "Bearish",
       confidence: 78,
       candles: 2,
-      description: "نفوذ عمیق کندل نزولی به بدنه‌ی صعودی قبلی می‌تواند نشانه‌ی شروع فشار فروش باشد.",
+      description: "A bearish candle penetrates deep into the prior bullish body, which can mark the start of selling pressure.",
     }));
   }
 
@@ -220,7 +221,7 @@ function detectDoubleCandlePatterns(candles: Candle[]) {
       bias: "Bullish",
       confidence: 72,
       candles: 2,
-      description: "بدنه‌ی کوچک صعودی در دل کندل نزولی قبلی دیده می‌شود و از کاهش فشار فروش خبر می‌دهد.",
+      description: "A small bullish body inside the prior bearish candle points to easing selling pressure.",
     }));
   }
 
@@ -231,7 +232,7 @@ function detectDoubleCandlePatterns(candles: Candle[]) {
       bias: "Bearish",
       confidence: 72,
       candles: 2,
-      description: "بدنه‌ی کوچک نزولی داخل بدنه‌ی صعودی قبلی می‌تواند نشانه‌ی ضعف ادامه‌ی رشد باشد.",
+      description: "A small bearish body inside the prior bullish candle can signal the advance is losing strength.",
     }));
   }
 
@@ -242,7 +243,7 @@ function detectDoubleCandlePatterns(candles: Candle[]) {
       bias: "Bullish",
       confidence: 74,
       candles: 2,
-      description: "دو کف نزدیک به هم شکل گرفته و می‌تواند نشان دهد فروشندگان در ناحیه‌ی فعلی به مقاومت برخورد کرده‌اند.",
+      description: "Two nearby lows suggest sellers are meeting support in this area.",
     }));
   }
 
@@ -253,7 +254,7 @@ function detectDoubleCandlePatterns(candles: Candle[]) {
       bias: "Bearish",
       confidence: 74,
       candles: 2,
-      description: "دو سقف نزدیک به هم دیده می‌شود که معمولاً هشداری برای توقف یا برگشت روند صعودی است.",
+      description: "Two nearby highs usually warn of a pause or reversal in the uptrend.",
     }));
   }
 
@@ -279,7 +280,7 @@ function detectTripleCandlePatterns(candles: Candle[]) {
       bias: "Bullish",
       confidence: 86,
       candles: 3,
-      description: "الگوی سه‌ کندلی برگشتی که از تضعیف فروش و بازگشت کنترل به سمت خریداران خبر می‌دهد.",
+      description: "Three-candle reversal pattern: selling fades and control returns to buyers.",
     }));
   }
 
@@ -290,7 +291,7 @@ function detectTripleCandlePatterns(candles: Candle[]) {
       bias: "Bearish",
       confidence: 86,
       candles: 3,
-      description: "این ساختار سه‌ کندلی معمولاً هشداری برای پایان رشد و افزایش احتمال برگشت نزولی است.",
+      description: "Three-candle reversal pattern that usually warns the advance is ending and a decline is more likely.",
     }));
   }
 
@@ -301,7 +302,7 @@ function detectTripleCandlePatterns(candles: Candle[]) {
       bias: "Bullish",
       confidence: 88,
       candles: 3,
-      description: "سه کندل صعودی پیاپی با بسته‌شدن‌های بالاتر، مومنتوم مثبت و ادامه‌ی قدرت خریداران را نشان می‌دهد.",
+      description: "Three consecutive bullish candles with higher closes show positive momentum and sustained buying.",
     }));
   }
 
@@ -312,7 +313,7 @@ function detectTripleCandlePatterns(candles: Candle[]) {
       bias: "Bearish",
       confidence: 88,
       candles: 3,
-      description: "سه کندل نزولی متوالی با بسته‌شدن‌های پایین‌تر، غالب بودن فروشندگان را تأیید می‌کند.",
+      description: "Three consecutive bearish candles with lower closes confirm sellers are in control.",
     }));
   }
 
@@ -326,7 +327,7 @@ function detectTripleCandlePatterns(candles: Candle[]) {
       bias: "Bullish",
       confidence: 82,
       candles: 3,
-      description: "هارامی صعودی که با کندل سوم تأیید شده و احتمال برگشت صعودی را بیشتر می‌کند.",
+      description: "Bullish harami confirmed by a third candle, which strengthens the case for an upside reversal.",
     }));
   }
 
@@ -337,7 +338,7 @@ function detectTripleCandlePatterns(candles: Candle[]) {
       bias: "Bearish",
       confidence: 82,
       candles: 3,
-      description: "هارامی نزولی همراه با تأیید کندل سوم، اخطار جدی‌تری برای برگشت نزولی می‌سازد.",
+      description: "Bearish harami confirmed by a third candle, a stronger warning of a downside reversal.",
     }));
   }
 
@@ -351,7 +352,7 @@ function detectTripleCandlePatterns(candles: Candle[]) {
       bias: "Bullish",
       confidence: 84,
       candles: 3,
-      description: "انگلفینگ صعودی که با ادامه‌ی رشد در کندل سوم تأیید شده و اعتبار بیشتری دارد.",
+      description: "Bullish engulfing confirmed by follow-through on the third candle, which makes it more reliable.",
     }));
   }
 
@@ -362,7 +363,7 @@ function detectTripleCandlePatterns(candles: Candle[]) {
       bias: "Bearish",
       confidence: 84,
       candles: 3,
-      description: "انگلفینگ نزولی با تأیید کندل سوم، احتمال ادامه‌ی افت را تقویت می‌کند.",
+      description: "Bearish engulfing confirmed by the third candle, which strengthens the case for further downside.",
     }));
   }
 
@@ -387,7 +388,7 @@ export function detectCandlestickPatterns(candles: Candle[]) {
         bias: "Neutral",
         confidence: 35,
         candles: 1,
-        description: "در کندل‌های آخر الگوی واضح و قابل اتکایی دیده نمی‌شود و بهتر است تأیید بیشتری گرفته شود.",
+        description: "No clear, reliable pattern on the latest candles; wait for more confirmation.",
       }),
       matches: [] as CandlestickPatternMatch[],
     };

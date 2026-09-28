@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { findAsset } from "@/lib/assetCatalog";
 
 interface NewsItem {
-  id: number;
-  time: string;
+  id: string;
+  publishedAt: string | null;
   source: string;
   headline: string;
+  url: string | null;
   sentiment: "bullish" | "bearish" | "neutral";
   tags: string[];
 }
@@ -19,14 +20,12 @@ interface NewsFeedProps {
 export default function NewsFeed({ symbol }: NewsFeedProps) {
   const [items, setItems] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState<string>("mock");
+  const [source, setSource] = useState<string>("none");
 
   const asset = findAsset(symbol);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setItems([]);
 
     async function fetchNews() {
       try {
@@ -34,7 +33,7 @@ export default function NewsFeed({ symbol }: NewsFeedProps) {
         const data = await res.json();
         if (cancelled) return;
         setItems(data.items ?? []);
-        setSource(data.source ?? "mock");
+        setSource(data.source ?? "none");
       } catch {
         // keep whatever is already shown
       } finally {
@@ -51,7 +50,7 @@ export default function NewsFeed({ symbol }: NewsFeedProps) {
     source === "newsapi"     ? { text: "newsapi.org",   color: "var(--green)" }   :
     source === "cryptopanic" ? { text: "CryptoPanic",   color: "var(--green)" }   :
     source === "yahoo"       ? { text: "Yahoo Finance", color: "var(--accent)" }  :
-                               { text: "demo data",     color: "var(--text-3)" };
+                               { text: "no source",     color: "var(--text-3)" };
 
   return (
     <div className="glass-card overflow-hidden">
@@ -83,7 +82,7 @@ export default function NewsFeed({ symbol }: NewsFeedProps) {
           {items.map((item, i) => <NewsRow key={item.id} item={item} index={i} />)}
           {items.length === 0 && (
             <div className="px-4 py-8 text-center text-xs" style={{ color: "var(--text-3)" }}>
-              No news available for {asset?.name ?? symbol}
+              {source === "none" ? "No news source returned headlines for" : "No recent headlines for"} {asset?.name ?? symbol}
             </div>
           )}
         </div>
@@ -105,16 +104,20 @@ function NewsRow({ item, index }: { item: NewsItem; index: number }) {
       onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-hover)")}
       onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
     >
-      <span className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{
+      <span title={`Keyword sentiment (heuristic): ${item.sentiment}`} className="mt-1.5 w-2 h-2 rounded-full shrink-0" style={{
         background: sentimentColor,
         boxShadow: `0 0 6px ${sentimentColor}`,
       }} />
       <div className="flex-1 min-w-0">
-        <p className="text-xs leading-5 font-medium" style={{ color: "var(--text)" }}>{item.headline}</p>
+        {item.url ? (
+          <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-xs leading-5 font-medium hover:underline" style={{ color: "var(--text)" }}>{item.headline}</a>
+        ) : (
+          <p className="text-xs leading-5 font-medium" style={{ color: "var(--text)" }}>{item.headline}</p>
+        )}
         <div className="flex items-center gap-2 mt-1 flex-wrap">
           <span className="text-[11px] font-medium" style={{ color: "var(--text-2)" }}>{item.source}</span>
           <span className="text-[11px]" style={{ color: "var(--text-3)" }}>·</span>
-          <span className="text-[11px]" style={{ color: "var(--text-3)" }}>{item.time}</span>
+          <span className="text-[11px]" style={{ color: "var(--text-3)" }}>{relativeTime(item.publishedAt)}</span>
           {item.tags.map((tag) => (
             <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded"
               style={{ background: "var(--surface-2)", color: "var(--text-3)" }}>
@@ -125,6 +128,14 @@ function NewsRow({ item, index }: { item: NewsItem; index: number }) {
       </div>
     </div>
   );
+}
+
+function relativeTime(iso: string | null): string {
+  if (!iso) return "recent";
+  const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  return hours < 24 ? `${hours}h ago` : `${Math.floor(hours / 24)}d ago`;
 }
 
 function SkeletonRow() {

@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Annotation } from "@/hooks/useChartAcademy";
+import { compressImage } from "@/lib/client/image";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -355,11 +356,12 @@ export function DropZone({ label, timeframe, imageDataUrl, onFile, onClear }: Dr
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const handleFile = (file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onloadend = () => onFile(reader.result as string);
-    reader.readAsDataURL(file);
+  const handleFile = async (file: File) => {
+    try {
+      onFile(await compressImage(file));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not load the image");
+    }
   };
 
   return (
@@ -387,6 +389,7 @@ export function DropZone({ label, timeframe, imageDataUrl, onFile, onClear }: Dr
 
       {imageDataUrl ? (
         <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- local data URL preview; next/image cannot optimise it */}
           <img src={imageDataUrl} alt={label} style={{ width: "100%", display: "block", borderRadius: "10px" }} />
           <button onClick={(e) => { e.stopPropagation(); onClear(); }} style={{ position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: "50%", background: "rgba(248,113,113,0.9)", border: "none", color: "#fff", fontSize: "11px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
           <div style={{ position: "absolute", bottom: 6, left: 6, padding: "2px 8px", borderRadius: "5px", background: "rgba(12,16,24,0.88)", fontSize: "10px", fontWeight: 700, color: "var(--accent)", letterSpacing: "0.06em" }}>{timeframe}</div>

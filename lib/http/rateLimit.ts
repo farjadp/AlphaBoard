@@ -1,3 +1,5 @@
+import { tooManyRequests } from "./errors";
+
 /**
  * In-memory sliding token bucket. Good enough for a single instance (Railway);
  * swap the store for Redis if we ever scale out. Keys are usually client IPs.
@@ -79,3 +81,11 @@ export const limiters = {
   ai: createRateLimiter({ limit: 20, windowMs: 10 * 60_000 }),          // AI calls: 20 per 10 min per IP
   api: createRateLimiter({ limit: 300, windowMs: 60_000 }),             // general API: 300/min per IP
 };
+
+/** Throws HttpError(429) when the caller's IP exceeds the tier's budget. */
+export function enforceRateLimit(req: Request, tier: keyof typeof limiters): void {
+  const rl = limiters[tier].check(clientIp(req));
+  if (!rl.allowed) {
+    throw tooManyRequests(rl.retryAfterMs);
+  }
+}

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import NavBar from "@/components/NavBar";
-import { useAlerts, PriceAlert } from "@/hooks/useAlerts";
+import { useAlerts } from "@/hooks/useAlerts";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useBinanceTickers } from "@/hooks/useBinanceTickers";
 import { useTradfiQuotes } from "@/hooks/useTradfiQuotes";
@@ -18,44 +18,38 @@ export default function AlertsPage() {
   const [targetPrice, setTargetPrice] = useState<string>("");
   const [condition, setCondition] = useState<"above" | "below">("above");
 
-  // Get live data to check triggers
-  const cryptoSymbols = watchlist.filter(a => a.binanceSymbol).map(a => a.binanceSymbol!);
+  // Stream prices for the watchlist AND every symbol with an active alert (v1 only watched the
+  // watchlist, so an alert on any other asset could never fire).
+  const alertSymbols = useMemo(
+    () => Array.from(new Set([...symbols, ...alerts.filter((a) => !a.triggered).map((a) => a.symbol), selectedSymbol])),
+    [symbols, alerts, selectedSymbol],
+  );
+  const cryptoSymbols = useMemo(
+    () => alertSymbols.map((s) => findAsset(s)?.binanceSymbol).filter((s): s is string => !!s),
+    [alertSymbols],
+  );
   const { tickers } = useBinanceTickers(cryptoSymbols);
-  const tradfiSymbols = symbols.filter(s => findAsset(s)?.yahooSymbol);
-  const tradfiQuotes = useTradfiQuotes(tradfiSymbols, 60000);
+  const tradfiQuotes = useTradfiQuotes(alertSymbols.filter((s) => findAsset(s)?.yahooSymbol), 60_000);
 
-  // Helper to get current price
-  const getCurrentPrice = (sym: string) => {
+  const getCurrentPrice = useCallback((sym: string) => {
     const asset = findAsset(sym);
     if (!asset) return 0;
-    if (asset.category === "crypto" && asset.binanceSymbol) {
-      return tickers[asset.binanceSymbol]?.price || 0;
-    }
+    if (asset.binanceSymbol) return tickers[asset.binanceSymbol]?.price || 0;
     return tradfiQuotes[sym]?.price || 0;
-  };
+  }, [tickers, tradfiQuotes]);
 
-  // Check triggers continuously
+  // Evaluate triggers whenever prices move. (Alerts still only fire while this page is open;
+  // server-side evaluation and notifications arrive in P6.)
   useEffect(() => {
-    alerts.forEach((alert) => {
-      if (alert.triggered) return;
-      const currentPrice = getCurrentPrice(alert.symbol);
-      if (!currentPrice) return;
-
-      if (alert.condition === "above" && currentPrice >= alert.targetPrice) {
-        markTriggered(alert.id);
-      } else if (alert.condition === "below" && currentPrice <= alert.targetPrice) {
+    for (const alert of alerts) {
+      if (alert.triggered) continue;
+      const price = getCurrentPrice(alert.symbol);
+      if (!price) continue;
+      if ((alert.condition === "above" && price >= alert.targetPrice) || (alert.condition === "below" && price <= alert.targetPrice)) {
         markTriggered(alert.id);
       }
-    });
-  }, [alerts, tickers, tradfiQuotes]);
-
-  // Set default price when symbol changes
-  useEffect(() => {
-    const currentPrice = getCurrentPrice(selectedSymbol);
-    if (currentPrice && !targetPrice) {
-      setTargetPrice(currentPrice.toString());
     }
-  }, [selectedSymbol]);
+  }, [alerts, getCurrentPrice, markTriggered]);
 
   const handleAddAlert = (e: React.FormEvent) => {
     e.preventDefault();
