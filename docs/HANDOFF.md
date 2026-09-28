@@ -16,9 +16,9 @@ Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
 | P4 · Paper trading | ✅ Done | `lib/paper` engine (isolated margin, 0.05% fee + 0.05% slippage, liquidation, SL/TP on 5m candle high/low + live quote), 60s tick (`lib/jobs`, `instrumentation.ts`, `POST /api/cron/tick`), `/paper` (ticket, positions, history, equity curve, reset), "Trade on paper" from Archive signals. Plan: `docs/superpowers/plans/2026-09-28-p4-paper-trading.md` |
 | P5 · Signal evaluation | ✅ Done | `lib/eval` (evaluator, metrics, job in the tick), `SignalEvaluation` model, `/performance` (win rate, expectancy, profit factor, drawdown, cumulative R, calibration, breakdowns, URL filters), outcome badges in Archive. Rules: `docs/superpowers/plans/2026-09-28-p5-signal-evaluation.md` |
 | P6 · Alerts | ✅ Done | Alerts fire server-side in the tick (5m candle high/low + quote, once, with trigger price); `Notification` model + bell in NavBar (also for paper SL/TP/liquidation closes); optional Telegram (`TELEGRAM_BOT_TOKEN`, link via `/start CODE` from Settings, `getUpdates` in the tick, `/stop` unlinks, blocked bot auto-unlinks). Clients can no longer mark alerts triggered |
-| **P7 · UI & release** | ⏭ **Next** | Tailwind tokens (remove inline styles), Manrope font, drop purple gradients, landing + SEO, disclaimer acceptance, a11y, `/impeccable` audit, tag `v2.0.0` |
+| **P7 · UI & release** | ⏳ In progress | Done: light redesign (tokens, fonts, market screen), risk disclaimer gate (`/welcome`, JWT claim checked in `proxy.ts`, APIs 403 until accepted) + `/legal` + footer. Left: landing + SEO, admin system dashboard (tick health/errors), track record on the ticket, a11y + `/impeccable audit`, CHANGELOG P4–P7, tag `v2.0.0`, push + deploy |
 
-Quality gates at handoff: **186 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems (all rules on), production build clean.
+Quality gates at handoff: **204 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems (all rules on), production build clean.
 
 ## Local environment
 
