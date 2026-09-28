@@ -5,7 +5,7 @@ import type { Analysis } from "@/lib/ai/schemas";
 import { signalToDto } from "./mappers";
 
 export async function listSignals(userId: string) {
-  const rows = await prisma.signal.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 500 });
+  const rows = await prisma.signal.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 500, include: { evaluation: true } });
   return rows.map(signalToDto);
 }
 
@@ -15,7 +15,8 @@ export async function archiveAnalysis(userId: string, a: Analysis, ctx: { symbol
     data: {
       userId,
       symbol: ctx.symbol,
-      timeframe: a.timeframe || ctx.timeframe,
+      // The timeframe that was actually analysed (the model's free-text echo can differ); P5 evaluates on it.
+      timeframe: ctx.timeframe,
       signal: a.signal,
       confidence: a.confidence,
       priceAtSignal: ctx.priceAtSignal,
@@ -45,6 +46,6 @@ export async function clearSignals(userId: string) {
 
 /** One of the user's own signals (null when missing or someone else's). */
 export async function getSignal(userId: string, id: string) {
-  const row = await prisma.signal.findFirst({ where: { id, userId } });
+  const row = await prisma.signal.findFirst({ where: { id, userId }, include: { evaluation: true } });
   return row ? signalToDto(row) : null;
 }

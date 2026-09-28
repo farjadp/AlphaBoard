@@ -11,6 +11,7 @@ const NAV_LINKS = [
   { href: "/alerts", label: "Alerts" },
   { href: "/archive", label: "Archive" },
   { href: "/paper", label: "Paper" },
+  { href: "/performance", label: "Performance" },
   { href: "/journal", label: "Journal" },
   { href: "/academy", label: "Academy" },
 ];

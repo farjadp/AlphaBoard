@@ -1,36 +1,48 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { money, when } from "./format";
+import { money, when } from "@/components/paper/format";
 
 const W = 760, H = 220;
 const PAD = { top: 14, right: 12, bottom: 24, left: 64 };
 
+export type ChartUnit = "usdt" | "r";
+
+const fmt = (unit: ChartUnit, v: number) => (unit === "usdt" ? money(v) : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v).toFixed(2)}R`);
+
 /**
- * Equity over time: one 2px line, dashed starting-balance reference, recessive axes,
- * crosshair + tooltip on hover/touch, and a visually hidden table for screen readers.
+ * One series over time: a 2px line, a dashed baseline reference (starting balance, or 0R), recessive
+ * axes, crosshair + tooltip on hover/touch, and a visually hidden table for screen readers.
+ * `unit` (not a formatter function) so server components can render it.
  */
-export default function EquityChart({ points, startingBalance }: { points: Array<{ at: string; equity: number }>; startingBalance: number }) {
+export default function LineChart({ points, baseline, baselineLabel, unit, title, empty }: {
+  points: Array<{ at: string; value: number }>;
+  baseline: number;
+  baselineLabel: string;
+  unit: ChartUnit;
+  title: string;
+  empty: string;
+}) {
   const [hover, setHover] = useState<number | null>(null);
 
   const geo = useMemo(() => {
     const ts = points.map((p) => new Date(p.at).getTime());
-    const values = [...points.map((p) => p.equity), startingBalance];
+    const values = [...points.map((p) => p.value), baseline];
     let lo = Math.min(...values), hi = Math.max(...values);
     const padV = (hi - lo) * 0.1 || Math.max(1, hi * 0.01);
     lo -= padV; hi += padV;
     const t0 = ts[0] ?? 0, t1 = ts.at(-1) ?? 1;
     const x = (t: number) => PAD.left + (t1 === t0 ? (W - PAD.left - PAD.right) / 2 : ((t - t0) / (t1 - t0)) * (W - PAD.left - PAD.right));
     const y = (v: number) => PAD.top + (1 - (v - lo) / (hi - lo)) * (H - PAD.top - PAD.bottom);
-    const xy = points.map((p, i) => [x(ts[i]), y(p.equity)] as const);
+    const xy = points.map((p, i) => [x(ts[i]), y(p.value)] as const);
     const line = xy.map(([a, b], i) => `${i ? "L" : "M"}${a.toFixed(1)},${b.toFixed(1)}`).join("");
     const area = xy.length ? `${line}L${xy.at(-1)![0].toFixed(1)},${H - PAD.bottom}L${xy[0][0].toFixed(1)},${H - PAD.bottom}Z` : "";
     const ticks = [hi - padV, (hi + lo) / 2, lo + padV].map((v) => ({ v, y: y(v) }));
-    return { xy, line, area, ticks, baseY: y(startingBalance), t0, t1 };
-  }, [points, startingBalance]);
+    return { xy, line, area, ticks, baseY: y(baseline), t0, t1 };
+  }, [points, baseline]);
 
   if (points.length < 2) {
-    return <p className="py-10 text-center text-sm text-[var(--text-3)]">The curve starts once the account has a few equity points (every trade, and every 15 minutes while positions are open).</p>;
+    return <p className="py-10 text-center text-sm text-[var(--text-3)]">{empty}</p>;
   }
 
   function onMove(e: React.PointerEvent<SVGSVGElement>) {
@@ -48,11 +60,11 @@ export default function EquityChart({ points, startingBalance }: { points: Array
     <figure className="m-0">
       <svg
         viewBox={`0 0 ${W} ${H}`} className="h-auto w-full touch-none select-none" role="img"
-        aria-label={`Equity from ${money(points[0].equity)} to ${money(points.at(-1)!.equity)} USDT`}
+        aria-label={`${title} from ${fmt(unit, points[0].value)} to ${fmt(unit, points.at(-1)!.value)}`}
         onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setHover(null)}
       >
         <defs>
-          <linearGradient id="eq-fill" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id={`fill-${unit}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.18" />
             <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
           </linearGradient>
@@ -60,12 +72,12 @@ export default function EquityChart({ points, startingBalance }: { points: Array
         {geo.ticks.map((t) => (
           <g key={t.v}>
             <line x1={PAD.left} x2={W - PAD.right} y1={t.y} y2={t.y} className="stroke-[var(--border)]" strokeWidth={1} />
-            <text x={PAD.left - 8} y={t.y + 4} textAnchor="end" className="fill-[var(--text-3)] text-[11px] tabular-nums">{money(t.v)}</text>
+            <text x={PAD.left - 8} y={t.y + 4} textAnchor="end" className="fill-[var(--text-3)] text-[11px] tabular-nums">{fmt(unit, t.v)}</text>
           </g>
         ))}
         <line x1={PAD.left} x2={W - PAD.right} y1={geo.baseY} y2={geo.baseY} className="stroke-[var(--text-3)]" strokeWidth={1} strokeDasharray="4 4" />
-        <text x={W - PAD.right} y={geo.baseY - 5} textAnchor="end" className="fill-[var(--text-3)] text-[10px]">Start {money(startingBalance)}</text>
-        <path d={geo.area} fill="url(#eq-fill)" />
+        <text x={W - PAD.right} y={geo.baseY - 5} textAnchor="end" className="fill-[var(--text-3)] text-[10px]">{baselineLabel}</text>
+        <path d={geo.area} fill={`url(#fill-${unit})`} />
         <path d={geo.line} fill="none" className="stroke-[var(--accent)]" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
         <text x={PAD.left} y={H - 6} className="fill-[var(--text-3)] text-[10px]">{when(points[0].at)}</text>
         <text x={W - PAD.right} y={H - 6} textAnchor="end" className="fill-[var(--text-3)] text-[10px]">{when(points.at(-1)!.at)}</text>
@@ -75,14 +87,14 @@ export default function EquityChart({ points, startingBalance }: { points: Array
             <circle cx={h.x} cy={h.y} r={4} className="fill-[var(--accent)] stroke-[var(--bg)]" strokeWidth={2} />
             <rect x={tipX} y={PAD.top} width={tipW} height={40} rx={6} className="fill-[var(--bg-2)] stroke-[var(--border-strong)]" />
             <text x={tipX + 10} y={PAD.top + 16} className="fill-[var(--text-3)] text-[10px]">{when(h.p.at)}</text>
-            <text x={tipX + 10} y={PAD.top + 32} className="fill-[var(--text)] text-[13px] font-semibold tabular-nums">{money(h.p.equity)} USDT</text>
+            <text x={tipX + 10} y={PAD.top + 32} className="fill-[var(--text)] text-[13px] font-semibold tabular-nums">{fmt(unit, h.p.value)}{unit === "usdt" ? " USDT" : ""}</text>
           </g>
         )}
       </svg>
       <table className="sr-only">
-        <caption>Equity history</caption>
-        <thead><tr><th>Time</th><th>Equity (USDT)</th></tr></thead>
-        <tbody>{points.map((p) => <tr key={p.at}><td>{when(p.at)}</td><td>{money(p.equity)}</td></tr>)}</tbody>
+        <caption>{title}</caption>
+        <thead><tr><th>Time</th><th>{title}</th></tr></thead>
+        <tbody>{points.map((p, i) => <tr key={`${p.at}-${i}`}><td>{when(p.at)}</td><td>{fmt(unit, p.value)}</td></tr>)}</tbody>
       </table>
     </figure>
   );

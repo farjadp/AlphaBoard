@@ -205,6 +205,7 @@ model Signal {
   createdAt           DateTime @default(now())
 
   paperPositions PaperPosition[]
+  evaluation     SignalEvaluation?
 
   @@unique([userId, legacyId])
   @@index([userId, createdAt])
@@ -369,4 +370,33 @@ model EquitySnapshot {
   at        DateTime     @default(now())
 
   @@index([accountId, at])
+}
+
+// ─── Signal evaluation (P5) ──────────────────────────────────────────────────
+// Outcome of each archived BUY/SELL signal replayed on later candles (lib/eval/evaluator.ts).
+
+enum SignalOutcome {
+  OPEN
+  TP_HIT
+  SL_HIT
+  EXPIRED
+  NO_FILL
+  INVALID
+}
+
+model SignalEvaluation {
+  id            String        @id @default(cuid())
+  signalId      String        @unique
+  signal        Signal        @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  status        SignalOutcome
+  rMultiple     Float?
+  exitPrice     Float?
+  entryFilledAt DateTime?
+  resolvedAt    DateTime?
+  barsElapsed   Int           @default(0)
+  note          String?
+  lastCheckedAt DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+
+  @@index([status, lastCheckedAt])
 }

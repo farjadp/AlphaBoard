@@ -7,7 +7,7 @@ import { useBinanceTickers } from "@/hooks/useBinanceTickers";
 import { useTradfiQuotes } from "@/hooks/useTradfiQuotes";
 import { findAsset } from "@/lib/assetCatalog";
 import OrderTicket, { type TicketPrefill } from "./OrderTicket";
-import EquityChart from "./EquityChart";
+import LineChart from "@/components/charts/LineChart";
 import { ClosedPositions, OpenPositions } from "./PositionsTable";
 import { money, pct, tone } from "./format";
 
@@ -95,7 +95,11 @@ export default function PaperScreen({ prefill }: { prefill: TicketPrefill | null
                 <div className="min-w-0 space-y-6">
                   <section className="glass-card p-5" aria-labelledby="eq-title">
                     <h2 id="eq-title" className="mb-3 text-sm font-semibold text-[var(--text)]">Equity</h2>
-                    <EquityChart points={overview.equityCurve} startingBalance={a.startingBalance} />
+                    <LineChart
+                      points={overview.equityCurve.map((p) => ({ at: p.at, value: p.equity }))} baseline={a.startingBalance}
+                      baselineLabel={`Start ${money(a.startingBalance)}`} unit="usdt" title="Equity"
+                      empty="The curve starts once the account has a few equity points (every trade, and every 15 minutes while positions are open)."
+                    />
                   </section>
 
                   <section className="glass-card overflow-hidden" aria-label="Positions">

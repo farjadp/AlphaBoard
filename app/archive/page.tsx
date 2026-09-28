@@ -4,6 +4,7 @@ import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import { useSignalHistory, ArchivedSignal } from "@/hooks/useSignalHistory";
 import { formatPrice } from "@/lib/binance";
+import OutcomeBadge from "@/components/performance/OutcomeBadge";
 
 export default function AlertsPage() {
   const { history, clearHistory, removeSignal } = useSignalHistory();
@@ -82,6 +83,11 @@ function HistoryCard({ item, onRemove }: { item: ArchivedSignal, onRemove: () =>
               fontWeight: 600
             }}>{item.signal} ({item.timeframe})</span>
           </div>
+          {item.evaluation && (
+            <div className="mb-3">
+              <OutcomeBadge status={item.evaluation.status} rMultiple={item.evaluation.rMultiple} note={item.evaluation.note} />
+            </div>
+          )}
           
           <div className="text-[11px] mb-4 space-y-1" style={{ color: "var(--text-3)" }}>
             <div className="flex items-center gap-1.5">

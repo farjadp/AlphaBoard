@@ -6,6 +6,7 @@ import { logger } from "@/lib/http/logger";
 import { getCandles } from "@/lib/market/candles";
 import { livePrice, settlePosition, snapshotEquity, type PriceOf } from "@/lib/paper/account";
 import { scanExit, type Bar } from "@/lib/paper/engine";
+import { evaluatePendingSignals, type SignalBarsOf } from "@/lib/eval/job";
 
 export const TICK_KEY = "tick.last";
 const SNAPSHOT_EVERY_MS = 15 * 60_000;
@@ -15,6 +16,8 @@ export interface TickDeps {
   /** Recent 5m candles for a symbol, oldest first; null when unavailable. */
   barsOf?: (symbol: string) => Promise<Bar[] | null>;
   priceOf?: PriceOf;
+  /** Candles of a signal's own timeframe (signal evaluation). */
+  signalBarsOf?: SignalBarsOf;
 }
 
 export interface TickResult {
@@ -24,6 +27,7 @@ export interface TickResult {
   symbols: number;
   closed: Array<{ id: string; symbol: string; reason: string }>;
   snapshots: number;
+  signals: { checked: number; resolved: number };
   errors: string[];
 }
 
@@ -35,8 +39,8 @@ const liveBars = async (symbol: string): Promise<Bar[] | null> => {
 
 /**
  * One scheduler tick: settle paper positions whose SL/TP/liquidation level was crossed by a candle
- * high/low (or the live quote), then snapshot equity for active accounts. Alerts (P6) and signal
- * evaluation (P5) join here later.
+ * high/low (or the live quote), snapshot equity for active accounts, then evaluate pending AI
+ * signals (P5). Alerts (P6) join here later. Each part is isolated: one failing never skips the rest.
  */
 export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
   const now = deps.now ?? (() => new Date());
@@ -98,13 +102,22 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
     }
   }
 
+  let signals = { checked: 0, resolved: 0 };
+  try {
+    const ev = await evaluatePendingSignals({ now: now(), barsOf: deps.signalBarsOf });
+    signals = { checked: ev.checked, resolved: ev.resolved };
+    errors.push(...ev.errors);
+  } catch (e) {
+    errors.push(`signal evaluation: ${e instanceof Error ? e.message : e}`);
+  }
+
   const result: TickResult = {
     at: started.toISOString(), ms: now().getTime() - started.getTime(),
-    positions: open.length, symbols: symbols.length, closed, snapshots, errors: errors.slice(0, 20),
+    positions: open.length, symbols: symbols.length, closed, snapshots, signals, errors: errors.slice(0, 20),
   };
   const value = result as unknown as Prisma.InputJsonValue;
   await prisma.appSetting.upsert({ where: { key: TICK_KEY }, create: { key: TICK_KEY, value }, update: { value } });
   if (errors.length) logger.warn({ ...result }, "tick finished with errors");
-  else if (closed.length) logger.info({ ...result }, "tick settled positions");
+  else if (closed.length || signals.resolved) logger.info({ ...result }, "tick settled positions");
   return result;
 }

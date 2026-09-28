@@ -1,6 +1,6 @@
 # AlphaBoard v2 — Session Handoff
 
-_Last updated: 2026-09-28 · branch `v2` · after P4_
+_Last updated: 2026-09-28 · branch `v2` · after P5_
 
 Read this first in a new session. Source of truth for the plan: `docs/superpowers/specs/2026-09-27-alphaboard-v2-design.md`.
 Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
@@ -14,11 +14,11 @@ Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
 | P2 · Persistence | ✅ Done | All user data in Postgres (7 models), owner-only attachments, resource store with optimistic UI, `/import` for v1 browser data, account menu |
 | P3 · AI providers | ✅ Done | `lib/ai`: OpenAI / Anthropic (official SDK, structured outputs) / OpenRouter / DeepSeek, verified price catalog, `AiUsage` logging, per-user daily token quota, `/settings`, `/admin/ai`, `/admin/users` |
 | P4 · Paper trading | ✅ Done | `lib/paper` engine (isolated margin, 0.05% fee + 0.05% slippage, liquidation, SL/TP on 5m candle high/low + live quote), 60s tick (`lib/jobs`, `instrumentation.ts`, `POST /api/cron/tick`), `/paper` (ticket, positions, history, equity curve, reset), "Trade on paper" from Archive signals. Plan: `docs/superpowers/plans/2026-09-28-p4-paper-trading.md` |
-| **P5 · Signal evaluation** | ⏭ **Next** | Evaluate archived `Signal`s vs later candles (TP/SL/expired, R-multiple), performance page, calibration |
-| P6 · Alerts | Partial | Client bugs fixed in P1; still only evaluates while `/alerts` is open → move to the tick job + notification center + optional Telegram |
+| P5 · Signal evaluation | ✅ Done | `lib/eval` (evaluator, metrics, job in the tick), `SignalEvaluation` model, `/performance` (win rate, expectancy, profit factor, drawdown, cumulative R, calibration, breakdowns, URL filters), outcome badges in Archive. Rules: `docs/superpowers/plans/2026-09-28-p5-signal-evaluation.md` |
+| **P6 · Alerts** | ⏭ **Next** · Partial | Client bugs fixed in P1; still only evaluates while `/alerts` is open → move to the tick job + notification center + optional Telegram |
 | P7 · UI & release | Pending | Tailwind tokens (remove inline styles), Manrope font, drop purple gradients, landing + SEO, disclaimer acceptance, a11y, `/impeccable` audit, tag `v2.0.0` |
 
-Quality gates at handoff: **149 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems (all rules on), production build clean.
+Quality gates at handoff: **173 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems (all rules on), production build clean.
 
 ## Local environment
 
@@ -53,4 +53,4 @@ Quality gates at handoff: **149 tests passing** (`npm run test:db`), `tsc` clean
 ## Tick job
 
 - Runs every 60s in-process (single instance). Disable with `TICK_DISABLED=1`; external trigger: `POST /api/cron/tick` with `Authorization: Bearer $CRON_SECRET` (or an admin session). Last run: `tick` on `/api/health`.
-- P5 (signal evaluation) and P6 (alerts) plug into `runTick()` in `lib/jobs/tick.ts`.
+- `runTick()` in `lib/jobs/tick.ts` runs paper settlement, then signal evaluation (P5); P6 alerts plug in the same way (isolated try/catch per part).
