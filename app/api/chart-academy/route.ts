@@ -5,7 +5,8 @@ import { requireUser } from "@/lib/auth/dal";
 import { readJson } from "@/lib/http/errors";
 import { enforceRateLimit } from "@/lib/http/rateLimit";
 import { parseImageDataUrl } from "@/lib/http/images";
-import { openaiChatJson, type ContentPart } from "@/lib/ai/openai";
+import { aiJson, type ContentPart } from "@/lib/ai";
+import { JSON_SCHEMAS } from "@/lib/ai/jsonSchemas";
 import { ChartAcademySchema } from "@/lib/ai/schemas";
 import { buildPrompt } from "@/lib/ai/prompts/chartAcademy";
 
@@ -31,12 +32,13 @@ export const POST = route(async (req) => {
     content.push({ type: "image_url", image_url: { url: c.imageDataUrl, detail: "high" } });
   }
 
-  const result = await openaiChatJson({
+  const { data: result } = await aiJson({
     feature: "chart-academy",
     userId: user.id,
     system: "You are a precise chart analyst who annotates screenshots. Respond with a single JSON object only.",
     user: content,
     schema: ChartAcademySchema,
+    jsonSchema: JSON_SCHEMAS.chartAcademy,
     maxTokens: 8_000,
     timeoutMs: 120_000,
   });

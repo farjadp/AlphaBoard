@@ -1,5 +1,13 @@
 ## [Unreleased] — v2 in progress
 
+### P3 · AI providers (2026-09-28)
+- **Four providers behind one entry point** (`lib/ai`): OpenAI, Anthropic (official TypeScript SDK, structured outputs, server-side refusal fallbacks on Claude Opus 5), OpenRouter (records the provider-reported cost) and DeepSeek.
+- **Model catalog with verified list prices**; reasoning models get the right request parameters (no temperature, room for reasoning tokens); image features automatically move to an image-capable model.
+- **Usage accounting:** every call is logged with tokens, estimated cost, latency and outcome — including failed calls and answers that failed validation.
+- **Daily token allowance per user** (resets 00:00 UTC), checked before any tokens are spent.
+- **Settings page** (choose your model, see today's usage) and **Admin → AI** (default and image models, default allowance, 7-day usage by user/model/feature/day) and **Admin → Users** (per-user allowance).
+- Each strategy report shows which model produced it, its tokens and estimated cost; the archive records the actual model.
+
 ### P2 · Persistence (2026-09-28)
 - **Your data lives in your account:** journal, post-mortem lessons, AI signal archive, chart-academy studies, price alerts and watchlist moved from browser localStorage to PostgreSQL, scoped per user.
 - **Screenshots** are stored as compressed attachments and served only to their owner.

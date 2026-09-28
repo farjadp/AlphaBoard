@@ -1,31 +1,30 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
-import { parseCompletionJson } from "@/lib/ai/json";
+import { parseModelJson } from "@/lib/ai/json";
 import { AnalysisSchema } from "@/lib/ai/schemas";
 
 const schema = z.object({ signal: z.enum(["BUY", "SELL", "HOLD"]), confidence: z.coerce.number() });
-const completion = (content: string | null, finish_reason = "stop", refusal?: string) => ({
-  choices: [{ finish_reason, message: { content, refusal } }],
-});
+const result = (text: string, finishReason: "stop" | "length" | "refusal" | "other" = "stop", refusal?: string) =>
+  ({ text, finishReason, refusal, usage: { inputTokens: 1, outputTokens: 1 }, model: "m" });
 
-describe("parseCompletionJson", () => {
+describe("parseModelJson", () => {
   it("parses plain JSON and coerces numeric strings", () => {
-    expect(parseCompletionJson(completion('{"signal":"BUY","confidence":"72"}'), schema)).toEqual({ signal: "BUY", confidence: 72 });
+    expect(parseModelJson(result('{"signal":"BUY","confidence":"72"}'), schema)).toEqual({ signal: "BUY", confidence: 72 });
   });
   it("strips markdown code fences", () => {
-    expect(parseCompletionJson(completion('```json\n{"signal":"HOLD","confidence":50}\n```'), schema).signal).toBe("HOLD");
+    expect(parseModelJson(result('```json\n{"signal":"HOLD","confidence":50}\n```'), schema).signal).toBe("HOLD");
   });
-  it("rejects truncated completions instead of parsing half a JSON object", () => {
-    expect(() => parseCompletionJson(completion('{"signal":"BUY"', "length"), schema)).toThrow(expect.objectContaining({ code: "AI_TRUNCATED" }));
+  it("rejects truncated output instead of parsing half an object", () => {
+    expect(() => parseModelJson(result('{"signal":"BUY"', "length"), schema)).toThrow(expect.objectContaining({ code: "AI_TRUNCATED" }));
   });
-  it("surfaces model refusals", () => {
-    expect(() => parseCompletionJson(completion(null, "stop", "I can't help with that"), schema)).toThrow(expect.objectContaining({ code: "AI_REFUSED" }));
+  it("surfaces refusals", () => {
+    expect(() => parseModelJson(result("", "refusal", "declined"), schema)).toThrow(expect.objectContaining({ code: "AI_REFUSED" }));
   });
   it("rejects malformed JSON", () => {
-    expect(() => parseCompletionJson(completion("not json"), schema)).toThrow(expect.objectContaining({ code: "AI_BAD_JSON" }));
+    expect(() => parseModelJson(result("not json"), schema)).toThrow(expect.objectContaining({ code: "AI_BAD_JSON" }));
   });
   it("rejects output that does not match the schema", () => {
-    expect(() => parseCompletionJson(completion('{"signal":"MAYBE","confidence":1}'), schema)).toThrow(expect.objectContaining({ code: "AI_SCHEMA" }));
+    expect(() => parseModelJson(result('{"signal":"MAYBE","confidence":1}'), schema)).toThrow(expect.objectContaining({ code: "AI_SCHEMA" }));
   });
 });
 

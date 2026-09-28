@@ -5,7 +5,8 @@ import { requireUser } from "@/lib/auth/dal";
 import { readJson } from "@/lib/http/errors";
 import { enforceRateLimit } from "@/lib/http/rateLimit";
 import { parseImageDataUrl } from "@/lib/http/images";
-import { openaiChatJson } from "@/lib/ai/openai";
+import { aiJson } from "@/lib/ai";
+import { JSON_SCHEMAS } from "@/lib/ai/jsonSchemas";
 import { TradeScreenshotSchema } from "@/lib/ai/schemas";
 
 export const dynamic = "force-dynamic";
@@ -31,7 +32,7 @@ export const POST = route(async (req) => {
   const { image } = Body.parse(await readJson(req, 2_200_000));
   parseImageDataUrl(image);
 
-  const trade = await openaiChatJson({
+  const { data: trade } = await aiJson({
     feature: "parse-screenshot",
     userId: user.id,
     system: "You extract exact values from exchange screenshots. Respond with a single JSON object only.",
@@ -40,6 +41,7 @@ export const POST = route(async (req) => {
       { type: "image_url", image_url: { url: image, detail: "high" } },
     ],
     schema: TradeScreenshotSchema,
+    jsonSchema: JSON_SCHEMAS.tradeScreenshot,
     maxTokens: 400,
   });
   return NextResponse.json(trade);

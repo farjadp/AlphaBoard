@@ -7,7 +7,8 @@ import { enforceRateLimit } from "@/lib/http/rateLimit";
 import { parseImageDataUrl } from "@/lib/http/images";
 import { badRequest } from "@/lib/http/errors";
 import { attachmentAsDataUrl, attachmentIdFromUrl } from "@/lib/db/attachments";
-import { openaiChatJson, type ContentPart } from "@/lib/ai/openai";
+import { aiJson, type ContentPart } from "@/lib/ai";
+import { JSON_SCHEMAS } from "@/lib/ai/jsonSchemas";
 import { PostMortemSchema } from "@/lib/ai/schemas";
 
 export const dynamic = "force-dynamic";
@@ -78,13 +79,13 @@ ${tradeBlock}`;
   const content: ContentPart[] = [{ type: "text", text: instructions }];
   if (b.image) content.push({ type: "image_url", image_url: { url: b.image, detail: "high" } });
 
-  const result = await openaiChatJson({
+  const { data: result } = await aiJson({
     feature: "post-mortem",
     userId: user.id,
     system: "You are a blunt, experienced trading coach. Respond with a single JSON object only.",
     user: content,
     schema: PostMortemSchema,
-    model: b.image ? undefined : process.env.OPENAI_MODEL_SMALL ?? "gpt-4o-mini",
+    jsonSchema: JSON_SCHEMAS.postMortem,
     maxTokens: 900,
     temperature: 0.3,
   });

@@ -6,6 +6,7 @@ import { route } from "@/lib/http/route";
 import { badRequest, readJson, tooManyRequests } from "@/lib/http/errors";
 import { clientIp, limiters } from "@/lib/http/rateLimit";
 import { hashInviteToken, inviteState } from "@/lib/auth/invites";
+import { getAiSettings } from "@/lib/ai/settings";
 
 const registerSchema = z.object({
   token: z.string().min(20).max(200),
@@ -40,9 +41,10 @@ export const POST = route(async (req) => {
   if (existing) throw badRequest("An account with this email already exists", "EMAIL_TAKEN");
 
   const passwordHash = await bcrypt.hash(password, 12);
+  const { defaultDailyTokenQuota } = await getAiSettings();
   const user = await prisma.$transaction(async (tx) => {
     const created = await tx.user.create({
-      data: { name, email, passwordHash, role: invite!.role },
+      data: { name, email, passwordHash, role: invite!.role, dailyTokenQuota: defaultDailyTokenQuota },
       select: { id: true, email: true, name: true, role: true, createdAt: true },
     });
     // Consume the invite atomically; a concurrent duplicate use fails on the unique usedById.

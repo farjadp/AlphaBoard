@@ -69,7 +69,8 @@ Log in as the admin, open **/admin/invites**, create an invite link and send it 
 | `APP_URL` | yes | Public base URL, used in invite links |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | first boot | Bootstraps the first admin (idempotent) |
 | `OPENAI_API_KEY` | one AI key | Signal engine + Vision parsing |
-| `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY` | optional | Additional AI providers (P3) |
+| `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY` | optional | Additional AI providers; only providers with a key appear as choices |
+| `AI_DEFAULT_PROVIDER`, `AI_DEFAULT_MODEL` | optional | Initial default model until an admin sets one in **Admin → AI** (e.g. `openai` / `gpt-4o`) |
 | `NEWS_API_KEY`, `CRYPTOPANIC_KEY` | optional | News feeds |
 | `CRON_SECRET` | optional | Protects `/api/cron/tick` for external schedulers (P4) |
 | `TELEGRAM_BOT_TOKEN` | optional | Alert delivery (P6) |

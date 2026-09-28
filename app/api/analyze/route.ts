@@ -10,7 +10,8 @@ import { getQuote } from "@/lib/market/quote";
 import { getFutures } from "@/lib/market/futures";
 import { getNews } from "@/lib/market/news";
 import { getBalanceSheet, getCashflow } from "@/lib/market/fundamentals";
-import { openaiChatJson } from "@/lib/ai/openai";
+import { aiJson } from "@/lib/ai";
+import { JSON_SCHEMAS } from "@/lib/ai/jsonSchemas";
 import { AnalysisSchema } from "@/lib/ai/schemas";
 import { AiError } from "@/lib/ai/errors";
 import { buildAnalyzePrompt, sanitizeLessons } from "@/lib/ai/prompts/analyze";
@@ -69,12 +70,13 @@ export const POST = route(async (req) => {
     ...lessons,
   });
 
-  const analysis = await openaiChatJson({
+  const { data: analysis, meta } = await aiJson({
     feature: "analyze",
     userId: user.id,
     system: "You are a disciplined trading analyst. Respond with a single JSON object only.",
     user: prompt,
     schema: AnalysisSchema,
+    jsonSchema: JSON_SCHEMAS.analysis,
     maxTokens: 1_800,
     temperature: 0,
   });
@@ -83,8 +85,7 @@ export const POST = route(async (req) => {
   const far = [analysis.entry, analysis.stopLoss, analysis.takeProfit].some((p) => p > 0 && Math.abs(p / quote.price - 1) > 0.5);
   if (far) throw new AiError("AI_SCHEMA", "levels far from live price");
 
-  const model = process.env.OPENAI_MODEL ?? "gpt-4o";
-  const archived = await archiveAnalysis(user.id, analysis, { symbol: asset.symbol, timeframe, priceAtSignal: quote.price, provider: "openai", model });
+  const archived = await archiveAnalysis(user.id, analysis, { symbol: asset.symbol, timeframe, priceAtSignal: quote.price, provider: meta.provider, model: meta.model });
 
   return NextResponse.json({
     ...analysis,
@@ -94,6 +95,7 @@ export const POST = route(async (req) => {
       timeframe,
       priceAtSignal: quote.price,
       priceSource: quote.source,
+      ai: meta,
       priceAsOf: quote.asOf,
       consensus: report.consensusScore,
       lessonsUsed: { past: lessons.pastLessons.length, chart: lessons.chartLessons.length },

@@ -36,6 +36,7 @@ model User {
   signals        Signal[]
   chartLessons   ChartLesson[]
   priceAlerts    PriceAlert[]
+  aiUsage        AiUsage[]
 }
 
 model Invite {
@@ -243,4 +244,26 @@ model PriceAlert {
 
   @@unique([userId, legacyId])
   @@index([userId, triggered])
+}
+
+// ─── AI usage (P3) ───────────────────────────────────────────────────────────
+
+/// One row per model call (successful or not): who, which model, tokens, estimated cost, outcome.
+model AiUsage {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  feature      String
+  provider     String
+  model        String
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+  costUsd      Float    @default(0)
+  latencyMs    Int      @default(0)
+  status       String
+  errorCode    String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([createdAt])
 }

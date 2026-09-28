@@ -15,6 +15,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <Link href="/market" className="font-bold">AlphaBoard</Link>
             <nav className="flex gap-4 text-sm text-gray-400">
               <Link href="/admin/invites" className="hover:text-white">Invites</Link>
+              <Link href="/admin/users" className="hover:text-white">Users</Link>
+              <Link href="/admin/ai" className="hover:text-white">AI</Link>
             </nav>
           </div>
           <span className="text-xs text-gray-500">{user.email} · admin</span>

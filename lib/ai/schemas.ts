@@ -104,11 +104,15 @@ export type PostMortem = z.output<typeof PostMortemSchema>;
 
 const pct = z.preprocess(toNumberOrNull, z.number().min(0).max(100));
 
-const Annotation = z.looseObject({
+// Schema-constrained providers send every key, using null for "not applicable"; drop those nulls.
+const dropNulls = (v: unknown) =>
+  v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).filter(([, x]) => x !== null)) : v;
+
+const Annotation = z.preprocess(dropNulls, z.looseObject({
   type: z.enum(["hline", "line", "zone", "arrow_up", "arrow_down", "marker", "channel", "fib", "label"]),
   color: z.string().max(20).default("#94a3b8"),
   label: z.string().max(80).optional(),
-});
+}));
 
 export const ChartAcademySchema = z.object({
   overallSignal: Signal,
