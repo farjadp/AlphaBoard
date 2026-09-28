@@ -42,7 +42,7 @@ export default function LineChart({ points, baseline, baselineLabel, unit, title
   }, [points, baseline]);
 
   if (points.length < 2) {
-    return <p className="py-10 text-center text-sm text-[var(--text-3)]">{empty}</p>;
+    return <p className="py-10 text-center text-sm text-ink-3">{empty}</p>;
   }
 
   function onMove(e: React.PointerEvent<SVGSVGElement>) {
@@ -65,29 +65,29 @@ export default function LineChart({ points, baseline, baselineLabel, unit, title
       >
         <defs>
           <linearGradient id={`fill-${unit}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--color-accent)" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="var(--color-accent)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {geo.ticks.map((t) => (
           <g key={t.v}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={t.y} y2={t.y} className="stroke-[var(--border)]" strokeWidth={1} />
-            <text x={PAD.left - 8} y={t.y + 4} textAnchor="end" className="fill-[var(--text-3)] text-[11px] tabular-nums">{fmt(unit, t.v)}</text>
+            <line x1={PAD.left} x2={W - PAD.right} y1={t.y} y2={t.y} className="stroke-line" strokeWidth={1} />
+            <text x={PAD.left - 8} y={t.y + 4} textAnchor="end" className="fill-ink-3 text-[11px] tabular-nums">{fmt(unit, t.v)}</text>
           </g>
         ))}
-        <line x1={PAD.left} x2={W - PAD.right} y1={geo.baseY} y2={geo.baseY} className="stroke-[var(--text-3)]" strokeWidth={1} strokeDasharray="4 4" />
-        <text x={W - PAD.right} y={geo.baseY - 5} textAnchor="end" className="fill-[var(--text-3)] text-[10px]">{baselineLabel}</text>
+        <line x1={PAD.left} x2={W - PAD.right} y1={geo.baseY} y2={geo.baseY} className="stroke-ink-3" strokeWidth={1} strokeDasharray="4 4" />
+        <text x={W - PAD.right} y={geo.baseY - 5} textAnchor="end" className="fill-ink-3 text-[10px]">{baselineLabel}</text>
         <path d={geo.area} fill={`url(#fill-${unit})`} />
-        <path d={geo.line} fill="none" className="stroke-[var(--accent)]" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        <text x={PAD.left} y={H - 6} className="fill-[var(--text-3)] text-[10px]">{when(points[0].at)}</text>
-        <text x={W - PAD.right} y={H - 6} textAnchor="end" className="fill-[var(--text-3)] text-[10px]">{when(points.at(-1)!.at)}</text>
+        <path d={geo.line} fill="none" className="stroke-accent" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        <text x={PAD.left} y={H - 6} className="fill-ink-3 text-[10px]">{when(points[0].at)}</text>
+        <text x={W - PAD.right} y={H - 6} textAnchor="end" className="fill-ink-3 text-[10px]">{when(points.at(-1)!.at)}</text>
         {h && (
           <g pointerEvents="none">
-            <line x1={h.x} x2={h.x} y1={PAD.top} y2={H - PAD.bottom} className="stroke-[var(--border-strong)]" strokeWidth={1} />
-            <circle cx={h.x} cy={h.y} r={4} className="fill-[var(--accent)] stroke-[var(--bg)]" strokeWidth={2} />
-            <rect x={tipX} y={PAD.top} width={tipW} height={40} rx={6} className="fill-[var(--bg-2)] stroke-[var(--border-strong)]" />
-            <text x={tipX + 10} y={PAD.top + 16} className="fill-[var(--text-3)] text-[10px]">{when(h.p.at)}</text>
-            <text x={tipX + 10} y={PAD.top + 32} className="fill-[var(--text)] text-[13px] font-semibold tabular-nums">{fmt(unit, h.p.value)}{unit === "usdt" ? " USDT" : ""}</text>
+            <line x1={h.x} x2={h.x} y1={PAD.top} y2={H - PAD.bottom} className="stroke-line-2" strokeWidth={1} />
+            <circle cx={h.x} cy={h.y} r={4} className="fill-accent stroke-paper" strokeWidth={2} />
+            <rect x={tipX} y={PAD.top} width={tipW} height={40} rx={6} className="fill-paper stroke-line-2" />
+            <text x={tipX + 10} y={PAD.top + 16} className="fill-ink-3 text-[10px]">{when(h.p.at)}</text>
+            <text x={tipX + 10} y={PAD.top + 32} className="fill-ink text-[13px] font-semibold tabular-nums">{fmt(unit, h.p.value)}{unit === "usdt" ? " USDT" : ""}</text>
           </g>
         )}
       </svg>

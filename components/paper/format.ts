@@ -18,7 +18,7 @@ export const price = (n: number | null | undefined) => {
 export const qty = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n >= 100 ? 2 : 6 });
 
 export const tone = (n: number | null | undefined) =>
-  n == null || n === 0 ? "text-[var(--text-2)]" : n > 0 ? "text-[var(--green)]" : "text-[var(--red)]";
+  n == null || n === 0 ? "text-ink-2" : n > 0 ? "text-up" : "text-down";
 
 export const when = (iso: string) =>
   new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });

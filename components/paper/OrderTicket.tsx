@@ -17,8 +17,8 @@ export interface TicketPrefill {
   leverage: number;
 }
 
-const field = "w-full rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-sm tabular-nums text-[var(--text)] outline-none focus-visible:border-[var(--accent)]";
-const label = "mb-1 block text-[11px] font-medium uppercase tracking-wider text-[var(--text-3)]";
+const field = "w-full rounded-lg border border-line bg-wash px-3 py-2 text-sm tabular-nums text-ink outline-none focus-visible:border-accent";
+const label = "mb-1 block text-[11px] font-medium uppercase tracking-wider text-ink-3";
 const num = (s: string) => { const n = Number.parseFloat(s); return Number.isFinite(n) ? n : null; };
 
 export default function OrderTicket({ cash, livePrice, prefill, onSymbol, onSubmit }: {
@@ -75,13 +75,13 @@ export default function OrderTicket({ cash, livePrice, prefill, onSymbol, onSubm
   return (
     <form onSubmit={submit} className="glass-card space-y-4 p-5" aria-label="Paper order ticket">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[var(--text)]">Market order</h2>
-        <span className="text-xs tabular-nums text-[var(--text-3)]">Cash {money(cash)} USDT</span>
+        <h2 className="text-sm font-semibold text-ink">Market order</h2>
+        <span className="text-xs tabular-nums text-ink-3">Cash {money(cash)} USDT</span>
       </div>
 
       {signalId && prefill && (
-        <p className="rounded-lg border border-[var(--border)] bg-[var(--accent-dim)] px-3 py-2 text-xs text-[var(--text-2)]">
-          From signal: <span className="font-medium text-[var(--text)]">{prefill.label}</span>
+        <p className="rounded-lg border border-line bg-accent-soft px-3 py-2 text-xs text-ink-2">
+          From signal: <span className="font-medium text-ink">{prefill.label}</span>
           {!prefill.side && " — the signal was HOLD, pick a side yourself."}
         </p>
       )}
@@ -95,8 +95,8 @@ export default function OrderTicket({ cash, livePrice, prefill, onSymbol, onSubm
             </optgroup>
           ))}
         </select>
-        <p className="mt-1 text-xs tabular-nums text-[var(--text-3)]">
-          Last price: <span className="text-[var(--text-2)]">{ref == null ? "Unavailable" : fmtPrice(ref)}</span>
+        <p className="mt-1 text-xs tabular-nums text-ink-3">
+          Last price: <span className="text-ink-2">{ref == null ? "Unavailable" : fmtPrice(ref)}</span>
         </p>
       </div>
 
@@ -105,8 +105,8 @@ export default function OrderTicket({ cash, livePrice, prefill, onSymbol, onSubm
           <button
             key={s} type="button" role="radio" aria-checked={side === s} onClick={() => setSide(s)}
             className={`rounded-lg border py-2 text-sm font-semibold transition-colors ${side === s
-              ? s === "LONG" ? "border-[var(--green)] bg-[var(--green-bg)] text-[var(--green)]" : "border-[var(--red)] bg-[var(--red-bg)] text-[var(--red)]"
-              : "border-[var(--border)] text-[var(--text-3)] hover:text-[var(--text-2)]"}`}
+              ? s === "LONG" ? "border-up bg-up-soft text-up" : "border-down bg-down-soft text-down"
+              : "border-line text-ink-3 hover:text-ink-2"}`}
           >
             {s === "LONG" ? "Long / Buy" : "Short / Sell"}
           </button>
@@ -132,23 +132,23 @@ export default function OrderTicket({ cash, livePrice, prefill, onSymbol, onSubm
         </div>
       </div>
 
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-[var(--surface-2)] p-3 text-xs tabular-nums">
-        <dt className="text-[var(--text-3)]">Est. fill</dt><dd className="text-right text-[var(--text-2)]">{fill == null ? "Unavailable" : fmtPrice(fill)}</dd>
-        <dt className="text-[var(--text-3)]">Position size</dt><dd className="text-right text-[var(--text-2)]">{notional == null ? "—" : `${money(notional)} USDT`}</dd>
-        <dt className="text-[var(--text-3)]">Quantity</dt><dd className="text-right text-[var(--text-2)]">{notional == null || fill == null ? "—" : `${fmtQty(notional / fill)} ${findAsset(symbol)?.symbol.split("/")[0] ?? ""}`}</dd>
-        <dt className="text-[var(--text-3)]">Fee (0.05%)</dt><dd className="text-right text-[var(--text-2)]">{fee == null ? "—" : money(fee)}</dd>
-        <dt className="text-[var(--text-3)]">Liquidation</dt><dd className="text-right text-[var(--text-2)]">{fill == null || lev == null || lev < 1 ? "—" : lev === 1 && side === "LONG" ? "None" : fmtPrice(liquidationPrice(side, fill, lev))}</dd>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg bg-wash p-3 text-xs tabular-nums">
+        <dt className="text-ink-3">Est. fill</dt><dd className="text-right text-ink-2">{fill == null ? "Unavailable" : fmtPrice(fill)}</dd>
+        <dt className="text-ink-3">Position size</dt><dd className="text-right text-ink-2">{notional == null ? "—" : `${money(notional)} USDT`}</dd>
+        <dt className="text-ink-3">Quantity</dt><dd className="text-right text-ink-2">{notional == null || fill == null ? "—" : `${fmtQty(notional / fill)} ${findAsset(symbol)?.symbol.split("/")[0] ?? ""}`}</dd>
+        <dt className="text-ink-3">Fee (0.05%)</dt><dd className="text-right text-ink-2">{fee == null ? "—" : money(fee)}</dd>
+        <dt className="text-ink-3">Liquidation</dt><dd className="text-right text-ink-2">{fill == null || lev == null || lev < 1 ? "—" : lev === 1 && side === "LONG" ? "None" : fmtPrice(liquidationPrice(side, fill, lev))}</dd>
       </dl>
 
-      {(error || problem) && <p role="alert" className={`text-xs ${error ? "text-[var(--red)]" : "text-[var(--text-3)]"}`}>{error ?? problem}</p>}
+      {(error || problem) && <p role="alert" className={`text-xs ${error ? "text-down" : "text-ink-3"}`}>{error ?? problem}</p>}
 
       <button
         type="submit" disabled={busy || !!problem || ref == null}
-        className={`w-full rounded-lg py-2.5 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-40 ${side === "LONG" ? "bg-[var(--green)] text-[var(--bg)]" : "bg-[var(--red)] text-[var(--bg)]"}`}
+        className={`w-full rounded-lg py-2.5 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-40 ${side === "LONG" ? "bg-up text-paper" : "bg-down text-paper"}`}
       >
         {busy ? "Placing…" : `${side === "LONG" ? "Buy / Long" : "Sell / Short"} ${symbol}`}
       </button>
-      <p className="text-[11px] leading-relaxed text-[var(--text-3)]">
+      <p className="text-[11px] leading-relaxed text-ink-3">
         Simulated. Fills at the live price with 0.05% slippage and a 0.05% fee per side. Stops and targets are checked every minute against candle highs and lows.
       </p>
     </form>

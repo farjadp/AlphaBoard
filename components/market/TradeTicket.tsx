@@ -40,6 +40,7 @@ interface PlanView {
   generatedAt?: string;
   model?: string;
   priceAtSignal?: number;
+  signalId?: string;
   archived: boolean;
 }
 
@@ -50,14 +51,14 @@ function toView(source: PlanSource): PlanView {
       signal: r.signal, confidence: r.confidence, entry: r.entry, stopLoss: r.stopLoss, takeProfit: r.takeProfit,
       reasoning: r.reasoning, tradeStyle: r.tradeStyle, risk: r.risk_management, breakdown: r.indicators_breakdown,
       supportResistance: r.supportResistance, safeEntries: r.safeEntries,
-      generatedAt: r.context?.generatedAt, model: r.context?.ai?.model, priceAtSignal: r.context?.priceAtSignal, archived: false,
+      generatedAt: r.context?.generatedAt, model: r.context?.ai?.model, priceAtSignal: r.context?.priceAtSignal, signalId: r.id, archived: false,
     };
   }
   const s = source.signal;
   return {
     signal: s.signal, confidence: s.confidence, entry: s.entry, stopLoss: s.stopLoss, takeProfit: s.takeProfit,
     reasoning: s.reasoning, tradeStyle: s.tradeStyle, risk: s.risk_management, breakdown: s.indicators_breakdown,
-    generatedAt: s.timestamp, priceAtSignal: s.price, archived: true,
+    generatedAt: s.timestamp, priceAtSignal: s.price, signalId: s.id, archived: true,
   };
 }
 
@@ -147,22 +148,34 @@ export default function TradeTicket(props: TradeTicketProps) {
 
       <div className="flex flex-col gap-3 px-6 pb-5">
         {error && <p role="alert" className="rounded-lg bg-down-soft px-3 py-2 text-[13px] text-down">{error}</p>}
-        <div className={`grid gap-2 ${plan.direction !== "none" ? "grid-cols-[1.4fr_1fr]" : "grid-cols-1"}`}>
-          {plan.direction !== "none" && (
-            props.alert.status === "set" ? (
-              <Link href="/alerts" className="flex h-10 items-center justify-center rounded-lg border border-line-2 text-[13px] font-bold text-ink hover:bg-wash">
+        {plan.direction !== "none" ? (
+          <div className="grid grid-cols-2 gap-2">
+            {v.signalId ? (
+              <Link href={`/paper?signal=${encodeURIComponent(v.signalId)}`} className="flex h-10 items-center justify-center rounded-lg bg-ink text-[13px] font-extrabold text-paper hover:bg-[#23313f]">
+                Open paper trade
+              </Link>
+            ) : null}
+            {props.alert.status === "set" ? (
+              <Link href="/alerts" className={`flex h-10 items-center justify-center rounded-lg border border-line-2 text-[13px] font-bold text-ink hover:bg-wash ${v.signalId ? "" : "col-span-2"}`}>
                 Alert set · {props.alert.condition} <span className="num ml-1">{formatPrice(props.alert.price)}</span>
               </Link>
             ) : (
-              <button type="button" onClick={() => props.onSetAlert(v.entry)} className="h-10 rounded-lg bg-ink text-[13px] font-extrabold text-paper hover:bg-[#23313f]">
+              <button type="button" onClick={() => props.onSetAlert(v.entry)} className={`h-10 rounded-lg border border-line-2 text-[13px] font-bold text-ink hover:bg-wash ${v.signalId ? "" : "col-span-2"}`}>
                 Alert me at entry
               </button>
-            )
-          )}
-          <button type="button" onClick={props.onGenerate} disabled={!props.canGenerate} className="h-10 rounded-lg border border-line-2 text-[13px] font-bold text-ink hover:bg-wash disabled:opacity-40">
-            {v.archived ? "Generate a fresh plan" : "Regenerate"}
-          </button>
-        </div>
+            )}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          onClick={props.onGenerate}
+          disabled={!props.canGenerate}
+          className={plan.direction === "none"
+            ? "h-10 rounded-lg bg-ink text-[13px] font-extrabold text-paper hover:bg-[#23313f] disabled:opacity-40"
+            : "self-start text-[12.5px] font-bold text-accent hover:underline disabled:opacity-40"}
+        >
+          {v.archived ? "Generate a fresh plan" : "Regenerate plan"}
+        </button>
         <p className="flex flex-wrap justify-between gap-x-3 gap-y-1 text-[11.5px] text-ink-3">
           <span>{v.archived ? "From your archive" : "Generated"} {timeAgo(v.generatedAt)}{v.model ? ` · ${v.model}` : ""}</span>
           {drift !== null && (

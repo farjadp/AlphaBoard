@@ -1,5 +1,7 @@
 /** Strategy report as returned by POST /api/analyze. */
 export interface AnalysisResult {
+  /** Id of the archived signal the server saved for this report. */
+  id?: string;
   signal: "BUY" | "SELL" | "HOLD";
   confidence: number;
   timeframe: string;

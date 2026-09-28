@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-const select = "rounded-lg border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-xs text-[var(--text)] outline-none focus-visible:border-[var(--accent)]";
+const select = "rounded-lg border border-line bg-wash px-3 py-1.5 text-xs text-ink outline-none focus-visible:border-accent";
 
 /** Filters live in the URL, so a filtered view can be bookmarked and the server renders it directly. */
 export default function FilterBar({ options }: { options: { symbols: string[]; timeframes: string[]; models: string[] } }) {
@@ -16,7 +16,7 @@ export default function FilterBar({ options }: { options: { symbols: string[]; t
     router.push(`${pathname}${next.size ? `?${next}` : ""}`);
   };
   const field = (key: string, label: string, values: Array<[string, string]>) => (
-    <label className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-[var(--text-3)]">
+    <label className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-ink-3">
       {label}
       <select className={select} value={params.get(key) ?? ""} onChange={(e) => set(key, e.target.value)}>
         {values.map(([v, l]) => <option key={v} value={v}>{l}</option>)}

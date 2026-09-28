@@ -11,12 +11,12 @@ import LineChart from "@/components/charts/LineChart";
 import { ClosedPositions, OpenPositions } from "./PositionsTable";
 import { money, pct, tone } from "./format";
 
-function Stat({ label, value, sub, className = "text-[var(--text)]" }: { label: string; value: string; sub?: string; className?: string }) {
+function Stat({ label, value, sub, className = "text-ink" }: { label: string; value: string; sub?: string; className?: string }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-3)]">{label}</p>
+    <div className="rounded-xl border border-line bg-paper p-4">
+      <p className="text-[11px] font-medium uppercase tracking-wider text-ink-3">{label}</p>
       <p className={`mt-1 text-lg font-semibold tabular-nums ${className}`}>{value}</p>
-      {sub && <p className="text-xs tabular-nums text-[var(--text-3)]">{sub}</p>}
+      {sub && <p className="text-xs tabular-nums text-ink-3">{sub}</p>}
     </div>
   );
 }
@@ -26,7 +26,7 @@ function ResetPanel({ current, onReset }: { current: number; onReset: (balance: 
   const [balance, setBalance] = useState(String(current));
   const [error, setError] = useState<string | null>(null);
   if (!open) {
-    return <button type="button" onClick={() => setOpen(true)} className="text-xs text-[var(--text-3)] underline decoration-dotted hover:text-[var(--text-2)]">Reset account…</button>;
+    return <button type="button" onClick={() => setOpen(true)} className="text-xs text-ink-3 underline decoration-dotted hover:text-ink-2">Reset account…</button>;
   }
   return (
     <form
@@ -39,12 +39,12 @@ function ResetPanel({ current, onReset }: { current: number; onReset: (balance: 
         try { await onReset(b); setOpen(false); setError(null); } catch (err) { setError(err instanceof Error ? err.message : "Reset failed"); }
       }}
     >
-      <label htmlFor="reset-balance" className="text-[var(--text-3)]">Start again with</label>
-      <input id="reset-balance" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} className="w-28 rounded border border-[var(--border)] bg-[var(--surface-2)] px-2 py-1 tabular-nums text-[var(--text)]" />
-      <span className="text-[var(--text-3)]">USDT</span>
-      <button type="submit" className="rounded border border-[var(--red)] px-2 py-1 font-medium text-[var(--red)] hover:bg-[var(--red-bg)]">Reset</button>
-      <button type="button" onClick={() => setOpen(false)} className="px-1 text-[var(--text-3)]">Cancel</button>
-      {error && <span role="alert" className="w-full text-[var(--red)]">{error}</span>}
+      <label htmlFor="reset-balance" className="text-ink-3">Start again with</label>
+      <input id="reset-balance" inputMode="decimal" value={balance} onChange={(e) => setBalance(e.target.value)} className="w-28 rounded border border-line bg-wash px-2 py-1 tabular-nums text-ink" />
+      <span className="text-ink-3">USDT</span>
+      <button type="submit" className="rounded border border-down px-2 py-1 font-medium text-down hover:bg-down-soft">Reset</button>
+      <button type="button" onClick={() => setOpen(false)} className="px-1 text-ink-3">Cancel</button>
+      {error && <span role="alert" className="w-full text-down">{error}</span>}
     </form>
   );
 }
@@ -67,20 +67,20 @@ export default function PaperScreen({ prefill }: { prefill: TicketPrefill | null
   const winRate = a && a.closedCount > 0 ? (a.winCount / a.closedCount) * 100 : null;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-[var(--bg)]">
+    <div className="flex h-screen flex-col overflow-hidden bg-page">
       <NavBar />
       <main className="flex-1 overflow-y-auto p-6">
         <div className="mx-auto max-w-6xl space-y-6">
           <header className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-[var(--text)]">Paper trading</h1>
-              <p className="mt-1 text-sm text-[var(--text-3)]">Practice with simulated USDT at live prices. No real orders are ever sent.</p>
+              <h1 className="text-2xl font-bold text-ink">Paper trading</h1>
+              <p className="mt-1 text-sm text-ink-3">Practice with simulated USDT at live prices. No real orders are ever sent.</p>
             </div>
             {a && <ResetPanel current={a.startingBalance} onReset={resetAccount} />}
           </header>
 
-          {error && <p role="alert" className="rounded-lg border border-[var(--red)] bg-[var(--red-bg)] px-3 py-2 text-sm text-[var(--red)]">{error}</p>}
-          {!loaded && <p className="text-sm text-[var(--text-3)]">Loading account…</p>}
+          {error && <p role="alert" className="rounded-lg border border-down bg-down-soft px-3 py-2 text-sm text-down">{error}</p>}
+          {!loaded && <p className="text-sm text-ink-3">Loading account…</p>}
 
           {a && overview && (
             <>
@@ -94,7 +94,7 @@ export default function PaperScreen({ prefill }: { prefill: TicketPrefill | null
               <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
                 <div className="min-w-0 space-y-6">
                   <section className="glass-card p-5" aria-labelledby="eq-title">
-                    <h2 id="eq-title" className="mb-3 text-sm font-semibold text-[var(--text)]">Equity</h2>
+                    <h2 id="eq-title" className="mb-3 text-sm font-semibold text-ink">Equity</h2>
                     <LineChart
                       points={overview.equityCurve.map((p) => ({ at: p.at, value: p.equity }))} baseline={a.startingBalance}
                       baselineLabel={`Start ${money(a.startingBalance)}`} unit="usdt" title="Equity"
@@ -103,11 +103,11 @@ export default function PaperScreen({ prefill }: { prefill: TicketPrefill | null
                   </section>
 
                   <section className="glass-card overflow-hidden" aria-label="Positions">
-                    <div className="flex gap-1 border-b border-[var(--border)] p-2" role="tablist">
+                    <div className="flex gap-1 border-b border-line p-2" role="tablist">
                       {([["open", `Open (${overview.positions.length})`], ["closed", `History (${a.closedCount})`]] as const).map(([k, l]) => (
                         <button
                           key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-                          className={`rounded-md px-3 py-1.5 text-xs font-medium ${tab === k ? "bg-[var(--surface-active)] text-[var(--text)]" : "text-[var(--text-3)] hover:text-[var(--text-2)]"}`}
+                          className={`rounded-md px-3 py-1.5 text-xs font-medium ${tab === k ? "bg-accent-soft text-ink" : "text-ink-3 hover:text-ink-2"}`}
                         >{l}</button>
                       ))}
                     </div>
