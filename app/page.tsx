@@ -20,12 +20,12 @@ function DashboardContent() {
     router.replace(assetHref(resolvedSymbol));
   }, [hydrated, router, searchParams, symbols]);
 
-  return <div className="min-h-screen" style={{ background: "var(--bg)" }} />;
+  return <div className="min-h-screen bg-page" />;
 }
 
 export default function DashboardPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen" style={{ background: "var(--bg)" }} />}>
+    <Suspense fallback={<div className="min-h-screen bg-page" />}>
       <DashboardContent />
     </Suspense>
   );

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import DashboardScreen from "@/components/DashboardScreen";
+import MarketScreen from "@/components/market/MarketScreen";
 import { assetHref, DEFAULT_WATCHLIST, findAsset, findAssetBySlug, symbolToSlug } from "@/lib/assetCatalog";
 
 interface MarketAssetPageProps {
@@ -17,5 +17,7 @@ export default async function MarketAssetPage({ params }: MarketAssetPageProps) 
     redirect(assetHref(asset.symbol));
   }
 
-  return <DashboardScreen routeSymbol={asset?.symbol ?? fallbackAsset?.symbol ?? DEFAULT_WATCHLIST[0]} />;
+  const resolved = asset?.symbol ?? fallbackAsset?.symbol ?? DEFAULT_WATCHLIST[0];
+  // Keyed so every symbol starts with fresh timeframe, strategy and data state.
+  return <MarketScreen key={resolved} symbol={resolved} />;
 }

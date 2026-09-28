@@ -30,6 +30,7 @@ export function formatVolume(usd: number): string {
   if (usd >= 1e12) return "$" + (usd / 1e12).toFixed(1) + "T";
   if (usd >= 1e9) return "$" + (usd / 1e9).toFixed(1) + "B";
   if (usd >= 1e6) return "$" + (usd / 1e6).toFixed(1) + "M";
+  if (usd >= 1e3) return "$" + (usd / 1e3).toFixed(1) + "K";
   return "$" + usd.toFixed(0);
 }
 

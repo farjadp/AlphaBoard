@@ -14,5 +14,5 @@ export default function MarketIndexPage() {
     router.replace(assetHref(symbols[0] ?? DEFAULT_WATCHLIST[0]));
   }, [hydrated, router, symbols]);
 
-  return <div className="min-h-screen" style={{ background: "var(--bg)" }} />;
+  return <div className="min-h-screen bg-page" />;
 }
