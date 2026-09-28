@@ -44,3 +44,4 @@ next-env.d.ts
 
 # local tooling
 .claude/launch.json
+!.env.example
