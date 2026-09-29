@@ -5,7 +5,7 @@ import { logger } from "@/lib/http/logger";
 import { formatAlertMessage, telegramFromEnv, type Telegram } from "./telegram";
 
 export interface NewNotification {
-  type: "price_alert" | "paper_close";
+  type: "price_alert" | "paper_close" | "session";
   title: string;
   body: string;
   data?: Record<string, unknown>;
