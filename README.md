@@ -66,6 +66,7 @@ Sign in as the admin, accept the risk disclaimer, then invite traders from **Adm
 | `npm run typecheck` · `npm run lint` | `tsc --noEmit` · ESLint (both run in CI with the DB tests and the build) |
 | `npm run db:migrate` · `npm run db:deploy` · `npm run db:seed` | Create a migration · apply migrations · bootstrap the admin |
 | `npm run worker` | Background worker on its own (with `WORKER_MODE=separate` on the web process) |
+| `npm run build:worker` | Bundle the worker to `dist/worker.mjs` (the Docker image runs it as `node worker.mjs`) |
 
 ### Docker
 
@@ -81,7 +82,7 @@ The image runs as a non-root user, applies migrations at boot and exposes `GET /
 - **Security:** nonce-based CSP (`proxy.ts`) plus HSTS, frame, referrer and permissions headers (`next.config.ts`); per-IP rate limits (auth, AI, API, public forms); size-capped JSON bodies; zod validation on every input and every AI answer.
 - **Data:** PostgreSQL via Prisma migrations; every row scoped to its user; screenshots as owner-only attachments; `/import` moves data saved in the browser by v1.
 - **Worker:** one leased worker (inside the web process by default) runs the 60-second tick (paper stops/targets, equity, signal grading, alerts), the 15-second session monitor (session stops, loss limits, end prompts, decision cycles, journal and reports) and Telegram long-polling (link codes, `/sessions`, `/positions`, inline buttons). A database lease guarantees a single active worker.
-- **Exchanges:** `lib/venues/ccxt.ts` (ccxt, market orders, deterministic client ids written before sending, lookup on an unknown outcome, never a blind retry), `lib/exec/reconciler.ts` (exchange vs ledger every 30 s; any mismatch halts), keys AES-256-GCM encrypted (`lib/secrets`). Stops are software stops checked every 15 s.
+- **Exchanges:** `lib/venues/ccxt.ts` (ccxt, market orders, deterministic client ids written before sending, lookup on an unknown outcome, never a blind retry), `lib/exec/reconciler.ts` (exchange vs ledger every 30 s; any mismatch halts), keys AES-256-GCM encrypted (`lib/secrets`). Stops rest on the exchange as stop-loss orders where the exchange supports them (software stops, checked every 15 s, otherwise and as a fallback).
 - **Agent sessions:** `lib/sessions` (mandate, lifecycle, cycle, monitor, report), `lib/agents` (context block, prompts, runners), `lib/risk` (deterministic risk engine), `lib/venues` (venue interface; paper today, exchanges next).
 - **Observability:** pino JSON logs with a request id on every response; server errors stored for **Admin → System**.
 

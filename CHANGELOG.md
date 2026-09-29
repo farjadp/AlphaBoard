@@ -4,6 +4,11 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P8c · Native exchange stops
+- **Stop-loss orders on the exchange** where ccxt supports them (Binance, Bybit, OKX, Coinbase): placed right after each entry for the quantity actually held, replaced when the strategist or you move the stop, cancelled before any market close, left in place with "keep with stops" at the end. A stop that fires on the exchange is booked from the exchange's fill, once. Other venues keep software stops, and the room says which mode a session uses.
+- The software stop remains as a fallback, acting 0.3% beyond an exchange-held stop.
+- **Bundled worker:** `npm run build:worker` → `dist/worker.mjs`; the Docker image ships it as `worker.mjs` for a separate worker service.
+
 ### News hub
 - **Many sources at once:** Finnhub, Alpha Vantage, Marketaux, NewsAPI, CoinDesk / Cointelegraph / Decrypt RSS, Yahoo and (paid) CryptoPanic v2. Each source keeps its own interval and a daily budget below its free limit; per-symbol sources rotate through watchlists and running sessions.
 - **De-duplication and symbols:** the same article from two sources is merged (canonical URL, then title within 48 h); symbols are found from names and tickers in the headline or summary, plus the providers' own tags.
