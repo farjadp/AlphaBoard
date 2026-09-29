@@ -4,7 +4,7 @@ import { useState } from "react";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
 
 export type ConnectionRow = {
-  id: string; exchange: string; label: string; marketType: "spot" | "swap"; quote: string; sandbox: boolean;
+  id: string; provider: "ccxt" | "oanda"; accountId: string | null; exchange: string; label: string; marketType: "spot" | "swap"; quote: string; sandbox: boolean;
   keyLast4: string; status: string; lastCheckedAt: string | null; lastError: string | null; createdAt: string;
 };
 export type ExchangesView = { enabled: boolean; allowed: boolean; reason: string | null; popular: string[]; connections: ConnectionRow[] };
@@ -16,6 +16,8 @@ const label = "block text-xs font-medium text-ink-2";
 const btn = "rounded-lg border border-line-2 px-3 py-1.5 text-xs font-medium text-ink hover:bg-wash disabled:opacity-50";
 
 function AddForm({ popular, onDone }: { popular: string[]; onDone: () => void }) {
+  const [provider, setProvider] = useState<"ccxt" | "oanda">("ccxt");
+  const [accountId, setAccountId] = useState("");
   const [exchange, setExchange] = useState("binance");
   const [name, setName] = useState("");
   const [marketType, setMarketType] = useState<"spot" | "swap">("spot");
@@ -36,7 +38,9 @@ function AddForm({ popular, onDone }: { popular: string[]; onDone: () => void })
         setBusy(true); setError(null);
         try {
           const created = await exchangesResource.mutate<ConnectionRow>({
-            request: jsonRequest("/api/exchanges", "POST", { exchange, label: name || null, marketType, quote, sandbox, apiKey, secret, password: password || null }),
+            request: jsonRequest("/api/exchanges", "POST", provider === "oanda"
+              ? { provider, exchange: "oanda", accountId, label: name || null, marketType: "swap", quote, sandbox, apiKey, secret: "" }
+              : { provider, exchange, label: name || null, marketType, quote, sandbox, apiKey, secret, password: password || null }),
             apply: (d, row) => (d ? { ...d, connections: [...d.connections, row] } : d),
           });
           // Check the keys right away so the connection is usable (or the reason is visible).
@@ -52,45 +56,89 @@ function AddForm({ popular, onDone }: { popular: string[]; onDone: () => void })
         }
       }}
     >
-      <div>
-        <label htmlFor="ex-exchange" className={label}>Exchange (ccxt id)</label>
-        <input id="ex-exchange" list="ex-popular" className={`${field} mt-1`} value={exchange} onChange={(e) => setExchange(e.target.value.trim().toLowerCase())} required />
-        <datalist id="ex-popular">{popular.map((p) => <option key={p} value={p} />)}</datalist>
+      <div className="sm:col-span-2">
+        <p className={label} id="ex-provider-label">Broker</p>
+        <div role="radiogroup" aria-labelledby="ex-provider-label" className="mt-1 grid grid-cols-2 gap-1 rounded-lg bg-paper p-1">
+          {([["ccxt", "Crypto exchange"], ["oanda", "OANDA · forex, gold, silver"]] as const).map(([v, t]) => (
+            <button key={v} type="button" role="radio" aria-checked={provider === v}
+              onClick={() => { setProvider(v); setQuote(v === "oanda" ? "USD" : "USDT"); }}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium ${provider === v ? "bg-ink text-paper" : "text-ink-3"}`}>{t}</button>
+          ))}
+        </div>
       </div>
-      <div>
-        <label htmlFor="ex-label" className={label}>Name <span className="text-ink-3">(optional)</span></label>
-        <input id="ex-label" className={`${field} mt-1`} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="e.g. Binance testnet" />
-      </div>
-      <div>
-        <label htmlFor="ex-type" className={label}>Market</label>
-        <select id="ex-type" className={`${field} mt-1`} value={marketType} onChange={(e) => setMarketType(e.target.value as "spot" | "swap")}>
-          <option value="spot">Spot</option>
-          <option value="swap">Perpetual futures</option>
-        </select>
-      </div>
-      <div>
-        <label htmlFor="ex-quote" className={label}>Quote currency</label>
-        <input id="ex-quote" className={`${field} mt-1 uppercase`} value={quote} onChange={(e) => setQuote(e.target.value.toUpperCase())} required />
-        <p className="mt-1 text-[11px] text-ink-3">BTC/USDT in the app trades BTC/{quote || "…"} here.</p>
-      </div>
-      <div className="sm:col-span-2 flex items-start gap-2">
-        <input id="ex-sandbox" type="checkbox" checked={sandbox} onChange={(e) => setSandbox(e.target.checked)} className="mt-1 size-4 accent-accent" />
-        <label htmlFor="ex-sandbox" className="text-sm text-ink-2">Testnet / sandbox<span className="block text-[11px] text-ink-3">Untick only for real money. Real-money sessions ask you to type LIVE.</span></label>
-      </div>
-      <div>
-        <label htmlFor="ex-key" className={label}>API key</label>
-        <input id="ex-key" className={`${field} mt-1 font-mono`} value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" spellCheck={false} required />
-      </div>
-      <div>
-        <label htmlFor="ex-secret" className={label}>API secret</label>
-        <input id="ex-secret" type="password" className={`${field} mt-1 font-mono`} value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="new-password" required />
-      </div>
-      <div>
-        <label htmlFor="ex-pass" className={label}>Passphrase <span className="text-ink-3">(OKX, KuCoin, Bitget…)</span></label>
-        <input id="ex-pass" type="password" className={`${field} mt-1 font-mono`} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
-      </div>
+      {provider === "ccxt" ? (
+        <>
+          <div>
+            <label htmlFor="ex-exchange" className={label}>Exchange (ccxt id)</label>
+            <input id="ex-exchange" list="ex-popular" className={`${field} mt-1`} value={exchange} onChange={(e) => setExchange(e.target.value.trim().toLowerCase())} required />
+            <datalist id="ex-popular">{popular.map((p) => <option key={p} value={p} />)}</datalist>
+          </div>
+          <div>
+            <label htmlFor="ex-label" className={label}>Name <span className="text-ink-3">(optional)</span></label>
+            <input id="ex-label" className={`${field} mt-1`} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="e.g. Binance testnet" />
+          </div>
+          <div>
+            <label htmlFor="ex-type" className={label}>Market</label>
+            <select id="ex-type" className={`${field} mt-1`} value={marketType} onChange={(e) => setMarketType(e.target.value as "spot" | "swap")}>
+              <option value="spot">Spot</option>
+              <option value="swap">Perpetual futures</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="ex-quote" className={label}>Quote currency</label>
+            <input id="ex-quote" className={`${field} mt-1 uppercase`} value={quote} onChange={(e) => setQuote(e.target.value.toUpperCase())} required />
+            <p className="mt-1 text-[11px] text-ink-3">BTC/USDT in the app trades BTC/{quote || "…"} here.</p>
+          </div>
+          <div className="sm:col-span-2 flex items-start gap-2">
+            <input id="ex-sandbox" type="checkbox" checked={sandbox} onChange={(e) => setSandbox(e.target.checked)} className="mt-1 size-4 accent-accent" />
+            <label htmlFor="ex-sandbox" className="text-sm text-ink-2">Testnet / sandbox<span className="block text-[11px] text-ink-3">Untick only for real money. Real-money sessions ask you to type LIVE.</span></label>
+          </div>
+          <div>
+            <label htmlFor="ex-key" className={label}>API key</label>
+            <input id="ex-key" className={`${field} mt-1 font-mono`} value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="off" spellCheck={false} required />
+          </div>
+          <div>
+            <label htmlFor="ex-secret" className={label}>API secret</label>
+            <input id="ex-secret" type="password" className={`${field} mt-1 font-mono`} value={secret} onChange={(e) => setSecret(e.target.value)} autoComplete="new-password" required />
+          </div>
+          <div>
+            <label htmlFor="ex-pass" className={label}>Passphrase <span className="text-ink-3">(OKX, KuCoin, Bitget…)</span></label>
+            <input id="ex-pass" type="password" className={`${field} mt-1 font-mono`} value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" />
+          </div>
+        </>
+      ) : (
+        <>
+          <div>
+            <label htmlFor="oa-env" className={label}>Environment</label>
+            <select id="oa-env" className={`${field} mt-1`} value={sandbox ? "practice" : "live"} onChange={(e) => setSandbox(e.target.value === "practice")}>
+              <option value="practice">Practice (demo money)</option>
+              <option value="live">Live (real money)</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="oa-account" className={label}>v20 account ID</label>
+            <input id="oa-account" className={`${field} mt-1 font-mono`} value={accountId} onChange={(e) => setAccountId(e.target.value.trim())} placeholder="101-001-1234567-001" required />
+          </div>
+          <div>
+            <label htmlFor="oa-token" className={label}>API token</label>
+            <input id="oa-token" type="password" className={`${field} mt-1 font-mono`} value={apiKey} onChange={(e) => setApiKey(e.target.value)} autoComplete="new-password" required />
+            <p className="mt-1 text-[11px] text-ink-3">hub.oanda.com → Tools → API → Generate. Practice and live tokens differ.</p>
+          </div>
+          <div>
+            <label htmlFor="oa-ccy" className={label}>Account currency</label>
+            <input id="oa-ccy" className={`${field} mt-1 uppercase`} value={quote} onChange={(e) => setQuote(e.target.value.toUpperCase())} required />
+            <p className="mt-1 text-[11px] text-ink-3">Sessions trade instruments quoted in it (XAU/USD, EUR/USD on a USD account).</p>
+          </div>
+          <div>
+            <label htmlFor="oa-label" className={label}>Name <span className="text-ink-3">(optional)</span></label>
+            <input id="oa-label" className={`${field} mt-1`} value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="e.g. OANDA practice" />
+          </div>
+        </>
+      )}
       <div className="sm:col-span-2 rounded-lg bg-amber-soft p-3 text-xs text-amber">
-        Create the key with <strong>trading only</strong> — no withdrawals — and an IP allowlist if the exchange offers one. Keys are encrypted on the server; only the last four characters are ever shown.
+        {provider === "oanda"
+          ? <>Use a plain v20 account (not MT4-linked). The token is encrypted on the server; only its last four characters are ever shown.</>
+          : <>Create the key with <strong>trading only</strong> — no withdrawals — and an IP allowlist if the exchange offers one. Keys are encrypted on the server; only the last four characters are ever shown.</>}
       </div>
       {error && <p role="alert" className="sm:col-span-2 text-xs text-down">{error}</p>}
       <div className="sm:col-span-2 flex justify-end gap-2">
@@ -145,9 +193,9 @@ export default function ExchangeSettings() {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink">
                     {c.label}
-                    <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold ${c.sandbox ? "bg-accent-soft text-accent" : "bg-down-soft text-down"}`}>{c.sandbox ? "TESTNET" : "REAL MONEY"}</span>
+                    <span className={`ml-2 rounded px-1.5 py-0.5 text-[10px] font-bold ${c.sandbox ? "bg-accent-soft text-accent" : "bg-down-soft text-down"}`}>{c.sandbox ? (c.provider === "oanda" ? "PRACTICE" : "TESTNET") : "REAL MONEY"}</span>
                   </p>
-                  <p className="text-xs text-ink-3">{c.exchange} · {c.marketType === "swap" ? "perpetual" : "spot"} · {c.quote} · key …{c.keyLast4}</p>
+                  <p className="text-xs text-ink-3">{c.provider === "oanda" ? `OANDA · account ${c.accountId} · ${c.quote}` : `${c.exchange} · ${c.marketType === "swap" ? "perpetual" : "spot"} · ${c.quote}`} · key …{c.keyLast4}</p>
                   <p className={`text-xs ${c.status === "OK" ? "text-up" : c.status === "ERROR" ? "text-down" : "text-ink-3"}`}>
                     {c.status === "OK" ? "Keys work" : c.status === "ERROR" ? `Error: ${c.lastError}` : "Not tested yet"}
                   </p>

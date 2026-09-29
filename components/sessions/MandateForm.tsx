@@ -127,9 +127,14 @@ export default function MandateForm() {
           <Section title="Venue" sub="Paper simulates fills at live prices. An exchange connection sends real orders — testnet or real money.">
             <div className="sm:col-span-2">
               <label htmlFor="venue" className={label}>Trade on</label>
-              <select id="venue" className={`${field} mt-1`} value={venue} onChange={(e) => { setVenue(e.target.value); setConfirmLive(""); }}>
+              <select id="venue" className={`${field} mt-1`} value={venue} onChange={(e) => {
+                const next = usableConnections.find((c) => c.id === e.target.value);
+                setVenue(e.target.value);
+                setConfirmLive("");
+                setSymbols(next?.provider === "oanda" ? ["XAU/USD", "EUR/USD"] : ["BTC/USDT", "ETH/USDT"]);
+              }}>
                 <option value="paper">Paper (simulated)</option>
-                {usableConnections.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.exchange} {c.marketType === "swap" ? "perpetual" : "spot"} · {c.sandbox ? "testnet" : "REAL MONEY"}</option>)}
+                {usableConnections.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.provider === "oanda" ? "OANDA forex & metals" : `${c.exchange} ${c.marketType === "swap" ? "perpetual" : "spot"}`} · {c.sandbox ? (c.provider === "oanda" ? "practice" : "testnet") : "REAL MONEY"}</option>)}
               </select>
               <p className={hint}>
                 {exchanges && !exchanges.allowed ? `Exchanges: ${exchanges.reason}.` : usableConnections.length ? "Only tested connections are listed." : "Add and test a connection in Settings to trade on an exchange."}
@@ -144,11 +149,11 @@ export default function MandateForm() {
             )}
           </Section>
 
-          <Section title="Market" sub={conn ? `Orders map to ${conn.exchange} symbols quoted in ${conn.quote}. Crypto only on exchanges.` : "What the desk may trade. Paper fills at live prices with fees and slippage."}>
+          <Section title="Market" sub={conn ? (conn.provider === "oanda" ? `OANDA trades forex and metals as margin CFDs, long or short; instruments quoted in ${conn.quote} only.` : `Orders map to ${conn.exchange} symbols quoted in ${conn.quote}. Crypto only on exchanges.`) : "What the desk may trade. Paper fills at live prices with fees and slippage."}>
             <div className="sm:col-span-2 lg:col-span-3">
               <p className={label} id="symbols-label">Symbols <span className="text-ink-3">({symbols.length}/10)</span></p>
               <div role="group" aria-labelledby="symbols-label" className="mt-2 space-y-3">
-                {CATEGORIES.filter((c) => !conn || c === "crypto").map((c) => (
+                {CATEGORIES.filter((c) => !conn || (conn.provider === "oanda" ? c === "forex" || c === "commodities" : c === "crypto")).map((c) => (
                   <div key={c}>
                     <p className="label-caps mb-1.5">{CATEGORY_LABELS[c]}</p>
                     <div className="flex flex-wrap gap-1.5">
