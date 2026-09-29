@@ -8,6 +8,7 @@ import { ASSET_CATALOG, CATEGORY_LABELS, type AssetCategory } from "@/lib/assetC
 import { createResource, useResource } from "@/lib/client/resource";
 import { startSessionRequest } from "@/hooks/useSessions";
 import { durationText } from "./ui";
+import { exchangesResource } from "@/components/settings/ExchangeSettings";
 
 type AiView = { models: Array<{ provider: string; id: string; label: string }>; providers: Array<{ id: string; configured: boolean }>; effective: { label: string } | null };
 const aiResource = createResource<AiView | null>("/api/settings/ai", { fallback: null, select: (j) => j as AiView });
@@ -44,6 +45,9 @@ function Num({ id, text, value, onChange, help, step = "any", disabled = false }
 export default function MandateForm() {
   const router = useRouter();
   const ai = useResource(aiResource).data;
+  const exchanges = useResource(exchangesResource).data;
+  const [venue, setVenue] = useState("paper");
+  const [confirmLive, setConfirmLive] = useState("");
   const [name, setName] = useState("");
   const [symbols, setSymbols] = useState<string[]>(["BTC/USDT", "ETH/USDT"]);
   const [marketType, setMarketType] = useState<"spot" | "swap">("spot");
@@ -65,6 +69,9 @@ export default function MandateForm() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const usableConnections = (exchanges?.allowed ? exchanges.connections : []).filter((c) => c.status === "OK");
+  const conn = usableConnections.find((c) => c.id === venue) ?? null;
+  const effectiveMarket = conn ? conn.marketType : marketType;
   const configured = useMemo(() => new Set((ai?.providers ?? []).filter((p) => p.configured).map((p) => p.id)), [ai]);
   const usable = (ai?.models ?? []).filter((m) => configured.has(m.provider));
   const cycles = Math.max(1, Math.floor(duration / interval));
@@ -76,7 +83,8 @@ export default function MandateForm() {
     setError(null);
     const ref = (v: string) => (v ? { provider: v.split("::")[0], model: v.split("::")[1] } : null);
     const mandate = {
-      symbols, marketType, capital: Number(capital), maxLeverage: marketType === "spot" ? 1 : Number(maxLeverage),
+      venue: conn ? "exchange" : "paper", connectionId: conn?.id ?? null,
+      symbols, marketType: effectiveMarket, capital: Number(capital), maxLeverage: effectiveMarket === "spot" ? 1 : Number(maxLeverage),
       riskPerTradePct: Number(riskPct), maxPositionPct: Number(maxPositionPct), maxOpenPositions: Number(maxOpen), maxTrades: Number(maxTrades),
       lossLimit: Number(lossLimit), durationMin: duration, decisionIntervalMin: interval, cooldownMin: Number(cooldown), onEnd,
       extensionTimeoutMin: Number(extensionTimeout), debate, maxLlmCostUsd: Number(maxCost),
@@ -85,7 +93,8 @@ export default function MandateForm() {
     if (!symbols.length) { setError("Pick at least one symbol."); return; }
     setBusy(true);
     try {
-      const v = await startSessionRequest({ name: name.trim() || undefined, mandate });
+      if (conn && !conn.sandbox && confirmLive !== "LIVE") { setError("Type LIVE to start a real-money session."); setBusy(false); return; }
+      const v = await startSessionRequest({ name: name.trim() || undefined, mandate, confirmLive: conn && !conn.sandbox ? confirmLive : undefined });
       router.push(`/sessions/${v.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start the session");
@@ -115,11 +124,31 @@ export default function MandateForm() {
             <p className="mt-1 text-sm text-ink-3">The mandate is fixed once the session starts. Every limit below is enforced by code, not by the AI.</p>
           </header>
 
-          <Section title="Market" sub="What the desk may trade. Paper fills at live prices with fees and slippage.">
+          <Section title="Venue" sub="Paper simulates fills at live prices. An exchange connection sends real orders — testnet or real money.">
+            <div className="sm:col-span-2">
+              <label htmlFor="venue" className={label}>Trade on</label>
+              <select id="venue" className={`${field} mt-1`} value={venue} onChange={(e) => { setVenue(e.target.value); setConfirmLive(""); }}>
+                <option value="paper">Paper (simulated)</option>
+                {usableConnections.map((c) => <option key={c.id} value={c.id}>{c.label} · {c.exchange} {c.marketType === "swap" ? "perpetual" : "spot"} · {c.sandbox ? "testnet" : "REAL MONEY"}</option>)}
+              </select>
+              <p className={hint}>
+                {exchanges && !exchanges.allowed ? `Exchanges: ${exchanges.reason}.` : usableConnections.length ? "Only tested connections are listed." : "Add and test a connection in Settings to trade on an exchange."}
+              </p>
+            </div>
+            {conn && !conn.sandbox && (
+              <div className="sm:col-span-2 lg:col-span-3 rounded-lg border border-down/30 bg-down-soft p-3">
+                <label htmlFor="confirm-live" className="block text-sm font-semibold text-down">Real money. Type LIVE to confirm.</label>
+                <p className="mt-0.5 text-xs text-ink-2">Orders go to {conn.exchange} with your funds. Stops are software stops checked every 15 seconds; if the server stops, positions are unprotected.</p>
+                <input id="confirm-live" className={`${field} mt-2 max-w-40 font-mono uppercase`} value={confirmLive} onChange={(e) => setConfirmLive(e.target.value.toUpperCase())} autoComplete="off" />
+              </div>
+            )}
+          </Section>
+
+          <Section title="Market" sub={conn ? `Orders map to ${conn.exchange} symbols quoted in ${conn.quote}. Crypto only on exchanges.` : "What the desk may trade. Paper fills at live prices with fees and slippage."}>
             <div className="sm:col-span-2 lg:col-span-3">
               <p className={label} id="symbols-label">Symbols <span className="text-ink-3">({symbols.length}/10)</span></p>
               <div role="group" aria-labelledby="symbols-label" className="mt-2 space-y-3">
-                {CATEGORIES.map((c) => (
+                {CATEGORIES.filter((c) => !conn || c === "crypto").map((c) => (
                   <div key={c}>
                     <p className="label-caps mb-1.5">{CATEGORY_LABELS[c]}</p>
                     <div className="flex flex-wrap gap-1.5">
@@ -141,15 +170,15 @@ export default function MandateForm() {
               <p className={label} id="market-label">Market type</p>
               <div role="radiogroup" aria-labelledby="market-label" className="mt-1 grid grid-cols-2 gap-1 rounded-lg bg-wash p-1">
                 {(["spot", "swap"] as const).map((t) => (
-                  <button key={t} type="button" role="radio" aria-checked={marketType === t} onClick={() => setMarketType(t)}
-                    className={`rounded-md px-3 py-1.5 text-sm font-medium ${marketType === t ? "bg-paper text-ink shadow-sm" : "text-ink-3"}`}>
+                  <button key={t} type="button" role="radio" aria-checked={effectiveMarket === t} disabled={!!conn} onClick={() => setMarketType(t)}
+                    className={`rounded-md px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed ${effectiveMarket === t ? "bg-paper text-ink shadow-sm" : "text-ink-3"}`}>
                     {t === "spot" ? "Spot" : "Perpetual"}
                   </button>
                 ))}
               </div>
-              <p className={hint}>{marketType === "spot" ? "Long only, no leverage." : "Long and short, isolated margin."}</p>
+              <p className={hint}>{effectiveMarket === "spot" ? "Long only, no leverage." : "Long and short, isolated margin."}{conn ? " Set by the connection." : ""}</p>
             </div>
-            <Num id="leverage" text="Max leverage" value={marketType === "spot" ? "1" : maxLeverage} onChange={setMaxLeverage} step="1" disabled={marketType === "spot"} help="Stops beyond the liquidation price are refused." />
+            <Num id="leverage" text="Max leverage" value={effectiveMarket === "spot" ? "1" : maxLeverage} onChange={setMaxLeverage} step="1" disabled={effectiveMarket === "spot"} help="Stops beyond the liquidation price are refused." />
             <div>
               <label htmlFor="name" className={label}>Name <span className="text-ink-3">(optional)</span></label>
               <input id="name" className={`${field} mt-1`} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="e.g. BTC morning test" />
@@ -157,7 +186,7 @@ export default function MandateForm() {
           </Section>
 
           <Section title="Capital and risk" sub="Sizes come from the stop distance: a stop twice as far means half the size.">
-            <Num id="capital" text="Session capital ($)" value={capital} onChange={setCapital} help="Simulated; 10 to 10,000,000." />
+            <Num id="capital" text={`Session capital (${conn ? conn.quote : "$"})`} value={capital} onChange={setCapital} help={conn ? `Must not exceed your free ${conn.quote} balance.` : "Simulated; 10 to 10,000,000."} />
             <Num id="risk" text="Risk per trade (%)" value={riskPct} onChange={setRiskPct} help="Loss at the stop, as % of equity." />
             <Num id="maxpos" text="Max position (% of capital)" value={maxPositionPct} onChange={setMaxPositionPct} help="Margin cap per position." />
             <Num id="loss" text="Session loss limit ($)" value={lossLimit} onChange={setLossLimit} help="Hit → everything closes and trading stops." />
@@ -211,7 +240,7 @@ export default function MandateForm() {
           <div className="flex flex-wrap items-center justify-end gap-3 pb-6">
             <Link href="/sessions" className="text-sm text-ink-3 hover:text-ink">Cancel</Link>
             <button type="submit" disabled={busy} className="rounded-lg bg-ink px-5 py-2.5 text-sm font-semibold text-paper hover:bg-ink-hover disabled:opacity-60">
-              {busy ? "Starting…" : "Start paper session"}
+              {busy ? "Starting…" : conn ? (conn.sandbox ? "Start testnet session" : "Start LIVE session") : "Start paper session"}
             </button>
           </div>
         </form>

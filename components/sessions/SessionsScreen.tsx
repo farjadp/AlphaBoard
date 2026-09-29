@@ -67,7 +67,7 @@ function SessionCard({ s }: { s: SessionSummaryDto }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate font-semibold text-ink">{s.name}</p>
-          <p className="mt-0.5 text-xs text-ink-3">{s.marketType === "swap" ? "Perpetual" : "Spot"} · paper · {usd(s.capital)} · ends {when(s.endsAt)}</p>
+          <p className="mt-0.5 text-xs text-ink-3">{s.marketType === "swap" ? "Perpetual" : "Spot"} · {s.venue === "exchange" ? (s.live ? "LIVE" : "testnet") : "paper"} · {usd(s.capital)} · ends {when(s.endsAt)}</p>
         </div>
         <StatusPill status={s.status} />
       </div>
@@ -94,7 +94,7 @@ export default function SessionsScreen() {
             <div>
               <h1 className="font-display text-2xl font-bold text-ink">Agent sessions</h1>
               <p className="mt-1 max-w-2xl text-sm text-ink-3">
-                Give a team of AI agents a mandate and a time box. They discuss the market in a room you can watch; a rule-based risk engine sizes or vetoes every trade. Paper only for now.
+                Give a team of AI agents a mandate and a time box. They discuss the market in a room you can watch; a rule-based risk engine sizes or vetoes every trade. Paper, exchange testnets, or real money once you connect an exchange.
               </p>
             </div>
             <Link href="/sessions/new" className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-paper hover:bg-ink-hover">New session</Link>

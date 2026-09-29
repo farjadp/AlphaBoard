@@ -3,6 +3,7 @@
 import { useState } from "react";
 import NavBar from "@/components/NavBar";
 import TelegramSettings from "@/components/settings/TelegramSettings";
+import ExchangeSettings from "@/components/settings/ExchangeSettings";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
 
 type ModelRow = { provider: string; id: string; label: string; vision: boolean; priceInPerM: number; priceOutPerM: number };
@@ -93,6 +94,7 @@ export default function SettingsPage() {
             </section>
 
             <TelegramSettings />
+            <ExchangeSettings />
           </>
         )}
       </main>

@@ -104,7 +104,8 @@ export const PaperResetInput = z.object({
 export const SessionStartInput = z.object({
   name: opt(z.string().trim().max(80)),
   mandate: z.record(z.string(), z.unknown()),
-  live: z.boolean().optional(),
+  /** Must be exactly "LIVE" to start a real-money session. */
+  confirmLive: opt(z.string().max(10)),
 });
 
 export const SessionControlInput = z.discriminatedUnion("action", [
@@ -120,4 +121,16 @@ export const SessionPositionInput = z.object({ action: z.enum(["close", "close_h
 export const TradingLimitsInput = z.object({
   maxDailyLoss: z.number().finite().positive().max(10_000_000).nullable(),
   maxSessionsPerDay: z.number().int().min(1).max(100).nullable(),
+});
+
+export const ExchangeConnectionInput = z.object({
+  exchange: z.string().trim().toLowerCase().regex(/^[a-z0-9]{2,30}$/),
+  label: opt(z.string().trim().max(60)),
+  marketType: z.enum(["spot", "swap"]),
+  quote: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{2,10}$/),
+  sandbox: z.boolean(),
+  apiKey: z.string().trim().min(4).max(512),
+  secret: z.string().trim().min(4).max(4096),
+  password: opt(z.string().max(512)),
+  uid: opt(z.string().max(128)),
 });

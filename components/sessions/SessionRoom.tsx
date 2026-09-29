@@ -242,7 +242,7 @@ export default function SessionRoom({ id }: { id: string }) {
             <StatusPill status={v.status} />
           </div>
           <p className="mt-1 text-xs text-ink-3">
-            Paper · {v.marketType === "swap" ? `perpetual up to ${v.mandate.maxLeverage}×` : "spot"} · {v.symbols.join(", ")} · decides every {durationText(v.mandate.decisionIntervalMin)}
+            {v.venue === "exchange" ? (v.live ? <span className="font-bold text-down">LIVE · real money</span> : "Exchange testnet") : "Paper"} · {v.marketType === "swap" ? `perpetual up to ${v.mandate.maxLeverage}×` : "spot"} · {v.symbols.join(", ")} · decides every {durationText(v.mandate.decisionIntervalMin)}
             {v.endReason ? ` · ${END_REASON[v.endReason] ?? v.endReason}` : ""}
           </p>
         </div>

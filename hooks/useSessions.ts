@@ -26,7 +26,7 @@ export function useSessions() {
   return { ...data, loaded, error, setLimits };
 }
 
-export async function startSessionRequest(body: { name?: string; mandate: Record<string, unknown> }): Promise<SessionViewDto> {
+export async function startSessionRequest(body: { name?: string; mandate: Record<string, unknown>; confirmLive?: string }): Promise<SessionViewDto> {
   const res = await jsonRequest("/api/sessions", "POST", body)();
   const json = await res.json().catch(() => null);
   if (!res.ok) throw new Error(json?.error ?? `Request failed (HTTP ${res.status})`);
