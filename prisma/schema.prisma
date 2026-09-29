@@ -33,19 +33,20 @@ model User {
   inviteUsed     Invite?    @relation("InviteConsumer")
   auditLogs      AuditLog[]
 
-  watchlist       WatchlistItem[]
-  attachments     Attachment[]
-  journalEntries  JournalEntry[]
-  tradeLessons    TradeLesson[]
-  signals         Signal[]
-  chartLessons    ChartLesson[]
-  priceAlerts     PriceAlert[]
-  aiUsage         AiUsage[]
-  paperAccount    PaperAccount?
-  notifications   Notification[]
-  tradingSessions TradingSession[]
-  tradingLimits   UserTradingLimits?
-  telegramActions TelegramAction[]
+  watchlist           WatchlistItem[]
+  attachments         Attachment[]
+  journalEntries      JournalEntry[]
+  tradeLessons        TradeLesson[]
+  signals             Signal[]
+  chartLessons        ChartLesson[]
+  priceAlerts         PriceAlert[]
+  aiUsage             AiUsage[]
+  paperAccount        PaperAccount?
+  notifications       Notification[]
+  tradingSessions     TradingSession[]
+  tradingLimits       UserTradingLimits?
+  telegramActions     TelegramAction[]
+  exchangeConnections ExchangeConnection[]
 }
 
 model Invite {
@@ -552,29 +553,32 @@ enum SessionCloseReason {
 
 /// A time-boxed run of the agent team under a frozen mandate (spec P8 §3).
 model TradingSession {
-  id                 String            @id @default(cuid())
+  id                 String              @id @default(cuid())
   userId             String
-  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   name               String
-  status             SessionStatus     @default(RUNNING)
-  live               Boolean           @default(false)
-  venue              String            @default("paper")
+  status             SessionStatus       @default(RUNNING)
+  live               Boolean             @default(false)
+  venue              String              @default("paper")
+  connectionId       String?
+  connection         ExchangeConnection? @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+  lastReconciledAt   DateTime?
   mandate            Json
   capital            Float
-  startedAt          DateTime          @default(now())
+  startedAt          DateTime            @default(now())
   endsAt             DateTime
   endedAt            DateTime?
   endReason          SessionEndReason?
-  realizedPnl        Float             @default(0)
-  fees               Float             @default(0)
-  llmCostUsd         Float             @default(0)
-  tradesCount        Int               @default(0)
-  cycleCount         Int               @default(0)
-  skipStreak         Int               @default(0)
-  agentFailStreak    Int               @default(0)
-  llmBudgetHit       Boolean           @default(false)
+  realizedPnl        Float               @default(0)
+  fees               Float               @default(0)
+  llmCostUsd         Float               @default(0)
+  tradesCount        Int                 @default(0)
+  cycleCount         Int                 @default(0)
+  skipStreak         Int                 @default(0)
+  agentFailStreak    Int                 @default(0)
+  llmBudgetHit       Boolean             @default(false)
   /// Ended with KEEP_WITH_STOPS: open positions stay open and the monitor keeps enforcing their stops.
-  keepOpen           Boolean           @default(false)
+  keepOpen           Boolean             @default(false)
   lastCycleAt        DateTime?
   nextCycleAt        DateTime?
   /// Prices at the last decision cycle / at start (symbol → price), for event triggers and buy-and-hold.
@@ -583,8 +587,8 @@ model TradingSession {
   extensionPromptAt  DateTime?
   extensionChatId    String?
   extensionMessageId Int?
-  createdAt          DateTime          @default(now())
-  updatedAt          DateTime          @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   positions SessionPosition[]
   orders    SessionOrder[]
@@ -699,4 +703,33 @@ model TelegramAction {
   createdAt  DateTime        @default(now())
 
   @@index([expiresAt])
+}
+
+/// Exchange API keys for live / testnet sessions (P8b). Secrets are AES-256-GCM encrypted with EXCHANGE_KEY_SECRET.
+model ExchangeConnection {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// ccxt exchange id, e.g. "binance", "kraken", "mexc".
+  exchange      String
+  label         String
+  marketType    String    @default("spot")
+  /// Quote currency used to map catalog symbols (BTC/USDT → BTC/<quote>).
+  quote         String    @default("USDT")
+  sandbox       Boolean   @default(false)
+  apiKeyEnc     String
+  secretEnc     String
+  passwordEnc   String?
+  uidEnc        String?
+  keyVersion    Int       @default(1)
+  keyLast4      String
+  status        String    @default("UNVERIFIED")
+  lastCheckedAt DateTime?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  sessions TradingSession[]
+
+  @@index([userId])
 }
