@@ -106,7 +106,7 @@ export default async function SystemPage() {
               <Row label="Paper positions checked" value={`${last.positions}${last.closed.length ? ` · ${last.closed.length} closed` : ""}`} />
               <Row label="Signals checked" value={last.signals ? `${last.signals.checked} · ${last.signals.resolved} resolved` : "—"} />
               <Row label="Price alerts checked" value={last.alerts ? `${last.alerts.active} · ${last.alerts.fired} fired` : "—"} />
-              <Row label="Telegram" value={!o.runtime.telegram ? "Off (no bot token)" : last.telegram ? `${last.telegram.updates} messages · ${last.telegram.linked} linked` : "No messages"} />
+              <Row label="Telegram" value={o.runtime.telegram ? "On · long-polled by the worker" : "Off (no bot token)"} />
             </dl>
           )}
         </Panel>

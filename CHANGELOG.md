@@ -2,6 +2,47 @@
 
 All notable changes to AlphaBoard are documented here.
 
+## [2.1.0] — 2026-09-29
+
+Agent trading sessions: a mandate-driven AI desk that trades on paper, on crypto exchanges through ccxt (with stop orders resting on the exchange), or on OANDA for forex, gold and silver — with a rule-based risk engine, a live room, Telegram controls, journal lessons and session reports. Also: the news hub.
+
+### P9 · Forex, gold and silver via OANDA
+- **OANDA connections** in Settings: practice or live, v20 account id and API token (encrypted), account currency.
+- **Sessions on OANDA** trade forex and metals as margin CFDs, long or short, sized in units, with leverage capped by OANDA's margin rate for each instrument. Only instruments quoted in the account currency are offered (XAU/USD, EUR/USD on a USD account).
+- **Entry and stop are one atomic order** (stop-loss attached on fill, at the broker). Moving a stop edits it at OANDA. Stops, targets and margin closeouts that happen at OANDA are detected and booked with OANDA's own P&L, commission and financing.
+- **Safety:** orders carry our client id, so an unclear outcome is looked up and never re-sent. New trades never net against another trade (`OPEN_ONLY`). A reconciler compares OANDA's open trades with the ledger every 30 s.
+- While every session market is closed (FX weekend, metals break), cycles skip the AI call.
+
+### P8c · Native exchange stops
+- **Stop-loss orders on the exchange** where ccxt supports them (Binance, Bybit, OKX, Coinbase): placed right after each entry for the quantity actually held, replaced when the strategist or you move the stop, cancelled before any market close, left in place with "keep with stops" at the end. A stop that fires on the exchange is booked from the exchange's fill, once. Other venues keep software stops, and the room says which mode a session uses.
+- The software stop remains as a fallback, acting 0.3% beyond an exchange-held stop.
+- **Bundled worker:** `npm run build:worker` → `dist/worker.mjs`; the Docker image ships it as `worker.mjs` for a separate worker service.
+
+### News hub
+- **Many sources at once:** Finnhub, Alpha Vantage, Marketaux, NewsAPI, CoinDesk / Cointelegraph / Decrypt RSS, Yahoo and (paid) CryptoPanic v2. Each source keeps its own interval and a daily budget below its free limit; per-symbol sources rotate through watchlists and running sessions.
+- **De-duplication and symbols:** the same article from two sources is merged (canonical URL, then title within 48 h); symbols are found from names and tickers in the headline or summary, plus the providers' own tags.
+- **Weighted headlines:** publisher credibility × recency × relevance × confirmation by other publishers. The market news panel and the agents' news analyst get the top headlines from all sources with the publisher and how the sentiment was obtained (provider score, reader votes or keyword guess).
+- **Publisher weights by an agent, weekly:** it reads each publisher's measured accuracy (price move 4 h / 24 h after its headlines) and proposes weights with reasons; the code applies them within 0.1–1.0, at most ±0.2 a week, only with ≥ 20 evaluated calls. Every change is logged with the numbers; admins can override or revert (Admin → News).
+- **News index (shadow):** hourly weighted sentiment per symbol, evaluated against later returns. It is recorded only and not given to trading agents.
+- Fixed: hidden accessibility labels made long pages taller than the screen, so keyboard focus could scroll the window into a blank area.
+
+### P8b · Exchange execution (ccxt)
+- **Exchange connections** in Settings (owner only, with `LIVE_TRADING_ENABLED=1` and `EXCHANGE_KEY_SECRET`): any ccxt exchange, spot or perpetual, a quote currency, testnet or real money. Keys are AES-256-GCM encrypted; only the last four characters are shown; "Test" loads markets and reads the balance.
+- **Sessions on an exchange:** pick a tested connection in the mandate form. Real-money sessions need the typed confirmation `LIVE`. Start checks the market type, that every symbol is listed, and that the capital fits the free quote balance.
+- **Safe execution:** market orders with a deterministic client id written to the database before sending; a timeout is resolved by looking the order up (never re-sent); an order that stays unknown halts the session. Fills, fees (including fees paid in the base asset) and P&L come from the exchange.
+- **Reconciler every 30 s:** our own orders left open are cancelled, stale orders are resolved, and spot balances / perpetual positions must match the ledger — any mismatch halts the session and closes what it holds.
+- **`TRADING_HALT=1`** refuses new entries everywhere; exits still run. Stops are software stops on the exchange price, checked every 15 s.
+
+### P8a · Agent trading sessions (paper)
+- **Sessions:** start a time-boxed session under a mandate — symbols (any catalog asset), spot or perpetual with a leverage cap, capital, risk per trade, max position, max open positions, max trades, loss limit, cooldown after a stop, decision interval, what happens at the end, per-role AI models, an AI budget. The mandate is frozen once the session starts.
+- **Desk room:** market and news analysts, an optional bull/bear debate, and a strategist whose every entry carries an exit plan (stop, target, invalidation, horizon) that is re-read on every later cycle. Everything — including the risk engine's reasons and each fill — is posted in a live room.
+- **Risk engine (code, not AI):** sizes from the stop distance and risk per trade; clamps to the position cap and free capital (after fees); refuses shorts on spot, stops beyond liquidation, targets too close to pay fees, trades past the limits or during a cooldown, and new entries in the last minutes. Exits are never blocked.
+- **Enforcement every 15 s:** software stops, targets and liquidation on live prices; the session loss limit (realized + unrealized − fees) halts and flattens; at the end a prompt (web + Telegram) waits 5 minutes, then closes everything or keeps positions with their stops.
+- **Telegram controls:** `/sessions`, `/positions`, `/pause`, `/resume`, `/kill`; inline buttons to close, close 50% or move a stop to breakeven, with confirmation for destructive actions; single-use, chat-bound buttons.
+- **Journal and report:** every closed session trade becomes a Journal entry with an AI lesson; each session ends with metrics computed in code (net of fees and AI cost, win rate, expectancy in R, drawdown, rejections, buy-and-hold) plus a written summary.
+- **Daily limits** across sessions (max daily loss, max sessions per day); at most 3 sessions at once.
+- **Worker:** background work moved from the ad-hoc scheduler to a leased worker (`lib/worker`), inline by default or separate with `WORKER_MODE=separate` + `npm run worker`; Telegram now long-polls instead of polling once a minute.
+
 ## [2.0.1] — 2026-09-29
 
 Deployment fixes found by building and booting the production Docker image against an empty database before the first Railway deploy.

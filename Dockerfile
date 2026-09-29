@@ -15,6 +15,8 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npx prisma generate && npm run build -- --no-lint 2>/dev/null || npm run build
+# Background worker bundle (WORKER_MODE=separate deployments run `node worker.mjs`).
+RUN npm run build:worker
 
 # ── runtime ───────────────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
@@ -36,6 +38,9 @@ COPY --from=builder --chown=app:app /app/node_modules/.bin/prisma ./node_modules
 # The seed (prisma/seed.mjs) hashes the admin password; Next bundles bcryptjs into its own chunks,
 # so the standalone output has no node_modules/bcryptjs of its own.
 COPY --from=builder --chown=app:app /app/node_modules/bcryptjs ./node_modules/bcryptjs
+# Worker bundle; Prisma (above) and ccxt stay external and load from node_modules.
+COPY --from=builder --chown=app:app /app/dist/worker.mjs ./worker.mjs
+COPY --from=builder --chown=app:app /app/node_modules/ccxt ./node_modules/ccxt
 COPY --chown=app:app docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 

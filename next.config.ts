@@ -12,6 +12,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // ccxt is large and dynamic; load it from node_modules at runtime instead of bundling it.
+  serverExternalPackages: ["ccxt"],
   poweredByHeader: false,
   reactStrictMode: true,
   experimental: {

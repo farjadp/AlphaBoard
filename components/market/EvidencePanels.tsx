@@ -108,7 +108,10 @@ interface NewsItem {
   headline: string;
   url: string | null;
   sentiment: "bullish" | "bearish" | "neutral";
+  sentimentSource?: "provider" | "votes" | "keywords";
 }
+
+const SENTIMENT_SOURCE = { provider: "scored by the news provider", votes: "reader votes", keywords: "keyword heuristic" } as const;
 
 export function NewsPanel({ symbol }: { symbol: string }) {
   const [state, setState] = useState<{ symbol: string; items: NewsItem[]; source: string } | null>(null);
@@ -136,7 +139,7 @@ export function NewsPanel({ symbol }: { symbol: string }) {
     <section aria-label="News" className="panel flex flex-col gap-3 p-5">
       <div className="flex items-baseline justify-between gap-3">
         <span className="label-caps">Latest on {name}</span>
-        {current && current.source !== "none" && <span className="text-[11px] text-ink-3">{current.source}</span>}
+        {current && current.source !== "none" && <span className="text-[11px] text-ink-3">All sources · ranked</span>}
       </div>
       {!current ? (
         <><div className="skeleton h-9" /><div className="skeleton h-9" /><div className="skeleton h-9" /></>
@@ -147,13 +150,15 @@ export function NewsPanel({ symbol }: { symbol: string }) {
           {current.items.slice(0, 4).map((item) => (
             <li key={item.id} className="flex items-baseline gap-2.5 text-[13px] leading-snug">
               <span
-                title={`Keyword sentiment (heuristic): ${item.sentiment}`}
+                title={`Sentiment ${item.sentiment} (${SENTIMENT_SOURCE[item.sentimentSource ?? "keywords"]})`}
                 className={`size-2 shrink-0 translate-y-[-1px] rounded-full ${item.sentiment === "bullish" ? "bg-up" : item.sentiment === "bearish" ? "bg-down" : "bg-ink-3"}`}
               />
-              {item.url
-                ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-ink hover:underline">{item.headline}</a>
-                : <span className="text-ink">{item.headline}</span>}
-              <span className="ml-auto shrink-0 pl-2 text-[11px] text-ink-3">{timeAgo(item.publishedAt)}</span>
+              <div className="min-w-0 flex-1">
+                {item.url
+                  ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-ink hover:underline">{item.headline}</a>
+                  : <span className="text-ink">{item.headline}</span>}
+                <span className="mt-0.5 block text-[11px] text-ink-3">{item.source} · {timeAgo(item.publishedAt)}</span>
+              </div>
             </li>
           ))}
         </ul>

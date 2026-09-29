@@ -9,6 +9,7 @@ import NotificationBell from "@/components/notifications/NotificationBell";
 const NAV_LINKS: Array<{ href: string; label: string; match: (path: string) => boolean }> = [
   { href: "/", label: "Markets", match: (p) => p === "/" || p.startsWith("/market") || p === "/setup" },
   { href: "/paper", label: "Paper", match: (p) => p.startsWith("/paper") },
+  { href: "/sessions", label: "Sessions", match: (p) => p.startsWith("/sessions") },
   { href: "/performance", label: "Performance", match: (p) => p.startsWith("/performance") },
   { href: "/journal", label: "Journal", match: (p) => p.startsWith("/journal") },
   { href: "/archive", label: "Archive", match: (p) => p.startsWith("/archive") },

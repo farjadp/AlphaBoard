@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/http/logger";
 import { parseCommand, telegramFromEnv, type Telegram } from "./telegram";
+import { BOT_HELP, handleCallback, handleSessionCommand } from "./telegramBot";
 
 const OFFSET_KEY = "telegram.offset";
 const CODE_TTL_MS = 15 * 60_000;
@@ -40,14 +41,34 @@ export async function unlinkTelegram(userId: string) {
   await prisma.user.update({ where: { id: userId }, data: { telegramChatId: null, telegramLinkCode: null, telegramLinkExpires: null } });
 }
 
-/** Called from the tick: apply `/start CODE` and `/stop` messages sent to the bot since the last run. */
-export async function processTelegramUpdates(tg: Telegram, now = new Date()) {
+/**
+ * Called by the worker's long-poll loop: `/start CODE` and `/stop` linking, session commands from linked
+ * chats, and inline-button callbacks. The offset is stored so every update is handled once.
+ */
+export async function processTelegramUpdates(tg: Telegram, now = new Date(), timeoutSec = 0) {
   const row = await prisma.appSetting.findUnique({ where: { key: OFFSET_KEY } });
   const offset = typeof row?.value === "number" ? row.value : 0;
-  const updates = await tg.updates(offset);
+  const updates = await tg.updates(offset, timeoutSec);
   let linked = 0;
   for (const u of updates) {
     if (!u.chatId) continue;
+    try {
+      if (u.callback) {
+        await handleCallback(u, tg, now);
+        continue;
+      }
+      const cmd = parseCommand(u.text);
+      if (cmd.type !== "link" && cmd.type !== "unlink") {
+        const owner = await prisma.user.findFirst({ where: { telegramChatId: u.chatId }, select: { id: true } });
+        if (owner) {
+          await handleSessionCommand(cmd, u.chatId, owner.id, tg);
+          continue;
+        }
+      }
+    } catch (e) {
+      logger.warn({ err: e instanceof Error ? e.message : String(e) }, "telegram update failed");
+      continue;
+    }
     const cmd = parseCommand(u.text);
     let reply: string;
     if (cmd.type === "link") {
@@ -58,7 +79,7 @@ export async function processTelegramUpdates(tg: Telegram, now = new Date()) {
           prisma.user.update({ where: { id: user.id }, data: { telegramChatId: u.chatId, telegramLinkCode: null, telegramLinkExpires: null } }),
         ]);
         linked++;
-        reply = "✅ Linked. AlphaBoard alerts will arrive in this chat. Send /stop to unlink.";
+        reply = `✅ Linked. AlphaBoard alerts and session controls will arrive in this chat.\n\n${BOT_HELP}`;
       } else {
         reply = "That code is invalid or expired. Create a new one in AlphaBoard → Settings → Telegram.";
       }
