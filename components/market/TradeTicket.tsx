@@ -100,7 +100,7 @@ export default function TradeTicket(props: TradeTicketProps) {
           type="button"
           onClick={props.onGenerate}
           disabled={!props.canGenerate}
-          className="h-11 rounded-lg bg-ink text-sm font-extrabold text-paper hover:bg-[#23313f] disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-11 rounded-lg bg-ink text-sm font-extrabold text-paper hover:bg-ink-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
           {props.canGenerate ? "Generate plan" : "Waiting for indicator data…"}
         </button>
@@ -170,7 +170,7 @@ export default function TradeTicket(props: TradeTicketProps) {
         {live ? (
           <div className="grid grid-cols-2 gap-2">
             {v.signalId ? (
-              <Link href={`/paper?signal=${encodeURIComponent(v.signalId)}`} className="flex h-10 items-center justify-center rounded-lg bg-ink text-[13px] font-extrabold text-paper hover:bg-[#23313f]">
+              <Link href={`/paper?signal=${encodeURIComponent(v.signalId)}`} className="flex h-10 items-center justify-center rounded-lg bg-ink text-[13px] font-extrabold text-paper hover:bg-ink-hover">
                 Open paper trade
               </Link>
             ) : null}
@@ -190,7 +190,7 @@ export default function TradeTicket(props: TradeTicketProps) {
           onClick={props.onGenerate}
           disabled={!props.canGenerate}
           className={!live
-            ? "h-10 rounded-lg bg-ink text-[13px] font-extrabold text-paper hover:bg-[#23313f] disabled:opacity-40"
+            ? "h-10 rounded-lg bg-ink text-[13px] font-extrabold text-paper hover:bg-ink-hover disabled:opacity-40"
             : "self-start text-[12.5px] font-bold text-accent hover:underline disabled:opacity-40"}
         >
           {v.archived ? "Generate a fresh plan" : "Regenerate plan"}

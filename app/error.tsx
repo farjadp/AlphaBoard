@@ -17,7 +17,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           The problem has been logged{error.digest ? ` (ref ${error.digest})` : ""}. You can try again or go back to the dashboard.
         </p>
         <div className="flex justify-center gap-3">
-          <button onClick={reset} className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-[#23313f]">
+          <button onClick={reset} className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-ink-hover">
             Try again
           </button>
           <Link href="/market" className="rounded-lg border border-line-2 px-4 py-2 text-sm font-bold text-ink hover:bg-wash">

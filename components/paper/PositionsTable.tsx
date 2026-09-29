@@ -50,7 +50,7 @@ export function OpenPositions({ positions, onClose, onExits }: {
   if (positions.length === 0) return <p className="px-3 py-8 text-center text-sm text-ink-3">No open positions. Place an order, or use “Trade on paper” on a signal in the Archive.</p>;
 
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Open positions table">
       {error && <p role="alert" className="px-3 pt-2 text-xs text-down">{error}</p>}
       <table className="w-full min-w-[860px] text-sm text-ink-2">
         <thead><tr className="border-b border-line">
@@ -105,7 +105,7 @@ export function OpenPositions({ positions, onClose, onExits }: {
 export function ClosedPositions({ positions }: { positions: PaperPositionDto[] }) {
   if (positions.length === 0) return <p className="px-3 py-8 text-center text-sm text-ink-3">Closed trades will appear here.</p>;
   return (
-    <div className="overflow-x-auto">
+    <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Closed positions table">
       <table className="w-full min-w-[720px] text-sm text-ink-2">
         <thead><tr className="border-b border-line">
           <th className={th}>Position</th><th className={th}>Entry</th><th className={th}>Exit</th><th className={th}>Outcome</th>

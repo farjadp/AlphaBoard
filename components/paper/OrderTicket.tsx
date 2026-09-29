@@ -73,7 +73,7 @@ export default function OrderTicket({ cash, livePrice, prefill, onSymbol, onSubm
   }
 
   return (
-    <form onSubmit={submit} className="glass-card space-y-4 p-5" aria-label="Paper order ticket">
+    <form onSubmit={submit} className="panel space-y-4 p-5" aria-label="Paper order ticket">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-ink">Market order</h2>
         <span className="text-xs tabular-nums text-ink-3">Cash {money(cash)} USDT</span>

@@ -26,7 +26,7 @@ function ResetPanel({ current, onReset }: { current: number; onReset: (balance: 
   const [balance, setBalance] = useState(String(current));
   const [error, setError] = useState<string | null>(null);
   if (!open) {
-    return <button type="button" onClick={() => setOpen(true)} className="text-xs text-ink-3 underline decoration-dotted hover:text-ink-2">Reset account…</button>;
+    return <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-6 items-center text-xs text-ink-3 underline decoration-dotted hover:text-ink-2">Reset account…</button>;
   }
   return (
     <form
@@ -93,7 +93,7 @@ export default function PaperScreen({ prefill }: { prefill: TicketPrefill | null
 
               <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
                 <div className="min-w-0 space-y-6">
-                  <section className="glass-card p-5" aria-labelledby="eq-title">
+                  <section className="panel p-5" aria-labelledby="eq-title">
                     <h2 id="eq-title" className="mb-3 text-sm font-semibold text-ink">Equity</h2>
                     <LineChart
                       points={overview.equityCurve.map((p) => ({ at: p.at, value: p.equity }))} baseline={a.startingBalance}
@@ -102,7 +102,7 @@ export default function PaperScreen({ prefill }: { prefill: TicketPrefill | null
                     />
                   </section>
 
-                  <section className="glass-card overflow-hidden" aria-label="Positions">
+                  <section className="panel overflow-hidden" aria-label="Positions">
                     <div className="flex gap-1 border-b border-line p-2" role="tablist">
                       {([["open", `Open (${overview.positions.length})`], ["closed", `History (${a.closedCount})`]] as const).map(([k, l]) => (
                         <button

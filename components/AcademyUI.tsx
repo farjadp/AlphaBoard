@@ -372,6 +372,8 @@ export function DropZone({ label, timeframe, imageDataUrl, onFile, onClear }: Dr
   return (
     <div
       onClick={() => inputRef.current?.click()}
+      role="button" tabIndex={0} aria-label="Upload a chart image (click, press Enter, or drop a file)"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}

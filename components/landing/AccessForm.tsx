@@ -67,7 +67,7 @@ export default function AccessForm() {
       {state.kind === "error" && <p role="alert" className="text-sm font-medium text-down">{state.message}</p>}
       <button
         type="submit" disabled={state.kind === "sending"}
-        className="w-full rounded-lg bg-ink px-5 py-3 text-[15px] font-bold text-paper transition-colors hover:bg-[#23313f] disabled:cursor-wait disabled:opacity-60"
+        className="w-full rounded-lg bg-ink px-5 py-3 text-[15px] font-bold text-paper transition-colors hover:bg-ink-hover disabled:cursor-wait disabled:opacity-60"
       >
         {state.kind === "sending" ? "Sending…" : "Request an invite"}
       </button>

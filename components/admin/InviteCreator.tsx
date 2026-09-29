@@ -48,7 +48,7 @@ export default function InviteCreator() {
           <option value="ADMIN">Admin</option>
         </select>
         <button type="submit" disabled={busy}
-          className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-[#23313f] disabled:opacity-50">
+          className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-ink-hover disabled:opacity-50">
           {busy ? "Creating…" : "Create invite"}
         </button>
       </div>

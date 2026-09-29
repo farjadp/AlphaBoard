@@ -34,7 +34,7 @@ export default function AlertsPage() {
 
         {history.length === 0 ? (
           <div className="panel flex flex-col items-center justify-center p-12 text-center animate-fade-up">
-            <h3 className="mb-2 text-lg font-bold text-ink">No Archived Strategies</h3>
+            <h2 className="mb-2 text-lg font-bold text-ink">No Archived Strategies</h2>
             <p className="text-sm text-ink-3">
               Generate an Advanced Strategy from the dashboard, and it will be saved here automatically with a precise timestamp.
             </p>
@@ -105,7 +105,7 @@ function HistoryCard({ item, onRemove }: { item: ArchivedSignal, onRemove: () =>
           {item.signal !== "HOLD" && (
             <Link
               href={`/paper?signal=${encodeURIComponent(item.id)}`}
-              className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-ink py-2 text-[10px] font-bold uppercase tracking-wider text-paper hover:bg-[#23313f]"
+              className="mt-2 inline-flex w-full items-center justify-center rounded-lg bg-ink py-2 text-[10px] font-bold uppercase tracking-wider text-paper hover:bg-ink-hover"
             >
               Trade on paper
             </Link>
@@ -115,7 +115,7 @@ function HistoryCard({ item, onRemove }: { item: ArchivedSignal, onRemove: () =>
         {/* Mid Col: Execution Plan */}
         <div className="flex-1 border-l border-line pl-5">
           <div className="mb-3 flex items-center justify-between">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-ink">Execution Plan</h4>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-ink">Execution Plan</h2>
             <div className="flex items-center gap-2">
               <span className="label-caps">Confidence</span>
               <span className={`num text-sm font-bold ${item.confidence > 60 ? "text-up" : "text-ink"}`}>{item.confidence}%</span>
@@ -143,7 +143,7 @@ function HistoryCard({ item, onRemove }: { item: ArchivedSignal, onRemove: () =>
 
           {item.risk_management && (
             <div className="mb-4 space-y-3 border-t border-line pt-4">
-              <h4 className="mb-2 text-xs font-bold uppercase tracking-wider text-ink">Risk & Sizing</h4>
+              <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-ink">Risk & Sizing</h2>
 
               <div className="mb-2 grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1 rounded-lg bg-wash p-2.5">
@@ -167,7 +167,7 @@ function HistoryCard({ item, onRemove }: { item: ArchivedSignal, onRemove: () =>
 
           {item.indicators_breakdown && item.indicators_breakdown.length > 0 && (
             <div className="border-t border-line pt-4">
-              <h4 className="label-caps mb-3">Indicator Breakdown</h4>
+              <h2 className="label-caps mb-3">Indicator Breakdown</h2>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {item.indicators_breakdown.map((ind, idx) => (
                   <div key={idx} className="flex flex-col gap-1 rounded-lg bg-wash p-2">

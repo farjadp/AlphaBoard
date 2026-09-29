@@ -20,7 +20,7 @@ export default function TimeframeLadder({ frames, consensus, current }: Timefram
   const downCount = available.filter((f) => f.trendSignal === "Bearish").length;
 
   return (
-    <section aria-label="Timeframe agreement" className="panel overflow-x-auto">
+    <section aria-label="Timeframe agreement" tabIndex={0} className="panel overflow-x-auto">
       <div className="grid min-w-[760px] grid-cols-[200px_repeat(auto-fit,minmax(90px,1fr))]">
       <div className="flex flex-col justify-center gap-1 border-r border-line px-5 py-4">
         <span className="label-caps">Timeframe agreement</span>

@@ -7,7 +7,7 @@ export default function NotFound() {
         <p className="label-caps mb-2">404</p>
         <h1 className="mb-2 font-display text-2xl font-extrabold text-ink">Page not found</h1>
         <p className="mb-6 text-sm text-ink-3">The page you asked for does not exist or was moved.</p>
-        <Link href="/market" className="inline-block rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-[#23313f]">
+        <Link href="/market" className="inline-block rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-ink-hover">
           Back to dashboard
         </Link>
       </div>

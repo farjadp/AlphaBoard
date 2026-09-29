@@ -17,9 +17,9 @@ export default async function AdminAiPage() {
 
   const table = (title: string, rows: typeof usage.byUser) => (
     <section className="panel overflow-hidden">
-      <h3 className="label-caps border-b border-line bg-wash px-3 py-2">{title}</h3>
+      <h2 className="label-caps border-b border-line bg-wash px-3 py-2">{title}</h2>
       <table className="w-full text-left text-sm">
-        <thead className="text-xs text-ink-3"><tr><th className="p-2 font-medium"> </th><th className="p-2 font-medium text-right">Calls</th><th className="p-2 font-medium text-right">Errors</th><th className="p-2 font-medium text-right" title="Refused by the requested model and answered by a server-side fallback">Fallbacks</th><th className="p-2 font-medium text-right">Tokens</th><th className="p-2 font-medium text-right">Est. cost</th></tr></thead>
+        <thead className="text-xs text-ink-3"><tr><th className="p-2 font-medium"><span className="sr-only">{title}</span></th><th className="p-2 font-medium text-right">Calls</th><th className="p-2 font-medium text-right">Errors</th><th className="p-2 font-medium text-right" title="Refused by the requested model and answered by a server-side fallback">Fallbacks</th><th className="p-2 font-medium text-right">Tokens</th><th className="p-2 font-medium text-right">Est. cost</th></tr></thead>
         <tbody>
           {rows.length === 0 && <tr><td colSpan={6} className="p-3 text-center text-ink-3">No usage yet.</td></tr>}
           {rows.map((r) => (

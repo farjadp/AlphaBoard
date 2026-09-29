@@ -76,7 +76,7 @@ function RegisterForm() {
             className="w-full rounded-lg border border-line bg-paper px-4 py-2 text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none" />
         </div>
         <button type="submit" disabled={loading}
-          className="w-full rounded-lg bg-ink px-4 py-2.5 font-bold text-paper transition-colors hover:bg-[#23313f] disabled:opacity-50">
+          className="w-full rounded-lg bg-ink px-4 py-2.5 font-bold text-paper transition-colors hover:bg-ink-hover disabled:opacity-50">
           {loading ? "Creating account…" : "Create account"}
         </button>
       </form>

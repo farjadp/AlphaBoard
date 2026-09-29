@@ -53,7 +53,7 @@ export default function Landing() {
           <a href="#how" className="hidden rounded-lg px-3 py-2 hover:text-ink sm:block">How it works</a>
           <a href="#honest" className="hidden rounded-lg px-3 py-2 hover:text-ink sm:block">Principles</a>
           <Link href="/login" className="whitespace-nowrap rounded-lg px-2.5 py-2 hover:text-ink sm:px-3">Sign in</Link>
-          <a href="#access" className="whitespace-nowrap rounded-lg bg-ink px-3 py-2 text-paper hover:bg-[#23313f] sm:px-4">Request access</a>
+          <a href="#access" className="whitespace-nowrap rounded-lg bg-ink px-3 py-2 text-paper hover:bg-ink-hover sm:px-4">Request access</a>
         </nav>
       </header>
 
@@ -67,7 +67,7 @@ export default function Landing() {
             with paper money, then grades every call against what price actually did next.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <a href="#access" className="rounded-lg bg-ink px-5 py-3 text-[15px] font-bold text-paper hover:bg-[#23313f]">Request an invite</a>
+            <a href="#access" className="rounded-lg bg-ink px-5 py-3 text-[15px] font-bold text-paper hover:bg-ink-hover">Request an invite</a>
             <Link href="/login" className="rounded-lg border border-line-2 bg-paper px-5 py-3 text-[15px] font-bold text-ink hover:border-ink-3">Sign in</Link>
             <span className="text-sm text-ink-3">Invite-only · analysis and paper trading, never real orders</span>
           </div>
@@ -122,7 +122,7 @@ export default function Landing() {
           <div className="mx-auto grid max-w-6xl gap-12 px-5 py-20 md:grid-cols-[1fr_1.2fr] md:px-8 md:py-28">
             <div>
               <h2 id="honest-title" className="text-balance font-display text-4xl font-extrabold tracking-[-0.02em] md:text-5xl">Built to be believed, not to impress.</h2>
-              <p className="mt-5 max-w-md text-[15.5px] leading-relaxed text-[#c3ccd6]">
+              <p className="mt-5 max-w-md text-[15.5px] leading-relaxed text-on-ink-2">
                 A trading tool that flatters you is worse than none. These rules are in the code, not just on this page.
               </p>
             </div>
@@ -135,7 +135,7 @@ export default function Landing() {
               ].map(([t, d]) => (
                 <div key={t}>
                   <dt className="text-lg font-bold">{t}</dt>
-                  <dd className="mt-2 text-[15px] leading-relaxed text-[#c3ccd6]">{d}</dd>
+                  <dd className="mt-2 text-[15px] leading-relaxed text-on-ink-2">{d}</dd>
                 </div>
               ))}
             </dl>

@@ -35,7 +35,7 @@ export default function AccountMenu() {
         aria-expanded={open}
         aria-label="Account menu"
         onClick={() => setOpen((o) => !o)}
-        className="w-8 h-8 rounded-full text-[12px] font-extrabold flex items-center justify-center bg-accent-soft text-accent hover:bg-[#d9e2ff]"
+        className="w-8 h-8 rounded-full text-[12px] font-extrabold flex items-center justify-center bg-accent-soft text-accent hover:bg-accent-soft-hover"
       >
         {initial}
       </button>

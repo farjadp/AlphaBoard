@@ -120,7 +120,7 @@ export default function ImportPage() {
 
             {phase.kind !== "done" && (
               <button type="button" onClick={runImport} disabled={busy}
-                className="w-full rounded-lg bg-ink py-2.5 text-sm font-bold text-paper hover:bg-[#23313f] disabled:opacity-60">
+                className="w-full rounded-lg bg-ink py-2.5 text-sm font-bold text-paper hover:bg-ink-hover disabled:opacity-60">
                 {phase.kind === "uploading" ? `Uploading images ${phase.done + 1}/${phase.total}…` : phase.kind === "importing" ? "Importing…" : "Import to my account"}
               </button>
             )}
@@ -139,7 +139,7 @@ export default function ImportPage() {
             </ul>
             {phase.imageFailures > 0 && <p className="rounded-lg bg-amber-soft px-3 py-2 text-xs text-amber">{phase.imageFailures} image(s) could not be uploaded. The entries and lessons were still imported, without those images.</p>}
             <div className="flex flex-wrap gap-3 pt-2">
-              <Link href="/journal" className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-[#23313f]">Open journal</Link>
+              <Link href="/journal" className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-ink-hover">Open journal</Link>
               {!nothing && (
                 <button type="button" onClick={removeBrowserCopy} className="rounded-lg border border-line-2 px-4 py-2 text-sm font-bold text-ink hover:bg-wash">
                   Remove the browser copy

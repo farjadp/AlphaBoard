@@ -12,7 +12,7 @@ function LoginForm() {
   return (
     <div className="panel w-full max-w-md p-8">
       <p className="mb-6 text-center font-display text-2xl font-extrabold text-ink">AlphaBoard</p>
-      <h2 className="mb-6 text-center text-lg font-bold text-ink">Login to AlphaBoard</h2>
+      <h1 className="mb-6 text-center text-lg font-bold text-ink">Sign in to AlphaBoard</h1>
 
       {registered && (
         <div className="mb-4 rounded-lg bg-up-soft p-3 text-center text-sm text-up">
@@ -50,7 +50,7 @@ function LoginForm() {
 
         <button
           type="submit"
-          className="w-full rounded-lg bg-ink px-4 py-2.5 font-bold text-paper transition-colors hover:bg-[#23313f]"
+          className="w-full rounded-lg bg-ink px-4 py-2.5 font-bold text-paper transition-colors hover:bg-ink-hover"
         >
           Log In
         </button>
@@ -65,10 +65,10 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-full items-center justify-center bg-page p-4 text-ink">
+    <main className="flex min-h-full items-center justify-center bg-page p-4 text-ink">
       <Suspense fallback={<div className="p-8 text-ink-3">Loading...</div>}>
         <LoginForm />
       </Suspense>
-    </div>
+    </main>
   );
 }

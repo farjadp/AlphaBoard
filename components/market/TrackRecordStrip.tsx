@@ -26,7 +26,7 @@ export default function TrackRecordStrip({ record, symbol, timeframe, timeframeL
     <div className="flex flex-col gap-2 border-t border-line pt-3">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[12.5px] font-bold text-ink">Your record on {symbol} · {timeframeLabel}</p>
-        <Link href={href} className="shrink-0 text-[12px] font-bold text-accent hover:underline">Performance →</Link>
+        <Link href={href} className="inline-flex min-h-6 shrink-0 items-center text-[12px] font-bold text-accent hover:underline">Performance →</Link>
       </div>
       {record.recent.length > 0 && (
         <ol aria-label={`Last ${record.recent.length} signals, oldest first`} className="flex items-center gap-1.5">

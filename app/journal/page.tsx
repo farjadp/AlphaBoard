@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo, Suspense } from "react";
+import { useState, useRef, useMemo, useId, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { useJournal, TradePosition, TradeEmotion, JournalEntry } from "@/hooks/useJournal";
@@ -139,9 +139,11 @@ function JournalContent() {
             <div
               className="relative flex cursor-pointer flex-col items-center justify-center rounded-[14px] border-2 border-dashed border-line-2 bg-paper p-4 text-center transition-colors hover:bg-wash"
               onClick={() => fileInputRef.current?.click()}
+              role="button" tabIndex={0} aria-label="Auto-fill the form from a position screenshot"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
             >
               <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
-              <h4 className="text-sm font-bold text-ink">Auto-Fill from Screenshot</h4>
+              <h2 className="text-sm font-bold text-ink">Auto-Fill from Screenshot</h2>
               <p className="mt-0.5 text-[10px] text-ink-3">Upload Binance/Bybit position image to use AI Vision.</p>
 
               {isUploading && (
@@ -154,9 +156,9 @@ function JournalContent() {
             <form onSubmit={handleSubmit} className="panel space-y-5 p-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label-caps mb-2 block">Asset</label>
+                  <label htmlFor="j-asset" className="label-caps mb-2 block">Asset</label>
                   <select
-                    required className={`${INPUT} p-2.5 text-sm font-semibold`}
+                    id="j-asset" required className={`${INPUT} p-2.5 text-sm font-semibold`}
                     value={symbol} onChange={(e) => setSymbol(e.target.value)}
                   >
                     <option value="" disabled>Select Asset</option>
@@ -165,8 +167,9 @@ function JournalContent() {
                   </select>
                 </div>
                 <div>
-                  <label className="label-caps mb-2 block">Position</label>
+                  <label htmlFor="j-position" className="label-caps mb-2 block">Position</label>
                   <select
+                    id="j-position"
                     className={`${INPUT} p-2.5 text-sm font-semibold ${position === "LONG" ? "text-up" : position === "SHORT" ? "text-down" : "text-ink"}`}
                     value={position} onChange={(e) => setPosition(e.target.value as TradePosition)}
                   >
@@ -179,8 +182,9 @@ function JournalContent() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="label-caps mb-2 block">Mode</label>
+                  <label htmlFor="j-mode" className="label-caps mb-2 block">Mode</label>
                   <select
+                    id="j-mode"
                     className={`${INPUT} p-2.5 text-xs font-semibold`}
                     value={marginMode} onChange={(e) => setMarginMode(e.target.value as "Cross" | "Isolated")}
                   >
@@ -189,10 +193,10 @@ function JournalContent() {
                   </select>
                 </div>
                 <div>
-                  <label className="label-caps mb-2 block">Leverage</label>
+                  <label htmlFor="j-leverage" className="label-caps mb-2 block">Leverage</label>
                   <div className="relative">
                     <input
-                      type="number" step="any" placeholder="10"
+                      id="j-leverage" type="number" step="any" placeholder="10"
                       value={leverage} onChange={(e) => setLeverage(e.target.value)}
                       className={`${INPUT} num p-2.5 pr-6 text-sm`}
                     />
@@ -200,11 +204,11 @@ function JournalContent() {
                   </div>
                 </div>
                 <div>
-                  <label className="label-caps mb-2 block">Margin</label>
+                  <label htmlFor="j-margin" className="label-caps mb-2 block">Margin</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">$</span>
+                    <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">$</span>
                     <input
-                      type="text" inputMode="decimal" placeholder="100"
+                      id="j-margin" type="text" inputMode="decimal" placeholder="100"
                       value={margin} onChange={(e) => setMargin(e.target.value)}
                       className={`${INPUT} num p-2.5 pl-6 text-sm`}
                     />
@@ -214,19 +218,19 @@ function JournalContent() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label-caps mb-2 block">Entry Price</label>
+                  <label htmlFor="j-entry" className="label-caps mb-2 block">Entry Price</label>
                   <input
-                    type="text" inputMode="decimal" required
+                    id="j-entry" type="text" inputMode="decimal" required
                     value={entryPrice} onChange={(e) => setEntryPrice(e.target.value)}
                     className={`${INPUT} num p-2.5 text-sm`}
                   />
                 </div>
                 <div>
-                  <label className="label-caps mb-2 block">
-                    Exit Price <span className="opacity-60">(Optional)</span>
+                  <label htmlFor="j-exit" className="label-caps mb-2 block">
+                    Exit Price <span className="text-ink-3">(Optional)</span>
                   </label>
                   <input
-                    type="text" inputMode="decimal"
+                    id="j-exit" type="text" inputMode="decimal"
                     value={exitPrice} onChange={(e) => setExitPrice(e.target.value)}
                     placeholder="Leave blank for OPEN"
                     className={`${INPUT} num p-2.5 text-sm`}
@@ -235,8 +239,8 @@ function JournalContent() {
               </div>
 
               <div>
-                <label className="label-caps mb-2 block">Emotion</label>
-                <div className="flex flex-wrap gap-2">
+                <p id="j-emotion" className="label-caps mb-2 block">Emotion</p>
+                <div role="group" aria-labelledby="j-emotion" className="flex flex-wrap gap-2">
                   {["Confident", "Neutral", "FOMO", "Panic", "Greed", "Revenge"].map((emo) => (
                     <button
                       key={emo} type="button"
@@ -263,7 +267,7 @@ function JournalContent() {
                 />
               </div>
 
-              <button type="submit" className="w-full rounded-lg bg-ink py-3 text-xs font-bold uppercase tracking-wider text-paper transition-colors hover:bg-[#23313f]">
+              <button type="submit" className="w-full rounded-lg bg-ink py-3 text-xs font-bold uppercase tracking-wider text-paper transition-colors hover:bg-ink-hover">
                 Log Trade
               </button>
             </form>
@@ -488,6 +492,7 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
           <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
             <span className="label-caps">Close Trade:</span>
             <input
+              aria-label={`Exit price to close the ${entry.symbol} trade`}
               type="text" inputMode="decimal" placeholder="Exit Price"
               value={closePrice} onChange={(e) => setClosePrice(e.target.value)}
               className="num rounded border border-line bg-paper p-1 px-2 text-xs text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
@@ -517,8 +522,9 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
               <EditField label="Leverage" value={editForm.leverage} onChange={(v) => setEditForm((f) => ({ ...f, leverage: v }))} suffix="x" />
               <EditField label="Margin" value={editForm.margin} onChange={(v) => setEditForm((f) => ({ ...f, margin: v }))} prefix="$" />
               <div className="flex flex-col gap-1">
-                <label className="label-caps">Mode</label>
+                <label htmlFor={`edit-mode-${entry.id}`} className="label-caps">Mode</label>
                 <select
+                  id={`edit-mode-${entry.id}`}
                   value={editForm.marginMode}
                   onChange={(e) => setEditForm((f) => ({ ...f, marginMode: e.target.value as "Cross" | "Isolated" }))}
                   className={`${INPUT} p-2 text-xs font-semibold`}
@@ -576,7 +582,7 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
             <div className="flex items-center gap-2">
               <button
                 onClick={saveEdit}
-                className="rounded-lg bg-ink px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-paper transition-colors hover:bg-[#23313f]"
+                className="rounded-lg bg-ink px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-paper transition-colors hover:bg-ink-hover"
               >
                 Save Changes
               </button>
@@ -594,12 +600,14 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
 }
 
 function EditField({ label, value, onChange, prefix, suffix, placeholder }: { label: string; value: string; onChange: (v: string) => void; prefix?: string; suffix?: string; placeholder?: string }) {
+  const fieldId = useId();
   return (
     <div className="flex flex-col gap-1">
-      <label className="label-caps">{label}</label>
+      <label htmlFor={fieldId} className="label-caps">{label}</label>
       <div className="relative">
         {prefix && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-ink-3">{prefix}</span>}
         <input
+          id={fieldId}
           type="text"
           inputMode="decimal"
           value={value}

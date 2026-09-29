@@ -26,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
           <div className="flex items-center gap-4 text-xs text-ink-3">
             <span className="hidden sm:inline">{user.email}</span>
-            <Link href="/market" className="font-semibold text-ink-2 hover:text-ink">Back to app →</Link>
+            <Link href="/market" className="inline-flex min-h-6 items-center font-semibold text-ink-2 hover:text-ink">Back to app →</Link>
           </div>
         </div>
       </header>

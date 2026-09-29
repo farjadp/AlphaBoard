@@ -204,6 +204,7 @@ export default function AcademyPage() {
                     <div key={idx} className="flex flex-col gap-2">
                       {/* Timeframe selector */}
                       <select
+                        aria-label={`Timeframe of chart ${idx + 1}`}
                         value={slot.timeframe}
                         onChange={(e) => updateSlot(idx, "timeframe", e.target.value)}
                         className="w-full cursor-pointer rounded-lg border border-line bg-paper px-2.5 py-1.5 text-[11px] font-bold text-ink focus:border-accent focus:outline-none"
@@ -227,7 +228,7 @@ export default function AcademyPage() {
                 <button
                   onClick={handleAnalyze}
                   disabled={filledSlots.length === 0 || analyzing}
-                  className={`mt-4 w-full rounded-lg bg-ink p-[13px] text-[13px] font-bold tracking-[0.05em] text-paper hover:bg-[#23313f] ${
+                  className={`mt-4 w-full rounded-lg bg-ink p-[13px] text-[13px] font-bold tracking-[0.05em] text-paper hover:bg-ink-hover ${
                     filledSlots.length === 0 ? "cursor-not-allowed opacity-40" : "cursor-pointer"
                   }`}
                 >
@@ -333,7 +334,7 @@ export default function AcademyPage() {
                       <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="cursor-pointer rounded-lg bg-ink px-4 py-[7px] text-[11px] font-bold text-paper hover:bg-[#23313f] disabled:cursor-not-allowed disabled:opacity-60"
+                        className="cursor-pointer rounded-lg bg-ink px-4 py-[7px] text-[11px] font-bold text-paper hover:bg-ink-hover disabled:cursor-not-allowed disabled:opacity-60"
                       >{saving ? "در حال ذخیره…" : "ذخیره در مغز"}</button>
                     )}
                   </div>
@@ -460,7 +461,7 @@ export default function AcademyPage() {
                 <p className="text-[13px] text-ink-3">هنوز درسی ذخیره نشده. چارت آپلود کن و تحلیل بگیر.</p>
                 <button
                   onClick={() => setActiveTab("analyze")}
-                  className="mt-4 cursor-pointer rounded-lg bg-ink px-6 py-2.5 text-xs font-bold text-paper hover:bg-[#23313f]"
+                  className="mt-4 cursor-pointer rounded-lg bg-ink px-6 py-2.5 text-xs font-bold text-paper hover:bg-ink-hover"
                 >
                   شروع تحلیل
                 </button>

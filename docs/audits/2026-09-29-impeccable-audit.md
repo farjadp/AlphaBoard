@@ -46,3 +46,20 @@ Date: 2026-09-29 · Build: `5c3811f` · Method: impeccable detector over `app/` 
 4. [P2] `/impeccable animate` — reduced-motion alternative for loading states.
 5. [P3] `/impeccable distill` — unused deps and legacy aliases.
 6. `/impeccable polish` — final pass, then re-run this audit.
+
+---
+
+## Re-run after fixes (same day)
+
+axe-core on the same 22 page views, now also with the WCAG 2.2 AA rules (target size): **0 violations** (first run: 8 rule types, 520+ nodes). Detector: 0 findings. Tests 216/216, lint and build clean.
+
+| # | Dimension | Before | After | What changed |
+|---|-----------|--------|-------|--------------|
+| 1 | Accessibility | 2 | 4 | Tokens `ink-3 #616a74`, `up #117c43`, `down #c23329`, `amber #936105` — every text pair ≥ 4.6:1 on page/paper/wash/soft fills; 11 form controls labelled (`htmlFor`/`id`, `useId`, `aria-label`); three click-only upload areas are now keyboard buttons; `<main>` + `<h1>` on login/setup; heading levels fixed on journal, archive, alerts, admin/ai; empty `<th>` get `sr-only` names |
+| 2 | Performance | 3 | 4 | Removed unused `axios`, `ws`, `@hello-pangea/dnd` |
+| 3 | Responsive | 3 | 4 | Horizontal scroll regions are focusable and named; standalone text links ≥ 24px tall (WCAG 2.5.8) |
+| 4 | Theming | 3 | 3 | Hard-coded hovers → `ink-hover`, `accent-soft-hover`, `on-ink-2` tokens; legacy aliases and `--text/--surface…` variables removed. Still light-only by decision; academy chart-annotation colours stay literal (canvas drawing palette) |
+| 5 | Implementation integrity | 4 | 4 | `.glass-card` → `.panel` everywhere |
+| **Total** | | **15/20** | **19/20** | **Excellent** |
+
+Reduced motion now keeps a slow opacity "breath" on skeletons and busy indicators instead of removing every animation, so loading stays visible without movement.

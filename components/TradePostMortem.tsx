@@ -161,11 +161,13 @@ export default function TradePostMortem({ entry, onUpdate }: Props) {
         <div
           className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-line-2 bg-paper p-3 transition-colors hover:border-accent"
           onClick={() => !imagePreview && fileRef.current?.click()}
+          role="button" tabIndex={imagePreview ? -1 : 0} aria-label="Attach a chart screenshot for the post-mortem"
+          onKeyDown={(e) => { if (!imagePreview && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); fileRef.current?.click(); } }}
         >
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
           {imagePreview ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={imagePreview} alt="preview" className="max-h-40 rounded-md" />
+            <img src={imagePreview} alt="Chart screenshot attached to this post-mortem" className="max-h-40 rounded-md" />
           ) : (
             <>
               <span className="text-[11px] font-semibold text-ink-2">Upload PnL / chart screenshot</span>
@@ -198,7 +200,7 @@ export default function TradePostMortem({ entry, onUpdate }: Props) {
       <button
         onClick={runAnalysis}
         disabled={loading}
-        className="rounded-lg bg-ink py-2 text-[11px] font-bold uppercase tracking-wider text-paper transition-colors hover:bg-[#23313f] disabled:cursor-not-allowed disabled:opacity-50"
+        className="rounded-lg bg-ink py-2 text-[11px] font-bold uppercase tracking-wider text-paper transition-colors hover:bg-ink-hover disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? "Analyzing…" : existing ? "Re-run Analysis" : "Analyze Trade"}
       </button>

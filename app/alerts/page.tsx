@@ -120,7 +120,7 @@ export default function AlertsPage() {
               <button
                 type="submit"
                 disabled={watchlist.length === 0}
-                className="w-full cursor-pointer rounded-lg bg-ink py-3 text-xs font-bold uppercase tracking-wider text-paper hover:bg-[#23313f] disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full cursor-pointer rounded-lg bg-ink py-3 text-xs font-bold uppercase tracking-wider text-paper hover:bg-ink-hover disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Create Alert
               </button>
@@ -132,7 +132,7 @@ export default function AlertsPage() {
 
             {/* Active Alerts */}
             <div>
-              <h3 className="label-caps mb-4 text-ink">Active Alerts ({activeAlerts.length})</h3>
+              <h2 className="label-caps mb-4 text-ink">Active Alerts ({activeAlerts.length})</h2>
 
               {activeAlerts.length === 0 ? (
                 <div className="rounded-[14px] border border-dashed border-line-2 bg-paper p-8 text-center">
@@ -192,7 +192,7 @@ export default function AlertsPage() {
             {triggeredAlerts.length > 0 && (
               <div className="mt-8">
                 <div className="mb-4 flex items-center justify-between">
-                  <h3 className="label-caps">Triggered History</h3>
+                  <h2 className="label-caps">Triggered History</h2>
                 </div>
 
                 <div className="space-y-3">

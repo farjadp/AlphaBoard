@@ -131,7 +131,7 @@ export default async function SystemPage() {
           </dl>
         </Panel>
 
-        <Panel title="AI · last 7 days" className="lg:col-span-2" aside={<Link href="/admin/ai" className="text-xs font-semibold text-accent hover:underline">Details & settings →</Link>}>
+        <Panel title="AI · last 7 days" className="lg:col-span-2" aside={<Link href="/admin/ai" className="inline-flex min-h-6 items-center text-xs font-semibold text-accent hover:underline">Details & settings →</Link>}>
           <div className="grid gap-x-8 sm:grid-cols-2">
             <dl className="divide-y divide-line">
               <Row label="Default model" value={o.ai.defaultModel} />
@@ -165,7 +165,7 @@ export default async function SystemPage() {
         {o.events.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-ink-3">No errors recorded in the last 14 days.</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="Recent errors table">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="bg-wash text-xs text-ink-3">
                 <tr><th className="px-5 py-2 font-medium">Last seen</th><th className="px-3 py-2 font-medium">Where</th><th className="px-3 py-2 font-medium">What happened</th><th className="px-3 py-2 text-right font-medium">Times</th><th className="px-5 py-2 font-medium">Request id</th></tr>

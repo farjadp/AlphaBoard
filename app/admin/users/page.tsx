@@ -20,7 +20,7 @@ export default async function AdminUsersPage() {
         <h1 className="font-display text-2xl font-extrabold text-ink">Users</h1>
         <p className="mt-1 text-sm text-ink-3">Daily AI token allowance per user (resets 00:00 UTC). Set 0 to turn AI off for someone.</p>
       </div>
-      <section className="panel overflow-x-auto">
+      <section className="panel overflow-x-auto" tabIndex={0} aria-label="Users and their daily AI allowance">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-line bg-wash text-xs text-ink-3">
             <tr>

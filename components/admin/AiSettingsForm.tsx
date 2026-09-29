@@ -48,7 +48,7 @@ export default function AiSettingsForm({ initial, models, providers }: { initial
         </label>
       </div>
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={status.kind === "saving"} className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-[#23313f] disabled:opacity-50">
+        <button type="submit" disabled={status.kind === "saving"} className="rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-ink-hover disabled:opacity-50">
           {status.kind === "saving" ? "Saving…" : "Save"}
         </button>
         {status.kind === "saved" && <span className="text-sm font-semibold text-up">Saved</span>}

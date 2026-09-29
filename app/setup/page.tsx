@@ -63,7 +63,7 @@ export default function SetupPage() {
     <div className="flex h-full flex-col overflow-hidden bg-page">
       <NavBar />
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <main className="flex min-h-0 flex-1 overflow-hidden">
         {/* Left: Catalog browser */}
         <div className="flex min-w-0 flex-1 flex-col border-r border-line">
           {/* Header */}
@@ -235,7 +235,7 @@ export default function SetupPage() {
           <div className="shrink-0 border-t border-line p-4">
             <button onClick={handleSave}
               className={`w-full cursor-pointer rounded-lg py-3 text-xs font-bold tracking-wide ${
-                saved ? "bg-up-soft text-up" : "bg-ink text-paper hover:bg-[#23313f]"
+                saved ? "bg-up-soft text-up" : "bg-ink text-paper hover:bg-ink-hover"
               }`}>
               {saved ? "✓ Saved — Redirecting…" : "Save & Go to Dashboard"}
             </button>
@@ -244,7 +244,7 @@ export default function SetupPage() {
             </p>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
