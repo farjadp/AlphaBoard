@@ -104,13 +104,33 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
     return instruments.get(name)!;
   }
 
+  let accountCurrency: string | null = null;
+  async function currency() {
+    accountCurrency ??= (await call<{ account: { currency: string } }>("GET", "/summary")).account.currency;
+    return accountCurrency;
+  }
+
+  /**
+   * Bid/ask plus the rate that turns the instrument's quote currency into the account currency
+   * (OANDA home conversions; the loss-side rate, so sizing errs small). 1 when they are the same.
+   */
   async function price(name: string) {
-    const r = await call<{ prices: Array<{ instrument: string; tradeable: boolean; bids?: Array<{ price: string }>; asks?: Array<{ price: string }> }> }>("GET", `/pricing?instruments=${encodeURIComponent(name)}`);
+    type HC = { currency: string; accountGain?: string; accountLoss?: string; positionValue?: string };
+    const r = await call<{ prices: Array<{ instrument: string; tradeable: boolean; bids?: Array<{ price: string }>; asks?: Array<{ price: string }> }>; homeConversions?: HC[] }>(
+      "GET", `/pricing?instruments=${encodeURIComponent(name)}&includeHomeConversions=true`);
     const p = r.prices.find((x) => x.instrument === name);
     const bid = num(p?.bids?.[0]?.price);
     const ask = num(p?.asks?.[0]?.price);
     if (!p || !(bid > 0) || !(ask > 0)) return null;
-    return { bid, ask, mid: (bid + ask) / 2, tradeable: p.tradeable };
+    const quote = name.split("_").at(-1)!;
+    const home = await currency();
+    let fx = 1;
+    if (quote !== home) {
+      const hc = r.homeConversions?.find((c) => c.currency === quote);
+      fx = Math.max(num(hc?.accountLoss), num(hc?.positionValue));
+      if (!(fx > 0)) return null; // cannot value it in the account currency → do not trade it
+    }
+    return { bid, ask, mid: (bid + ask) / 2, tradeable: p.tradeable, fx };
   }
 
   type Tx = { id: string; type: string; clientOrderID?: string; reason?: string; tradeOpened?: { tradeID: string; units: string; price: string } };
@@ -184,15 +204,13 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
     async marketRules(symbol: string): Promise<MarketRules | null> {
       try {
         const inst = await instrument(symbol);
-        // P&L is booked in the account currency: only instruments quoted in it (XAU_USD on a USD account).
-        if (!inst.name.endsWith(`_${conn.quote}`)) return null;
         const p = await price(inst.name);
         if (!p || !p.tradeable) return null;
         const step = 10 ** -inst.tradeUnitsPrecision;
         const marginRate = num(inst.marginRate);
         return {
           price: p.mid, minQty: Math.max(num(inst.minimumTradeSize) || step, step), qtyStep: step, minCost: 0,
-          feeRate: 0, slippage: (p.ask - p.bid) / p.mid / 2, maxLeverage: marginRate > 0 ? Math.floor(1 / marginRate) : undefined,
+          feeRate: 0, slippage: (p.ask - p.bid) / p.mid / 2, maxLeverage: marginRate > 0 ? Math.floor(1 / marginRate) : undefined, quoteToAccount: p.fx,
         };
       } catch (e) {
         logger.warn({ symbol, err: e instanceof Error ? e.message : String(e) }, "OANDA market rules unavailable");
@@ -223,8 +241,9 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
         clientExtensions: { id: i.clientOrderId, tag: "alphaboard" }, tradeClientExtensions: { id: i.clientOrderId, tag: "alphaboard" },
         stopLossOnFill: { price: roundStop(i.stopLoss, i.side, inst.displayPrecision), timeInForce: "GTC" },
       };
-      type Fill = { id: string; price: string; tradeOpened?: { tradeID: string; units: string; price: string }; commission?: string; financing?: string };
-      let fillPrice: number, fillUnits: number, tradeId: string, fillId: string, commission = 0;
+      type Fill = { id: string; price: string; tradeOpened?: { tradeID: string; units: string; price: string; initialMarginRequired?: string }; commission?: string; financing?: string };
+      let fillPrice: number, fillUnits: number, tradeId: string, fillId: string, commission = 0, brokerMargin = NaN;
+      const fx = (await price(inst.name).catch(() => null))?.fx ?? 1;
       try {
         const r = await call<{ orderFillTransaction?: Fill; orderCancelTransaction?: { reason: string } }>("POST", "/orders", { order });
         if (!r.orderFillTransaction?.tradeOpened) {
@@ -238,6 +257,7 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
         tradeId = f.tradeOpened!.tradeID;
         fillId = f.id;
         commission = Math.max(0, num(f.commission) || 0);
+        brokerMargin = num(f.tradeOpened!.initialMarginRequired);
       } catch (e) {
         if (e instanceof VenueError) throw e;
         if (e instanceof OandaError && e.status !== 0 && e.status < 500) {
@@ -258,13 +278,14 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
         fillId = `trade-${t.id}`;
       }
       const marginRate = num(inst.marginRate) || 1 / i.leverage;
-      const margin = fillUnits * fillPrice * marginRate;
+      // OANDA's own margin (account currency) when reported; else units × price × rate × FX.
+      const margin = brokerMargin > 0 ? brokerMargin : fillUnits * fillPrice * marginRate * fx;
       if (margin > free * 1.02) logger.warn({ sessionId: i.sessionId, margin, free }, "OANDA fill exceeded the session budget");
       const pos = await prisma.$transaction(async (tx) => {
         const p = await tx.sessionPosition.create({
           data: {
             sessionId: i.sessionId, symbol: i.symbol, side: i.side, qty: fillUnits, entryPrice: fillPrice, leverage: Math.round(1 / marginRate), margin,
-            stopLoss: i.stopLoss, takeProfit: i.takeProfit, exitPlan: i.exitPlan as object, fees: commission, venueTradeId: tradeId,
+            stopLoss: i.stopLoss, takeProfit: i.takeProfit, exitPlan: i.exitPlan as object, fees: commission, venueTradeId: tradeId, quoteToAccount: fx,
           },
         });
         await tx.sessionOrder.update({ where: { id: row.id }, data: { positionId: p.id, venueOrderId: fillId, status: "FILLED", filled: fillUnits, avgPrice: fillPrice, fee: commission, price: fillPrice } });

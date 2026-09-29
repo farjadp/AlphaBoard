@@ -624,6 +624,8 @@ model SessionPosition {
   journalEntryId String?             @unique
   /// Broker-side trade id when the venue tracks positions as trades (OANDA).
   venueTradeId   String?
+  /// Quote-currency → account-currency rate at entry (XAU_USD on a CAD account ≈ 1.37); 1 when they match.
+  quoteToAccount Float               @default(1)
 
   orders SessionOrder[]
 

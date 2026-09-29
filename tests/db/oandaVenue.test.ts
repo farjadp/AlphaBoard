@@ -49,9 +49,9 @@ describe.skipIf(!run)("OANDA venue (Postgres, fake v20 server)", () => {
   });
   afterAll(async () => { setOandaFetch(null); await prisma.$disconnect(); });
 
-  it("market rules: USD-quoted instruments only, broker leverage cap, nothing when the market is closed", async () => {
-    expect(await venue().marketRules("XAU/USD")).toMatchObject({ price: 2600.3, minQty: 1, qtyStep: 1, feeRate: 0, maxLeverage: 5 });
-    expect(await venue().marketRules("EUR/JPY" as string)).toBeNull();
+  it("market rules: broker leverage cap, FX to the account currency, nothing without a conversion or when closed", async () => {
+    expect(await venue().marketRules("XAU/USD")).toMatchObject({ price: 2600.3, minQty: 1, qtyStep: 1, feeRate: 0, maxLeverage: 5, quoteToAccount: 1 });
+    expect(await venue().marketRules("EUR/JPY" as string)).toBeNull(); // no JPY → USD conversion offered
     fake.state.tradeable = false;
     expect(await venue().marketRules("XAU/USD")).toBeNull();
     expect(await venue().balance()).toEqual({ free: 10_000, currency: "USD" });
@@ -67,6 +67,20 @@ describe.skipIf(!run)("OANDA venue (Postgres, fake v20 server)", () => {
     expect(pos.margin).toBeCloseTo(2 * 2600.6 * 0.2, 6);
     expect(await prisma.sessionOrder.count({ where: { positionId: r.positionId, purpose: "STOP", status: "OPEN" } })).toBe(1);
     expect(r.stop).toEqual({ mode: "native" });
+  });
+
+  it("a CAD account trades XAU_USD with the USD→CAD rate in sizing, margin and marks", async () => {
+    fake.state.currency = "CAD";
+    fake.state.conversions = { USD: 1.37, CAD: 1 };
+    const rules = await venue().marketRules("XAU/USD");
+    expect(rules?.quoteToAccount).toBeCloseTo(1.37, 10);
+    const r = await open({ qty: 2 });
+    const pos = await prisma.sessionPosition.findUniqueOrThrow({ where: { id: r.positionId } });
+    expect(pos.quoteToAccount).toBeCloseTo(1.37, 10);
+    expect(pos.margin).toBeCloseTo(2 * 2600.6 * 0.2 * 1.37, 6);
+    const { markOpen } = await import("@/lib/sessions/view");
+    const [m] = await markOpen([pos], async () => 2610.6);
+    expect(m.unrealized).toBeCloseTo(10 * 2 * 1.37, 6);
   });
 
   it("a closed market cancels the entry cleanly", async () => {

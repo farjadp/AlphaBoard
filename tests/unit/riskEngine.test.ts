@@ -50,6 +50,13 @@ describe("risk engine — sizing", () => {
     expect(v.qty * fill * (1 + 0.0005)).toBeLessThanOrEqual(49.95);
   });
 
+  it("sizes in the account currency when the quote currency differs", () => {
+    // $10 risk over a $5 stop at 1.25 CAD per USD → 1.6 units; margin in CAD
+    const v = evaluateProposal(long(), spot, state(), rules({ quoteToAccount: 1.25 }));
+    expect(v).toMatchObject({ kind: "approved", qty: 1.6 });
+    if (v.kind === "approved") expect(v.margin).toBeCloseTo(1.6 * 100 * 1.25, 8);
+  });
+
   it("floors to the venue step", () => {
     expect(floorToStep(1.23456, 0.001)).toBeCloseTo(1.234, 12);
     expect(floorToStep(0.3, 0.1)).toBeCloseTo(0.3, 12);

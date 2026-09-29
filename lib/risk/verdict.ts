@@ -60,6 +60,8 @@ export interface MarketRules {
   slippage: number;
   /** Broker cap on leverage for this instrument (OANDA margin rate); the mandate cap still applies. */
   maxLeverage?: number;
+  /** Quote → account currency (conservative side); 1 when the instrument is quoted in the account currency. */
+  quoteToAccount?: number;
 }
 
 export type Verdict =
@@ -136,13 +138,15 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
     if (long ? stop <= liq : stop >= liq) return reject(`stop ${fmt(stop)} is beyond the ${leverage}x liquidation price ≈ ${fmt(liq)}`);
   }
 
+  const fx = r.quoteToAccount && r.quoteToAccount > 0 ? r.quoteToAccount : 1;
   const riskUsd = s.equity * (m.riskPerTradePct / 100);
   const distance = Math.abs(price - stop);
-  const qtyRisk = riskUsd / distance;
+  // Risk and margin are in the account currency; price distances are in the quote currency.
+  const qtyRisk = riskUsd / (distance * fx);
   // Free capital must cover margin + entry fee at the slipped fill price: notional × (1/lev + fee) × (1 + slippage).
   const affordableMargin = s.freeCapital / (1 + leverage * r.feeRate) / (1 + r.slippage);
   const marginCap = Math.max(0, Math.min(affordableMargin, m.capital * (m.maxPositionPct / 100)));
-  const qtyCap = (marginCap * leverage) / price;
+  const qtyCap = (marginCap * leverage) / (price * fx);
   const raw = Math.min(qtyRisk, qtyCap);
   const qty = floorToStep(raw, r.qtyStep);
   const clamped = qtyCap < qtyRisk;
@@ -157,7 +161,7 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
     if (gross < roundTrip * FEE_HURDLE) return reject(`target ${fmt(tp)} is too close: ${money(gross)} potential vs ${money(roundTrip)} fees + slippage`, ...reasons);
   }
 
-  const margin = Number(((qty * price) / leverage).toFixed(8));
-  reasons.unshift(`risk ${m.riskPerTradePct}% = ${money(riskUsd)} over a ${fmt(distance)} stop distance`);
+  const margin = Number(((qty * price * fx) / leverage).toFixed(8));
+  reasons.unshift(`risk ${m.riskPerTradePct}% = ${money(riskUsd)} over a ${fmt(distance)} stop distance${fx !== 1 ? ` (× ${fmt(fx, 4)} into the account currency)` : ""}`);
   return { kind: clamped ? "clamped" : "approved", side, qty, leverage, margin, stopLoss: stop, takeProfit: tp, reasons };
 }

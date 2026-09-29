@@ -20,6 +20,9 @@ export function fakeOanda() {
     orders: [] as Array<Record<string, unknown>>,
     tx: 100,
     marginAvailable: 10_000,
+    currency: "USD",
+    /** Quote currency → account currency rates offered in home conversions. */
+    conversions: { USD: 1 } as Record<string, number>,
     requests: [] as Array<{ method: string; path: string; body: unknown }>,
   };
   const instruments = {
@@ -58,7 +61,7 @@ export function fakeOanda() {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     state.requests.push({ method, path: path + u.search, body });
 
-    if (path === "/summary") return json({ account: { marginAvailable: String(state.marginAvailable), currency: "USD" }, lastTransactionID: String(state.tx) });
+    if (path === "/summary") return json({ account: { marginAvailable: String(state.marginAvailable), currency: state.currency }, lastTransactionID: String(state.tx) });
     if (path === "/instruments") {
       const names = (u.searchParams.get("instruments") ?? "").split(",");
       return json({ instruments: names.map((n) => instruments[n]).filter(Boolean) });
@@ -66,7 +69,8 @@ export function fakeOanda() {
     if (path === "/pricing") {
       const n = u.searchParams.get("instruments")!;
       const p = state.prices[n];
-      return json({ prices: p ? [{ instrument: n, tradeable: state.tradeable, bids: [{ price: String(p.bid) }], asks: [{ price: String(p.ask) }] }] : [] });
+      const homeConversions = Object.entries(state.conversions).map(([currency, v]) => ({ currency, accountGain: String(v * 0.995), accountLoss: String(v), positionValue: String(v * 0.9975) }));
+      return json({ prices: p ? [{ instrument: n, tradeable: state.tradeable, bids: [{ price: String(p.bid) }], asks: [{ price: String(p.ask) }] }] : [], homeConversions });
     }
     if (path === "/orders" && method === "POST") {
       const o = body.order;
@@ -81,7 +85,9 @@ export function fakeOanda() {
         clientExtensions: o.tradeClientExtensions, closingTransactionIDs: [], stopLossOrder: o.stopLossOnFill ? { id: nextTx(), price: o.stopLossOnFill.price, state: "PENDING" } : undefined,
       };
       state.trades.push(trade);
-      const fill = { id: tradeId, type: "ORDER_FILL", clientOrderID: o.clientExtensions?.id, units: o.units, commission: "0", tradeOpened: { tradeID: tradeId, units: o.units, price: String(px) } };
+      const rate = Number((instruments[o.instrument] as { marginRate: string }).marginRate);
+      const fx = state.conversions[o.instrument.split("_")[1]] ?? 1;
+      const fill = { id: tradeId, type: "ORDER_FILL", clientOrderID: o.clientExtensions?.id, units: o.units, commission: "0", tradeOpened: { tradeID: tradeId, units: o.units, price: String(px), initialMarginRequired: String(Math.abs(units) * px * rate * fx) } };
       state.transactions.push(fill);
       if (state.mode === "timeout-after-fill") timeout();
       return json({ orderCreateTransaction: { id: nextTx() }, orderFillTransaction: fill, lastTransactionID: String(state.tx) }, 201);

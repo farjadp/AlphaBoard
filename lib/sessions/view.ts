@@ -16,7 +16,9 @@ export async function markOpen(positions: SessionPosition[], priceOf: PriceOf) {
   const prices = new Map(await Promise.all(symbols.map(async (s) => [s, await priceOf(s).catch(() => null)] as const)));
   return positions.map((p) => {
     const mark = prices.get(p.symbol) ?? null;
-    return { pos: p, mark, unrealized: mark == null ? null : markPosition(p, mark) };
+    // Price moves are in the quote currency; P&L is in the account currency (OANDA XAU_USD on a CAD account).
+    const fx = p.quoteToAccount || 1;
+    return { pos: p, mark, unrealized: mark == null ? null : markPosition({ ...p, margin: p.margin / fx }, mark) * fx };
   });
 }
 
