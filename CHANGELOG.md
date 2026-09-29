@@ -2,7 +2,9 @@
 
 All notable changes to AlphaBoard are documented here.
 
-## [Unreleased]
+## [2.1.0] — 2026-09-29
+
+Agent trading sessions: a mandate-driven AI desk that trades on paper, on crypto exchanges through ccxt (with stop orders resting on the exchange), or on OANDA for forex, gold and silver — with a rule-based risk engine, a live room, Telegram controls, journal lessons and session reports. Also: the news hub.
 
 ### P9 · Forex, gold and silver via OANDA
 - **OANDA connections** in Settings: practice or live, v20 account id and API token (encrypted), account currency.
