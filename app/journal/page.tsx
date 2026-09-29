@@ -1,24 +1,36 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import { useState, useRef, useMemo, useId, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { useJournal, TradePosition, TradeEmotion, JournalEntry } from "@/hooks/useJournal";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { findAsset } from "@/lib/assetCatalog";
 import TradePostMortem from "@/components/TradePostMortem";
+import { compressImage } from "@/lib/client/image";
+import { apiErrorMessage } from "@/lib/client/apiError";
+
+const INPUT =
+  "w-full rounded-lg border border-line bg-paper text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none";
 
 function JournalContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { entries, addEntry, removeEntry, updateEntry, clearJournal } = useJournal();
+  const { entries, addEntry, removeEntry, updateEntry, clearJournal, storageError } = useJournal();
   const { watchlist, symbols } = useWatchlist();
 
   // Form State
-  const [symbol, setSymbol] = useState<string>(symbols[0] || "");
-  const [position, setPosition] = useState<TradePosition>("LONG");
-  const [entryPrice, setEntryPrice] = useState<string>("");
-  const [exitPrice, setExitPrice] = useState<string>("");
+  // Pre-filled from the URL when arriving from the Strategy Archive ("Log this trade").
+  const [symbol, setSymbol] = useState<string>(() => {
+    const s = searchParams.get("symbol");
+    return s && findAsset(s) ? s : symbols[0] || "";
+  });
+  const [position, setPosition] = useState<TradePosition>(() => {
+    const p = searchParams.get("position");
+    return p === "SHORT" || p === "SPOT" ? p : "LONG";
+  });
+  const [entryPrice, setEntryPrice] = useState<string>(() => searchParams.get("entry") ?? "");
+  const [exitPrice, setExitPrice] = useState<string>(() => searchParams.get("exit") ?? "");
   const [emotion, setEmotion] = useState<TradeEmotion>("Neutral");
   const [notes, setNotes] = useState<string>("");
   const [leverage, setLeverage] = useState<string>("");
@@ -29,18 +41,6 @@ function JournalContent() {
   const [exchangePnlPercent, setExchangePnlPercent] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Pre-fill from URL if coming from Archive
-  useEffect(() => {
-    const s = searchParams.get("symbol");
-    const pos = searchParams.get("position") as TradePosition;
-    const ep = searchParams.get("entry");
-    const xp = searchParams.get("exit");
-    
-    if (s && symbols.includes(s)) setSymbol(s);
-    if (pos) setPosition(pos);
-    if (ep) setEntryPrice(ep);
-    if (xp) setExitPrice(xp);
-  }, [searchParams, symbols]);
 
   // Handle AI Screenshot Parsing
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,19 +49,17 @@ function JournalContent() {
 
     setIsUploading(true);
     try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Image = reader.result as string;
-        
-        const res = await fetch("/api/parse-screenshot", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64Image })
-        });
-        
-        if (!res.ok) throw new Error("Failed to parse image");
-        
-        const data = await res.json();
+      // v1 did this inside FileReader.onloadend, so any failure escaped the try/catch and left the
+      // uploader spinning forever. Compress first (≤1.5 MB), then await the parse directly.
+      const image = await compressImage(file);
+      const res = await fetch("/api/parse-screenshot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image }),
+      });
+      if (!res.ok) throw new Error(await apiErrorMessage(res, "Failed to read the screenshot"));
+      const data = await res.json();
+      {
         
         if (data.symbol) {
           // Try to match symbol cleanly (e.g. BTCUSDT -> BTC/USDT)
@@ -76,14 +74,13 @@ function JournalContent() {
         if (data.margin) setMargin(data.margin.toString());
         if (data.marginMode) setMarginMode(data.marginMode as "Cross" | "Isolated");
         if (typeof data.pnlPercent === "number") setExchangePnlPercent(data.pnlPercent);
-
-        setIsUploading(false);
-      };
-      reader.readAsDataURL(file);
+      }
     } catch (err) {
       console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to read the screenshot.");
+    } finally {
       setIsUploading(false);
-      alert("Failed to parse screenshot.");
+      if (e.target) e.target.value = "";
     }
   };
 
@@ -120,54 +117,60 @@ function JournalContent() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: "var(--bg)" }}>
+    <div className="flex h-full flex-col overflow-hidden bg-page">
       <NavBar />
-      
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-12 gap-8">
-          
+
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 px-6 py-8 xl:grid-cols-12">
+
           {/* Left Col: Journal Form */}
-          <div className="xl:col-span-4 space-y-6 animate-fade-up">
+          <div className="animate-fade-up space-y-6 xl:col-span-4">
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>Trading Journal</h1>
-              <p className="text-sm mt-1" style={{ color: "var(--text-3)" }}>Log trades, upload PnL screenshots, track emotional patterns.</p>
+              <h1 className="font-display text-2xl font-extrabold text-ink">Trading Journal</h1>
+              <p className="mt-1 text-sm text-ink-3">Log trades, upload PnL screenshots, track emotional patterns.</p>
             </div>
 
-            <div 
-              className="glass-card p-4 flex flex-col items-center justify-center text-center cursor-pointer border-dashed border-2 hover:bg-white/5 transition-colors relative"
-              style={{ borderColor: "var(--border)" }}
+            {storageError && (
+              <div role="alert" className="rounded-lg border border-down/30 bg-down-soft p-3 text-xs text-down">
+                {storageError}
+              </div>
+            )}
+
+            <div
+              className="relative flex cursor-pointer flex-col items-center justify-center rounded-[14px] border-2 border-dashed border-line-2 bg-paper p-4 text-center transition-colors hover:bg-wash"
               onClick={() => fileInputRef.current?.click()}
+              role="button" tabIndex={0} aria-label="Auto-fill the form from a position screenshot"
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
             >
               <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
-              <span className="text-2xl mb-2">📸</span>
-              <h4 className="text-sm font-bold" style={{ color: "var(--text)" }}>Auto-Fill from Screenshot</h4>
-              <p className="text-[10px]" style={{ color: "var(--text-3)" }}>Upload Binance/Bybit position image to use AI Vision.</p>
-              
+              <h2 className="text-sm font-bold text-ink">Auto-Fill from Screenshot</h2>
+              <p className="mt-0.5 text-[10px] text-ink-3">Upload Binance/Bybit position image to use AI Vision.</p>
+
               {isUploading && (
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center rounded-xl">
-                  <span className="text-sm font-bold animate-pulse text-blue-400">AI Parsing...</span>
+                <div className="absolute inset-0 flex items-center justify-center rounded-[14px] bg-paper/90">
+                  <span className="animate-pulse text-sm font-bold text-accent">AI Parsing...</span>
                 </div>
               )}
             </div>
 
-            <form onSubmit={handleSubmit} className="glass-card p-5 space-y-5">
+            <form onSubmit={handleSubmit} className="panel space-y-5 p-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>Asset</label>
-                  <select 
-                    required className="w-full bg-transparent p-2.5 rounded-lg text-sm font-semibold focus:outline-none border"
-                    style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                  <label htmlFor="j-asset" className="label-caps mb-2 block">Asset</label>
+                  <select
+                    id="j-asset" required className={`${INPUT} p-2.5 text-sm font-semibold`}
                     value={symbol} onChange={(e) => setSymbol(e.target.value)}
                   >
                     <option value="" disabled>Select Asset</option>
                     {watchlist.map(a => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
+                    {symbol && !watchlist.some((a) => a.symbol === symbol) && <option value={symbol}>{symbol}</option>}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>Position</label>
-                  <select 
-                    className="w-full bg-transparent p-2.5 rounded-lg text-sm font-semibold focus:outline-none border"
-                    style={{ color: position === "LONG" ? "var(--green)" : position === "SHORT" ? "var(--red)" : "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                  <label htmlFor="j-position" className="label-caps mb-2 block">Position</label>
+                  <select
+                    id="j-position"
+                    className={`${INPUT} p-2.5 text-sm font-semibold ${position === "LONG" ? "text-up" : position === "SHORT" ? "text-down" : "text-ink"}`}
                     value={position} onChange={(e) => setPosition(e.target.value as TradePosition)}
                   >
                     <option value="LONG">Long</option>
@@ -179,10 +182,10 @@ function JournalContent() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>Mode</label>
-                  <select 
-                    className="w-full bg-transparent p-2.5 rounded-lg text-xs font-semibold focus:outline-none border"
-                    style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                  <label htmlFor="j-mode" className="label-caps mb-2 block">Mode</label>
+                  <select
+                    id="j-mode"
+                    className={`${INPUT} p-2.5 text-xs font-semibold`}
                     value={marginMode} onChange={(e) => setMarginMode(e.target.value as "Cross" | "Isolated")}
                   >
                     <option value="Cross">Cross</option>
@@ -190,26 +193,24 @@ function JournalContent() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>Leverage</label>
+                  <label htmlFor="j-leverage" className="label-caps mb-2 block">Leverage</label>
                   <div className="relative">
-                    <input 
-                      type="number" step="any" placeholder="10"
+                    <input
+                      id="j-leverage" type="number" step="any" placeholder="10"
                       value={leverage} onChange={(e) => setLeverage(e.target.value)}
-                      className="w-full bg-transparent p-2.5 pr-6 rounded-lg text-sm font-mono focus:outline-none border"
-                      style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                      className={`${INPUT} num p-2.5 pr-6 text-sm`}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">x</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">x</span>
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>Margin</label>
+                  <label htmlFor="j-margin" className="label-caps mb-2 block">Margin</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">$</span>
-                    <input 
-                      type="text" inputMode="decimal" placeholder="100"
+                    <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-ink-3">$</span>
+                    <input
+                      id="j-margin" type="text" inputMode="decimal" placeholder="100"
                       value={margin} onChange={(e) => setMargin(e.target.value)}
-                      className="w-full bg-transparent p-2.5 pl-6 rounded-lg text-sm font-mono focus:outline-none border"
-                      style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                      className={`${INPUT} num p-2.5 pl-6 text-sm`}
                     />
                   </div>
                 </div>
@@ -217,41 +218,38 @@ function JournalContent() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>Entry Price</label>
-                  <input 
-                    type="text" inputMode="decimal" required
+                  <label htmlFor="j-entry" className="label-caps mb-2 block">Entry Price</label>
+                  <input
+                    id="j-entry" type="text" inputMode="decimal" required
                     value={entryPrice} onChange={(e) => setEntryPrice(e.target.value)}
-                    className="w-full bg-transparent p-2.5 rounded-lg text-sm font-mono focus:outline-none border"
-                    style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                    className={`${INPUT} num p-2.5 text-sm`}
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>
-                    Exit Price <span className="opacity-50">(Optional)</span>
+                  <label htmlFor="j-exit" className="label-caps mb-2 block">
+                    Exit Price <span className="text-ink-3">(Optional)</span>
                   </label>
-                  <input 
-                    type="text" inputMode="decimal"
+                  <input
+                    id="j-exit" type="text" inputMode="decimal"
                     value={exitPrice} onChange={(e) => setExitPrice(e.target.value)}
                     placeholder="Leave blank for OPEN"
-                    className="w-full bg-transparent p-2.5 rounded-lg text-sm font-mono focus:outline-none border placeholder-gray-600"
-                    style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                    className={`${INPUT} num p-2.5 text-sm`}
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>Emotion</label>
-                <div className="flex flex-wrap gap-2">
+                <p id="j-emotion" className="label-caps mb-2 block">Emotion</p>
+                <div role="group" aria-labelledby="j-emotion" className="flex flex-wrap gap-2">
                   {["Confident", "Neutral", "FOMO", "Panic", "Greed", "Revenge"].map((emo) => (
                     <button
                       key={emo} type="button"
                       onClick={() => setEmotion(emo as TradeEmotion)}
-                      className="px-2 py-1 text-[11px] font-medium rounded transition-colors"
-                      style={{
-                        background: emotion === emo ? "var(--surface-active)" : "var(--surface)",
-                        border: emotion === emo ? "1px solid var(--accent)" : "1px solid var(--border)",
-                        color: emotion === emo ? "var(--accent)" : "var(--text-2)"
-                      }}
+                      className={`rounded border px-2 py-1 text-[11px] font-semibold transition-colors ${
+                        emotion === emo
+                          ? "border-accent bg-accent-soft text-accent"
+                          : "border-line bg-paper text-ink-2 hover:bg-wash"
+                      }`}
                     >
                       {emo}
                     </button>
@@ -260,17 +258,16 @@ function JournalContent() {
               </div>
 
               <div>
-                <label className="block text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "var(--text-3)" }}>Trade Notes / Lessons</label>
-                <textarea 
+                <label className="label-caps mb-2 block">Trade Notes / Lessons</label>
+                <textarea
                   required rows={3}
                   value={notes} onChange={(e) => setNotes(e.target.value)}
                   placeholder="Why did you take this trade? Mistakes?"
-                  className="w-full bg-transparent p-3 rounded-lg text-sm focus:outline-none resize-none border"
-                  style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                  className={`${INPUT} resize-none p-3 text-sm`}
                 />
               </div>
 
-              <button type="submit" className="w-full glow-btn py-3 text-xs font-bold uppercase tracking-wider">
+              <button type="submit" className="w-full rounded-lg bg-ink py-3 text-xs font-bold uppercase tracking-wider text-paper transition-colors hover:bg-ink-hover">
                 Log Trade
               </button>
             </form>
@@ -287,7 +284,7 @@ function JournalContent() {
 
 export default function JournalPage() {
   return (
-    <Suspense fallback={<div className="h-screen flex items-center justify-center text-sm" style={{ color: "var(--text-3)", background: "var(--bg)" }}>Loading journal...</div>}>
+    <Suspense fallback={<div className="flex h-full items-center justify-center bg-page text-sm text-ink-3">Loading journal...</div>}>
       <JournalContent />
     </Suspense>
   );
@@ -365,48 +362,48 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
     setEditing(false);
   };
 
+  const sidebarTone = isOpen ? "bg-accent-soft" : isWin ? "bg-up-soft" : isLoss ? "bg-down-soft" : "bg-wash";
+  const pnlTone = isWin ? "text-up" : isLoss ? "text-down" : "text-ink";
+  const pnlSubTone = isWin ? "text-up" : isLoss ? "text-down" : "text-ink-3";
+  const positionTone = entry.position === "LONG" ? "bg-up-soft text-up" : entry.position === "SHORT" ? "bg-down-soft text-down" : "bg-wash text-ink";
+
   return (
-    <div className="glass-card p-4 relative group flex flex-col md:flex-row gap-4">
-      <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="panel group relative flex flex-col gap-4 p-4 md:flex-row">
+      <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
         <button
           onClick={openEdit}
           title="Edit trade"
-          className="p-1.5 rounded-md text-gray-400 hover:text-blue-300 hover:bg-white/5 transition-colors"
+          className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-wash hover:text-accent"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
         </button>
         <button
           onClick={onRemove}
           title="Delete trade"
-          className="p-1.5 rounded-md text-gray-500 hover:text-red-400 hover:bg-white/5 transition-colors"
+          className="rounded-md p-1.5 text-ink-3 transition-colors hover:bg-down-soft hover:text-down"
         >
           ✕
         </button>
       </div>
 
       {/* PnL / Status Sidebar */}
-      <div className="w-full md:w-24 shrink-0 flex flex-col items-center justify-center text-center p-3 rounded-lg" 
-           style={{ background: isOpen ? "var(--surface-active)" : isWin ? "var(--green-bg)" : isLoss ? "var(--red-bg)" : "var(--surface-2)",
-                    border: isOpen ? "1px solid var(--accent)" : "none" }}>
+      <div className={`flex w-full shrink-0 flex-col items-center justify-center rounded-lg p-3 text-center md:w-24 ${sidebarTone}`}>
         {isOpen ? (
-          <span className="text-xs font-bold text-blue-400 tracking-wider">OPEN</span>
+          <span className="text-xs font-bold tracking-wider text-accent">OPEN</span>
         ) : (
           <>
-            <span className="text-sm font-bold tabular-nums" style={{ color: isWin ? "var(--green)" : isLoss ? "var(--red)" : "var(--text)" }}>
+            <span className={`num text-sm font-bold ${pnlTone}`}>
               {isWin ? "+" : ""}{(entry.pnlPercent || 0).toFixed(2)}%
             </span>
             {entry.margin && (
-              <span className="text-[10px] font-bold mt-1" style={{ color: isWin ? "var(--green)" : isLoss ? "var(--red)" : "var(--text-3)" }}>
+              <span className={`num mt-1 text-[10px] font-bold ${pnlSubTone}`}>
                 {isWin ? "+" : ""}{((entry.pnlPercent || 0) / 100 * entry.margin).toFixed(2)} USD
               </span>
             )}
             <span
-              className="text-[9px] uppercase font-bold mt-1 px-1.5 py-0.5 rounded"
-              style={{
-                color: entry.pnlSource === "exchange" ? "var(--accent)" : "var(--text-3)",
-                background: entry.pnlSource === "exchange" ? "var(--accent-dim)" : "transparent",
-                opacity: entry.pnlSource === "exchange" ? 1 : 0.7,
-              }}
+              className={`mt-1 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase ${
+                entry.pnlSource === "exchange" ? "bg-accent-soft text-accent" : "text-ink-3"
+              }`}
               title={entry.pnlSource === "exchange" ? "PnL taken directly from exchange screenshot" : "PnL calculated from prices (fees auto-deducted)"}
             >
               {entry.pnlSource === "exchange" ? "EXCHANGE" : "NET PnL"}
@@ -417,70 +414,67 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
 
       <div className="flex-1">
         {/* Header Row */}
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <div className="flex items-center gap-1.5 mr-2">
-            <span style={{ fontSize: "14px" }}>{asset?.icon || "📈"}</span>
-            <span className="text-sm font-bold" style={{ color: "var(--text)" }}>{entry.symbol}</span>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <div className="mr-2 flex items-center gap-1.5">
+            <span className="text-sm">{asset?.icon || "📈"}</span>
+            <span className="text-sm font-bold text-ink">{entry.symbol}</span>
           </div>
-          
-          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{
-            background: entry.position === "LONG" ? "var(--green-bg)" : entry.position === "SHORT" ? "var(--red-bg)" : "var(--surface)",
-            color: entry.position === "LONG" ? "var(--green)" : entry.position === "SHORT" ? "var(--red)" : "var(--text)"
-          }}>{entry.position}</span>
+
+          <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold ${positionTone}`}>{entry.position}</span>
 
           {entry.leverage && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-800 text-yellow-500">
+            <span className="num rounded bg-amber-soft px-1.5 py-0.5 text-[9px] font-bold text-amber">
               {entry.leverage}x
             </span>
           )}
           {entry.marginMode && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gray-800 text-gray-300">
+            <span className="rounded bg-wash px-1.5 py-0.5 text-[9px] font-bold text-ink-2">
               {entry.marginMode}
             </span>
           )}
 
-          <span className="text-[9px] px-1.5 py-0.5 rounded border ml-2" style={{ borderColor: "var(--border)", color: "var(--text-3)" }}>
+          <span className="ml-2 rounded border border-line px-1.5 py-0.5 text-[9px] text-ink-3">
             {entry.emotion}
           </span>
 
-          <span className="text-[10px] ml-auto" style={{ color: "var(--text-3)" }}>
+          <span className="ml-auto text-[10px] text-ink-3">
             {formattedDate}
           </span>
         </div>
 
         {/* Trade Details */}
-        <div className="flex flex-wrap gap-x-6 gap-y-2 mb-3 text-xs tabular-nums font-mono" style={{ color: "var(--text-2)" }}>
-          <div><span style={{ color: "var(--text-3)" }}>Entry:</span> ${entry.entryPrice}</div>
-          {entry.exitPrice && <div><span style={{ color: "var(--text-3)" }}>Exit:</span> ${entry.exitPrice}</div>}
+        <div className="num mb-3 flex flex-wrap gap-x-6 gap-y-2 text-xs text-ink-2">
+          <div><span className="text-ink-3">Entry:</span> ${entry.entryPrice}</div>
+          {entry.exitPrice && <div><span className="text-ink-3">Exit:</span> ${entry.exitPrice}</div>}
 
           {entry.margin && (
-            <div><span style={{ color: "var(--text-3)" }}>Margin:</span> ${entry.margin}</div>
+            <div><span className="text-ink-3">Margin:</span> ${entry.margin}</div>
           )}
           {entry.margin && entry.leverage && (
-            <div><span style={{ color: "var(--text-3)" }}>Size:</span> ${(entry.margin * entry.leverage).toFixed(2)}</div>
+            <div><span className="text-ink-3">Size:</span> ${(entry.margin * entry.leverage).toFixed(2)}</div>
           )}
         </div>
 
         {/* PnL breakdown: gross vs net vs fees (only for closed, computed trades) */}
         {!isOpen && typeof entry.grossPnlPercent === "number" && (
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 text-[10px] tabular-nums" style={{ color: "var(--text-3)" }}>
+          <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] tabular-nums text-ink-3">
             <div>
               <span>Gross: </span>
-              <span style={{ color: entry.grossPnlPercent >= 0 ? "var(--green)" : "var(--red)" }}>
+              <span className={entry.grossPnlPercent >= 0 ? "text-up" : "text-down"}>
                 {entry.grossPnlPercent >= 0 ? "+" : ""}{entry.grossPnlPercent.toFixed(2)}%
               </span>
             </div>
             {entry.leverage && (
               <div>
                 <span>Fees: </span>
-                <span style={{ color: "var(--red)" }}>−{((entry.feeRatePercent ?? 0.05) * 2 * entry.leverage).toFixed(2)}%</span>
-                <span className="opacity-60"> ({(entry.feeRatePercent ?? 0.05).toFixed(2)}% × 2 × {entry.leverage}x)</span>
+                <span className="text-down">−{((entry.feeRatePercent ?? 0.05) * 2 * entry.leverage).toFixed(2)}%</span>
+                <span className="opacity-70"> ({(entry.feeRatePercent ?? 0.05).toFixed(2)}% × 2 × {entry.leverage}x)</span>
               </div>
             )}
             {entry.pnlSource === "exchange" && typeof entry.grossPnlPercent === "number" && typeof entry.pnlPercent === "number" && (
               <div>
                 <span>Exchange PnL: </span>
-                <span style={{ color: entry.pnlPercent >= 0 ? "var(--green)" : "var(--red)" }}>
+                <span className={entry.pnlPercent >= 0 ? "text-up" : "text-down"}>
                   {entry.pnlPercent >= 0 ? "+" : ""}{entry.pnlPercent.toFixed(2)}%
                 </span>
               </div>
@@ -489,24 +483,23 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
         )}
 
         {/* Notes */}
-        <p className="text-[11px] leading-relaxed p-2.5 rounded-md mb-2" style={{ background: "var(--surface)", color: "var(--text-2)" }}>
+        <p className="mb-2 rounded-md bg-wash p-2.5 text-[11px] leading-relaxed text-ink-2">
           {entry.notes}
         </p>
 
         {/* Close Trade Action for OPEN trades */}
         {isOpen && (
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t" style={{ borderColor: "var(--border)" }}>
-            <span className="text-[10px] uppercase" style={{ color: "var(--text-3)" }}>Close Trade:</span>
-            <input 
+          <div className="mt-3 flex items-center gap-2 border-t border-line pt-3">
+            <span className="label-caps">Close Trade:</span>
+            <input
+              aria-label={`Exit price to close the ${entry.symbol} trade`}
               type="text" inputMode="decimal" placeholder="Exit Price"
               value={closePrice} onChange={(e) => setClosePrice(e.target.value)}
-              className="bg-transparent p-1 px-2 rounded text-xs font-mono focus:outline-none border"
-              style={{ color: "var(--text)", borderColor: "var(--border)" }}
+              className="num rounded border border-line bg-paper p-1 px-2 text-xs text-ink placeholder:text-ink-3 focus:border-accent focus:outline-none"
             />
-            <button 
+            <button
               onClick={handleClose}
-              className="px-3 py-1 rounded text-[10px] font-bold uppercase transition-colors"
-              style={{ background: "var(--surface-active)", color: "var(--accent)" }}
+              className="rounded border border-line-2 px-3 py-1 text-[10px] font-bold uppercase text-ink transition-colors hover:bg-wash"
             >
               Update PnL
             </button>
@@ -514,10 +507,10 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
         )}
 
         {editing && (
-          <div className="mt-3 rounded-xl p-3 flex flex-col gap-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid var(--border-strong)" }}>
+          <div className="mt-3 flex flex-col gap-3 rounded-lg bg-wash p-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>Edit Trade</span>
-              <button onClick={() => setEditing(false)} className="text-[11px]" style={{ color: "var(--text-3)" }}>Cancel</button>
+              <span className="text-xs font-bold text-ink">Edit Trade</span>
+              <button onClick={() => setEditing(false)} className="text-[11px] font-semibold text-ink-3 hover:text-ink">Cancel</button>
             </div>
 
             <div className="grid grid-cols-2 gap-2">
@@ -529,12 +522,12 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
               <EditField label="Leverage" value={editForm.leverage} onChange={(v) => setEditForm((f) => ({ ...f, leverage: v }))} suffix="x" />
               <EditField label="Margin" value={editForm.margin} onChange={(v) => setEditForm((f) => ({ ...f, margin: v }))} prefix="$" />
               <div className="flex flex-col gap-1">
-                <label className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Mode</label>
+                <label htmlFor={`edit-mode-${entry.id}`} className="label-caps">Mode</label>
                 <select
+                  id={`edit-mode-${entry.id}`}
                   value={editForm.marginMode}
                   onChange={(e) => setEditForm((f) => ({ ...f, marginMode: e.target.value as "Cross" | "Isolated" }))}
-                  className="bg-transparent p-2 rounded-lg text-xs font-semibold focus:outline-none border"
-                  style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                  className={`${INPUT} p-2 text-xs font-semibold`}
                 >
                   <option value="Cross">Cross</option>
                   <option value="Isolated">Isolated</option>
@@ -551,45 +544,49 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
             />
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Position</label>
+              <label className="label-caps">Position</label>
               <div className="flex gap-2">
-                {(["LONG", "SHORT", "SPOT"] as const).map((pos) => (
-                  <button
-                    key={pos}
-                    type="button"
-                    onClick={() => setEditForm((f) => ({ ...f, position: pos }))}
-                    className="px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all duration-200 hover:scale-105"
-                    style={{
-                      background: editForm.position === pos ? (pos === "LONG" ? "var(--green-bg)" : pos === "SHORT" ? "var(--red-bg)" : "var(--surface-active)") : "var(--surface-2)",
-                      border: `1px solid ${editForm.position === pos ? (pos === "LONG" ? "var(--green)" : pos === "SHORT" ? "var(--red)" : "var(--accent)") : "var(--border)"}`,
-                      color: editForm.position === pos ? (pos === "LONG" ? "var(--green)" : pos === "SHORT" ? "var(--red)" : "var(--accent)") : "var(--text-2)",
-                    }}
-                  >
-                    {pos}
-                  </button>
-                ))}
+                {(["LONG", "SHORT", "SPOT"] as const).map((pos) => {
+                  const selected = editForm.position === pos;
+                  const selectedTone = pos === "LONG"
+                    ? "border-up bg-up-soft text-up"
+                    : pos === "SHORT"
+                      ? "border-down bg-down-soft text-down"
+                      : "border-accent bg-accent-soft text-accent";
+                  return (
+                    <button
+                      key={pos}
+                      type="button"
+                      onClick={() => setEditForm((f) => ({ ...f, position: pos }))}
+                      className={`rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-colors ${
+                        selected ? selectedTone : "border-line bg-paper text-ink-2 hover:bg-wash"
+                      }`}
+                    >
+                      {pos}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Notes</label>
+              <label className="label-caps">Notes</label>
               <textarea
                 rows={2}
                 value={editForm.notes}
                 onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                className="w-full bg-transparent p-2 rounded-lg text-xs resize-none border focus:outline-none"
-                style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)" }}
+                className={`${INPUT} resize-none p-2 text-xs`}
               />
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 onClick={saveEdit}
-                className="glow-btn py-2 px-4 text-[11px] font-bold uppercase tracking-wider transition-all duration-200 hover:scale-[1.02] active:scale-95"
+                className="rounded-lg bg-ink px-4 py-2 text-[11px] font-bold uppercase tracking-wider text-paper transition-colors hover:bg-ink-hover"
               >
                 Save Changes
               </button>
-              <span className="text-[10px]" style={{ color: "var(--text-3)" }}>
+              <span className="text-[10px] text-ink-3">
                 PnL is auto-recalculated
               </span>
             </div>
@@ -603,21 +600,22 @@ function JournalCard({ entry, onRemove, onUpdate }: { entry: JournalEntry, onRem
 }
 
 function EditField({ label, value, onChange, prefix, suffix, placeholder }: { label: string; value: string; onChange: (v: string) => void; prefix?: string; suffix?: string; placeholder?: string }) {
+  const fieldId = useId();
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>{label}</label>
+      <label htmlFor={fieldId} className="label-caps">{label}</label>
       <div className="relative">
-        {prefix && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px]" style={{ color: "var(--text-3)" }}>{prefix}</span>}
+        {prefix && <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[11px] text-ink-3">{prefix}</span>}
         <input
+          id={fieldId}
           type="text"
           inputMode="decimal"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full bg-transparent p-2 rounded-lg text-xs font-mono focus:outline-none border"
-          style={{ color: "var(--text)", borderColor: "var(--border)", backgroundColor: "var(--surface)", paddingLeft: prefix ? "1.4rem" : undefined, paddingRight: suffix ? "1.4rem" : undefined }}
+          className={`${INPUT} num p-2 text-xs ${prefix ? "pl-[1.4rem]" : ""} ${suffix ? "pr-[1.4rem]" : ""}`}
         />
-        {suffix && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px]" style={{ color: "var(--text-3)" }}>{suffix}</span>}
+        {suffix && <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[11px] text-ink-3">{suffix}</span>}
       </div>
     </div>
   );
@@ -690,17 +688,16 @@ function TimelineSection({
   }, [entries, tab]);
 
   const fmtUsd = (n: number) => `${n >= 0 ? "+" : "−"}$${Math.abs(n).toFixed(2)}`;
-  const netTone = stats.netPnlUsd > 0 ? "var(--green)" : stats.netPnlUsd < 0 ? "var(--red)" : "var(--text)";
+  const netTone = stats.netPnlUsd > 0 ? "text-up" : stats.netPnlUsd < 0 ? "text-down" : "text-ink";
 
   return (
-    <div className="xl:col-span-8 animate-fade-up flex flex-col gap-5" style={{ animationDelay: "100ms" }}>
+    <div className="animate-fade-up flex flex-col gap-5 [animation-delay:100ms]! xl:col-span-8">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold" style={{ color: "var(--text)" }}>Trade Timeline</h2>
+        <h2 className="text-lg font-bold text-ink">Trade Timeline</h2>
         {entries.length > 0 && (
           <button
             onClick={() => { if (window.confirm("Clear entire journal?")) clearJournal(); }}
-            className="text-xs font-semibold transition-all duration-200 hover:scale-105"
-            style={{ color: "var(--red)" }}
+            className="rounded-md px-2 py-1 text-xs font-bold text-down transition-colors hover:bg-down-soft"
           >
             Clear Log
           </button>
@@ -708,25 +705,23 @@ function TimelineSection({
       </div>
 
       {entries.length > 0 && (
-        <div className="glass-card p-4 flex flex-col gap-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="panel flex flex-col gap-4 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-semibold px-2 py-1 rounded-md uppercase tracking-wider" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
-                Performance
-              </span>
-              <span className="text-xs" style={{ color: "var(--text-3)" }}>
+              <span className="label-caps">Performance</span>
+              <span className="text-xs text-ink-3">
                 {stats.closedCount} closed · {stats.openCount} open
               </span>
             </div>
-            <div className="flex items-baseline gap-1">
-              <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Net PnL</span>
-              <span className="text-lg font-bold tabular-nums" style={{ color: netTone }}>
+            <div className="flex items-baseline gap-2">
+              <span className="label-caps">Net PnL</span>
+              <span className={`num font-display text-lg font-bold ${netTone}`}>
                 {fmtUsd(stats.netPnlUsd)}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
             <StatTile label="Total Trades" value={String(stats.total)} sub={`${stats.closedCount} closed`} />
             <StatTile label="Win Rate" value={`${stats.winRate.toFixed(0)}%`} sub={`${stats.winsCount}W · ${stats.lossesCount}L`} tone={stats.winRate >= 50 ? "green" : stats.winRate > 0 ? "red" : "neutral"} />
             <StatTile label="Avg PnL" value={`${stats.avgPnlPercent >= 0 ? "+" : ""}${stats.avgPnlPercent.toFixed(2)}%`} sub="per closed trade" tone={stats.avgPnlPercent >= 0 ? "green" : "red"} />
@@ -735,13 +730,13 @@ function TimelineSection({
 
           {stats.closedCount > 0 && (
             <div className="grid grid-cols-2 gap-2">
-              <div className="rounded-xl px-3 py-2.5 flex items-center justify-between transition-all duration-200 hover:scale-[1.01]" style={{ background: "rgba(52, 211, 153, 0.08)", border: "1px solid rgba(52, 211, 153, 0.18)" }}>
-                <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Total Profit</span>
-                <span className="text-sm font-bold tabular-nums" style={{ color: "var(--green)" }}>+${stats.totalProfitUsd.toFixed(2)}</span>
+              <div className="flex items-center justify-between rounded-lg bg-up-soft px-3 py-2.5">
+                <span className="label-caps">Total Profit</span>
+                <span className="num text-sm font-bold text-up">+${stats.totalProfitUsd.toFixed(2)}</span>
               </div>
-              <div className="rounded-xl px-3 py-2.5 flex items-center justify-between transition-all duration-200 hover:scale-[1.01]" style={{ background: "rgba(248, 113, 113, 0.08)", border: "1px solid rgba(248, 113, 113, 0.18)" }}>
-                <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--text-3)" }}>Total Loss</span>
-                <span className="text-sm font-bold tabular-nums" style={{ color: "var(--red)" }}>−${Math.abs(stats.totalLossUsd).toFixed(2)}</span>
+              <div className="flex items-center justify-between rounded-lg bg-down-soft px-3 py-2.5">
+                <span className="label-caps">Total Loss</span>
+                <span className="num text-sm font-bold text-down">−${Math.abs(stats.totalLossUsd).toFixed(2)}</span>
               </div>
             </div>
           )}
@@ -749,21 +744,20 @@ function TimelineSection({
       )}
 
       {entries.length === 0 ? (
-        <div className="glass-card p-12 text-center" style={{ borderStyle: "dashed" }}>
-          <span className="text-4xl mb-3 block opacity-50">📓</span>
-          <p className="text-sm" style={{ color: "var(--text-3)" }}>Your journal is empty. Log a trade or upload a screenshot.</p>
+        <div className="rounded-[14px] border border-dashed border-line-2 bg-paper p-12 text-center">
+          <p className="text-sm text-ink-3">Your journal is empty. Log a trade or upload a screenshot.</p>
         </div>
       ) : (
         <>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex flex-wrap gap-2">
             <TimelineTabPill label="All" count={stats.total} active={tab === "all"} onClick={() => setTab("all")} />
             <TimelineTabPill label="Open" count={stats.openCount} active={tab === "open"} onClick={() => setTab("open")} tone="accent" />
             <TimelineTabPill label="Closed" count={stats.closedCount} active={tab === "closed"} onClick={() => setTab("closed")} tone="neutral" />
           </div>
 
           {filtered.length === 0 ? (
-            <div className="glass-card p-8 text-center" style={{ borderStyle: "dashed" }}>
-              <p className="text-sm" style={{ color: "var(--text-3)" }}>
+            <div className="rounded-[14px] border border-dashed border-line-2 bg-paper p-8 text-center">
+              <p className="text-sm text-ink-3">
                 No {tab} trades yet.
               </p>
             </div>
@@ -781,29 +775,31 @@ function TimelineSection({
 }
 
 function StatTile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: "green" | "red" | "neutral" }) {
-  const valueColor = tone === "green" ? "var(--green)" : tone === "red" ? "var(--red)" : "var(--text)";
+  const valueColor = tone === "green" ? "text-up" : tone === "red" ? "text-down" : "text-ink";
   return (
-    <div className="rounded-xl px-3 py-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-lg" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02))", border: "1px solid var(--border)" }}>
-      <p className="text-[10px] uppercase tracking-wider mb-1" style={{ color: "var(--text-3)" }}>{label}</p>
-      <p className="text-base font-bold tabular-nums" style={{ color: valueColor }}>{value}</p>
-      {sub && <p className="text-[10px] mt-0.5" style={{ color: "var(--text-3)" }}>{sub}</p>}
+    <div className="rounded-lg bg-wash px-3 py-3">
+      <p className="label-caps mb-1">{label}</p>
+      <p className={`num text-base font-bold ${valueColor}`}>{value}</p>
+      {sub && <p className="mt-0.5 text-[10px] text-ink-3">{sub}</p>}
     </div>
   );
 }
 
 function TimelineTabPill({ label, count, active, onClick, tone }: { label: string; count: number; active: boolean; onClick: () => void; tone?: "accent" | "neutral" }) {
   const activeStyles = tone === "accent"
-    ? { background: "var(--accent-dim)", border: "1px solid var(--accent)", color: "var(--accent)", boxShadow: "0 0 12px rgba(82,170,255,0.18)" }
-    : { background: "var(--surface-active)", border: "1px solid var(--border-strong)", color: "var(--text)" };
+    ? "border-accent bg-accent-soft text-accent"
+    : "border-ink bg-ink text-paper";
 
   return (
     <button
       onClick={onClick}
-      className="px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center gap-2 transition-all duration-200 hover:scale-105 active:scale-95"
-      style={active ? activeStyles : { background: "var(--surface-2)", border: "1px solid var(--border)", color: "var(--text-2)" }}
+      aria-pressed={active}
+      className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[11px] font-bold transition-colors ${
+        active ? activeStyles : "border-line bg-paper text-ink-2 hover:bg-wash"
+      }`}
     >
       <span>{label}</span>
-      <span className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded" style={{ background: active ? "rgba(0,0,0,0.25)" : "rgba(255,255,255,0.05)", color: "inherit" }}>
+      <span className={`num rounded px-1.5 py-0.5 text-[10px] font-bold ${active ? (tone === "accent" ? "bg-paper" : "bg-paper/15") : "bg-wash"}`}>
         {count}
       </span>
     </button>

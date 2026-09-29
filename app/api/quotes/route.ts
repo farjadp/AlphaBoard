@@ -1,62 +1,26 @@
 import { NextResponse } from "next/server";
-import YahooFinance from "yahoo-finance2";
-import { ASSET_CATALOG } from "@/lib/assetCatalog";
+import { route } from "@/lib/http/route";
+import { requireUser } from "@/lib/auth/dal";
+import { enforceRateLimit } from "@/lib/http/rateLimit";
+import { findAsset } from "@/lib/assetCatalog";
+import { getQuote } from "@/lib/market/quote";
 
 export const dynamic = "force-dynamic";
 
-const yf = new YahooFinance();
+const MAX_SYMBOLS = 60;
 
-interface YahooQuoteRow {
-  regularMarketPrice?: number;
-  regularMarketChangePercent?: number;
-  regularMarketDayHigh?: number;
-  regularMarketDayLow?: number;
-  regularMarketVolume?: number;
-}
+/** Batch quotes for Yahoo-sourced assets (crypto streams over the Binance websocket client-side). */
+export const GET = route(async (req) => {
+  await requireUser();
+  enforceRateLimit(req, "api");
+  const symbols = (new URL(req.url).searchParams.get("symbols") ?? "")
+    .split(",").map((s) => s.trim()).filter(Boolean).slice(0, MAX_SYMBOLS);
 
-// Build a fast lookup: pairSymbol → yahooSymbol
-// Includes: all non-crypto assets + crypto assets that use Yahoo instead of Binance (e.g. Fartcoin)
-const YAHOO_MAP: Record<string, string> = {};
-for (const a of ASSET_CATALOG) {
-  if (a.yahooSymbol) YAHOO_MAP[a.symbol] = a.yahooSymbol;
-}
-
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const raw = searchParams.get("symbols") ?? "";
-
-  // If specific symbols requested, filter to those. Otherwise fetch all tradfi.
-  const requested = raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && YAHOO_MAP[s]);
-
-  const targets = requested.length > 0 ? requested : Object.keys(YAHOO_MAP);
-
-  const results: Record<
-    string,
-    { price: number; change: number; high: number; low: number; volume: number }
-  > = {};
-
-  await Promise.all(
-    targets.map(async (pairSymbol) => {
-      const yahooSym = YAHOO_MAP[pairSymbol];
-      try {
-        const quote = await yf.quote(yahooSym) as YahooQuoteRow;
-        if (quote?.regularMarketPrice) {
-          results[pairSymbol] = {
-            price:  quote.regularMarketPrice,
-            change: quote.regularMarketChangePercent ?? 0,
-            high:   quote.regularMarketDayHigh ?? 0,
-            low:    quote.regularMarketDayLow ?? 0,
-            volume: quote.regularMarketVolume ?? 0,
-          };
-        }
-      } catch (err: unknown) {
-        console.error(`[quotes] ${pairSymbol} (${yahooSym}):`, err instanceof Error ? err.message : String(err));
-      }
-    })
-  );
-
-  return NextResponse.json(results);
-}
+  const assets = symbols.map(findAsset).filter((a) => a?.yahooSymbol);
+  const out: Record<string, { price: number; change: number; high: number; low: number; volume: number }> = {};
+  await Promise.all(assets.map(async (a) => {
+    const q = await getQuote(a!);
+    if (q) out[a!.symbol] = { price: q.price, change: q.changePct ?? 0, high: q.high ?? 0, low: q.low ?? 0, volume: q.volume ?? 0 };
+  }));
+  return NextResponse.json(out);
+});

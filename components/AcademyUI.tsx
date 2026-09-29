@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { Annotation } from "@/hooks/useChartAcademy";
+import { compressImage } from "@/lib/client/image";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -24,7 +25,8 @@ function drawLabelPill(
   color: string,
   align: "left" | "right" | "center" = "left"
 ) {
-  ctx.font = "bold 10px Inter,system-ui,sans-serif";
+  // Same face as the UI (next/font gives Manrope a generated family name, so read it from the page).
+  ctx.font = `bold 10px ${getComputedStyle(document.body).fontFamily || "system-ui, sans-serif"}`;
   const w = ctx.measureText(text).width + 10;
   const h = 16;
   let lx = x;
@@ -335,8 +337,8 @@ export function AnnotatedCanvas({ imageDataUrl, annotations }: AnnotatedCanvasPr
   }, [draw]);
 
   return (
-    <div ref={containerRef} style={{ width: "100%", position: "relative", borderRadius: "10px", overflow: "hidden" }}>
-      <canvas ref={canvasRef} style={{ display: "block", borderRadius: "10px" }} />
+    <div ref={containerRef} className="relative w-full overflow-hidden rounded-[10px]">
+      <canvas ref={canvasRef} className="block rounded-[10px]" />
     </div>
   );
 }
@@ -355,47 +357,49 @@ export function DropZone({ label, timeframe, imageDataUrl, onFile, onClear }: Dr
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const handleFile = (file: File) => {
-    if (!file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onloadend = () => onFile(reader.result as string);
-    reader.readAsDataURL(file);
+  const handleFile = async (file: File) => {
+    try {
+      onFile(await compressImage(file));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not load the image");
+    }
   };
+
+  const borderClass = dragging ? "border-accent" : imageDataUrl ? "border-up" : "border-line-2";
+  const bgClass = dragging ? "bg-wash" : "bg-paper hover:bg-wash";
+  const sizeClass = imageDataUrl ? "p-0" : "min-h-[120px] px-4 py-6";
 
   return (
     <div
       onClick={() => inputRef.current?.click()}
+      role="button" tabIndex={0} aria-label="Upload a chart image (click, press Enter, or drop a file)"
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
-      style={{
-        border: `2px dashed ${dragging ? "var(--accent)" : imageDataUrl ? "var(--green)" : "var(--border-strong)"}`,
-        borderRadius: "12px",
-        padding: imageDataUrl ? "0" : "24px 16px",
-        cursor: "pointer",
-        background: dragging ? "var(--surface-hover)" : "var(--surface)",
-        transition: "all 0.2s ease",
-        position: "relative",
-        overflow: "hidden",
-        minHeight: imageDataUrl ? "auto" : "120px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-      }}
+      className={`relative flex cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors duration-200 ${borderClass} ${bgClass} ${sizeClass}`}
     >
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
 
       {imageDataUrl ? (
         <>
-          <img src={imageDataUrl} alt={label} style={{ width: "100%", display: "block", borderRadius: "10px" }} />
-          <button onClick={(e) => { e.stopPropagation(); onClear(); }} style={{ position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: "50%", background: "rgba(248,113,113,0.9)", border: "none", color: "#fff", fontSize: "11px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-          <div style={{ position: "absolute", bottom: 6, left: 6, padding: "2px 8px", borderRadius: "5px", background: "rgba(12,16,24,0.88)", fontSize: "10px", fontWeight: 700, color: "var(--accent)", letterSpacing: "0.06em" }}>{timeframe}</div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- local data URL preview; next/image cannot optimise it */}
+          <img src={imageDataUrl} alt={label} className="block w-full rounded-[10px]" />
+          <button
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            aria-label="Remove image"
+            className="absolute right-2 top-2 flex h-[22px] w-[22px] cursor-pointer items-center justify-center rounded-full bg-down text-[11px] text-paper hover:bg-down/85"
+          >✕</button>
+          <div className="absolute bottom-1.5 left-1.5 rounded-[5px] bg-ink/85 px-2 py-0.5 text-[10px] font-bold tracking-[0.06em] text-paper">{timeframe}</div>
         </>
       ) : (
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: "26px", marginBottom: "6px", opacity: 0.45 }}>📈</div>
-          <div style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-2)", marginBottom: "2px" }}>{label}</div>
-          <div style={{ fontSize: "10px", color: "var(--text-3)" }}>Drop or click · {timeframe}</div>
+        <div className="text-center">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="mx-auto mb-1.5 h-6 w-6 text-ink-3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 3v18h18" />
+            <path d="M7 15l4-4 3 3 5-6" />
+          </svg>
+          <div className="mb-0.5 text-xs font-semibold text-ink-2">{label}</div>
+          <div className="text-[10px] text-ink-3">Drop or click · {timeframe}</div>
         </div>
       )}
     </div>
@@ -404,31 +408,45 @@ export function DropZone({ label, timeframe, imageDataUrl, onFile, onClear }: Dr
 
 // ─── Signal Badge ─────────────────────────────────────────────────────────────
 
+const SIGNAL_CLASSES: Record<"BUY" | "SELL" | "HOLD", string> = {
+  BUY: "bg-up-soft border-up text-up",
+  SELL: "bg-down-soft border-down text-down",
+  HOLD: "bg-amber-soft border-amber text-amber",
+};
+
+const SIGNAL_SIZES: Record<"sm" | "md" | "lg", string> = {
+  lg: "text-[15px] px-4 py-[7px]",
+  md: "text-[11px] px-2.5 py-1",
+  sm: "text-[9px] px-[7px] py-0.5",
+};
+
 export function SignalBadge({ signal, size = "md" }: { signal: "BUY" | "SELL" | "HOLD"; size?: "sm" | "md" | "lg" }) {
-  const c = { BUY: { bg: "var(--green-bg)", br: "var(--green)", tx: "var(--green)" }, SELL: { bg: "var(--red-bg)", br: "var(--red)", tx: "var(--red)" }, HOLD: { bg: "var(--yellow-bg)", br: "var(--yellow)", tx: "var(--yellow)" } }[signal];
-  const fs = size === "lg" ? "15px" : size === "md" ? "11px" : "9px";
-  const p = size === "lg" ? "7px 16px" : size === "md" ? "4px 10px" : "2px 7px";
-  return <span style={{ background: c.bg, border: `1px solid ${c.br}`, color: c.tx, fontWeight: 800, fontSize: fs, padding: p, borderRadius: "7px", letterSpacing: "0.07em" }}>{signal}</span>;
+  return (
+    <span className={`rounded-[7px] border font-extrabold tracking-[0.07em] ${SIGNAL_CLASSES[signal]} ${SIGNAL_SIZES[size]}`}>
+      {signal}
+    </span>
+  );
 }
 
 // ─── Confluence Meter ─────────────────────────────────────────────────────────
 
 export function ConfluenceMeter({ score }: { score: number }) {
-  const color = score >= 70 ? "var(--green)" : score >= 45 ? "var(--yellow)" : "var(--red)";
+  const tone = score >= 70 ? { text: "text-up", bg: "bg-up" } : score >= 45 ? { text: "text-amber", bg: "bg-amber" } : { text: "text-down", bg: "bg-down" };
   const label = score >= 70 ? "Strong Confluence" : score >= 45 ? "Moderate" : "Weak / Conflicting";
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: "10px", color: "var(--text-3)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Multi-TF Confluence</span>
-        <div style={{ display: "flex", alignItems: "baseline", gap: "4px" }}>
-          <span style={{ fontSize: "22px", fontWeight: 800, color, fontFamily: "JetBrains Mono,monospace" }}>{score}</span>
-          <span style={{ fontSize: "10px", color: "var(--text-3)" }}>/100</span>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center justify-between">
+        <span className="label-caps">Multi-TF Confluence</span>
+        <div className="flex items-baseline gap-1">
+          <span className={`num text-[22px] font-extrabold ${tone.text}`}>{score}</span>
+          <span className="text-[10px] text-ink-3">/100</span>
         </div>
       </div>
-      <div style={{ height: "6px", borderRadius: "4px", background: "var(--surface-2)", overflow: "hidden" }}>
-        <div style={{ height: "100%", width: `${score}%`, borderRadius: "4px", background: color, boxShadow: `0 0 10px ${color}`, transition: "width 0.7s ease" }} />
+      <div className="h-1.5 overflow-hidden rounded bg-wash">
+        {/* width is computed from the score */}
+        <div className={`h-full rounded transition-[width] duration-700 ease-out ${tone.bg}`} style={{ width: `${score}%` }} />
       </div>
-      <div style={{ fontSize: "10px", color, fontWeight: 600 }}>{label}</div>
+      <div className={`text-[10px] font-semibold ${tone.text}`}>{label}</div>
     </div>
   );
 }

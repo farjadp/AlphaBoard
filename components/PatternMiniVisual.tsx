@@ -9,19 +9,19 @@ interface PatternMiniVisualProps {
   className?: string;
 }
 
-const bullishCandle = "#34d399";
-const bearishCandle = "#f87171";
-const neutralCandle = "#94a3b8";
-const lineColor = "#7dd3fc";
-const supportColor = "#60a5fa";
-const resistanceColor = "#f59e0b";
+const bullishCandle = "var(--color-up)";
+const bearishCandle = "var(--color-down)";
+const neutralCandle = "var(--color-ink-3)";
+const lineColor = "var(--color-ink-2)";
+const supportColor = "var(--color-accent)";
+const resistanceColor = "var(--color-amber)";
 
 export default function PatternMiniVisual({ pattern, variant = "candlestick", className }: PatternMiniVisualProps) {
   if (!pattern) {
     return (
       <div className={className}>
         <svg viewBox="0 0 80 48" className="w-full h-full">
-          <rect x="0" y="0" width="80" height="48" rx="12" fill="rgba(255,255,255,0.03)" />
+          <rect x="0" y="0" width="80" height="48" rx="12" fill="var(--color-wash)" />
           <path d="M12 34 C24 18, 38 30, 50 20 S68 18, 70 12" stroke={neutralCandle} strokeWidth="2.5" fill="none" strokeLinecap="round" />
         </svg>
       </div>
@@ -136,7 +136,7 @@ function ChartPatternVisual({ pattern }: { pattern: VisualPattern }) {
 }
 
 function BasePanel() {
-  return <rect x="0.5" y="0.5" width="79" height="47" rx="12" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" />;
+  return <rect x="0.5" y="0.5" width="79" height="47" rx="12" fill="var(--color-wash)" stroke="var(--color-line)" />;
 }
 
 function Candle({ x, openY, closeY, highY, lowY, fill, width }: { x: number; openY: number; closeY: number; highY: number; lowY: number; fill: string; width: number }) {
@@ -145,7 +145,7 @@ function Candle({ x, openY, closeY, highY, lowY, fill, width }: { x: number; ope
 
   return (
     <>
-      <line x1={x} x2={x} y1={highY} y2={lowY} stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1={x} x2={x} y1={highY} y2={lowY} stroke={fill} strokeWidth="1.5" strokeLinecap="round" />
       <rect x={x - width / 2} y={top} width={width} height={height} rx="2" fill={fill} />
     </>
   );

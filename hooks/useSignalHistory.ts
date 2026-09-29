@@ -1,82 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback } from "react";
+import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
+import type { ArchivedSignal } from "@/lib/types/userData";
 
-export interface ArchivedSignal {
-  id: string;
-  timestamp: string; // Precise ISO string
-  symbol: string;
-  price: number;
-  signal: string;
-  confidence: number;
-  timeframe: string;
-  entry: number;
-  stopLoss: number;
-  takeProfit: number;
-  tradeStyle?: string;
-  risk_management?: {
-    leverage: string;
-    leverageReasoning: string;
-    positionSize: string;
-    sizeReasoning: string;
-    riskRewardRatio: string;
-    distanceToTarget: string;
-  };
-  reasoning: string;
-  indicators_breakdown?: Array<{
-    name: string;
-    value: string;
-    signal: "Bullish" | "Bearish" | "Neutral";
-    explanation: string;
-  }>;
+export type { ArchivedSignal };
+
+const EMPTY: ArchivedSignal[] = [];
+const signalsResource = createResource<ArchivedSignal[]>("/api/signals", { fallback: EMPTY, select: (j) => (j as { signals: ArchivedSignal[] }).signals });
+
+/** Signals are archived by the server when /api/analyze runs; refresh any mounted archive view. */
+export function invalidateSignals() {
+  if (signalsResource.getSnapshot().loaded) void signalsResource.load(true);
 }
 
-const STORAGE_KEY = "alphaboard_signal_history";
-
 export function useSignalHistory() {
-  const [history, setHistory] = useState<ArchivedSignal[]>([]);
+  const { data: history, loaded, error } = useResource(signalsResource);
 
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setHistory(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error("Failed to load signal history", e);
-    }
-  }, []);
+  const removeSignal = useCallback((id: string) => signalsResource.mutate({
+    optimistic: (d) => d.filter((s) => s.id !== id),
+    request: jsonRequest(`/api/signals/${id}`, "DELETE"),
+  }).catch(() => undefined), []);
 
-  const archiveSignal = (signal: Omit<ArchivedSignal, "id" | "timestamp">) => {
-    const newSignal: ArchivedSignal = {
-      ...signal,
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-      timestamp: new Date().toISOString(),
-    };
+  const clearHistory = useCallback(() => signalsResource.mutate({
+    optimistic: () => [],
+    request: jsonRequest("/api/signals", "DELETE"),
+  }).catch(() => undefined), []);
 
-    setHistory((prev) => {
-      const updated = [newSignal, ...prev].slice(0, 500); // Keep last 500
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (e) {
-        console.error("Failed to save signal history", e);
-      }
-      return updated;
-    });
-  };
-
-  const clearHistory = () => {
-    setHistory([]);
-    localStorage.removeItem(STORAGE_KEY);
-  };
-
-  const removeSignal = (id: string) => {
-    setHistory((prev) => {
-      const updated = prev.filter((s) => s.id !== id);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  return { history, archiveSignal, clearHistory, removeSignal };
+  return { history, loaded, error, clearHistory, removeSignal };
 }

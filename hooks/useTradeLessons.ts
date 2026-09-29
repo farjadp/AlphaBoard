@@ -1,94 +1,36 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
+import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
+import type { LessonOutcome, TradeLesson } from "@/lib/types/userData";
 
-export type LessonOutcome = "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
+export type { LessonOutcome, TradeLesson };
 
-export interface TradeLesson {
-  id: string;
-  tradeId: string;
-  symbol: string;
-  position: "LONG" | "SHORT" | "SPOT";
-  outcome: LessonOutcome;
-  pnlPercent?: number;
-  timeframe?: string;
-  rootCause: string;
-  mistakes: string[];
-  strengths: string[];
-  lesson: string;
-  tags: string[];
-  emotion?: string;
-  timestamp: string;
-}
-
-const STORAGE_KEY = "alphaboard_trade_lessons";
-
-function readFromStorage(): TradeLesson[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    return stored ? (JSON.parse(stored) as TradeLesson[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeToStorage(lessons: TradeLesson[]) {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lessons));
-  } catch (err) {
-    console.error("Failed to persist trade lessons", err);
-  }
-}
+const EMPTY: TradeLesson[] = [];
+const lessonsResource = createResource<TradeLesson[]>("/api/lessons", { fallback: EMPTY, select: (j) => (j as { lessons: TradeLesson[] }).lessons });
 
 export function useTradeLessons() {
-  const [lessons, setLessons] = useState<TradeLesson[]>([]);
+  const { data: lessons, loaded, error } = useResource(lessonsResource);
 
-  useEffect(() => {
-    setLessons(readFromStorage());
-  }, []);
-
+  /** One lesson per trade: saving again for the same trade replaces it. */
   const addLesson = useCallback((lesson: Omit<TradeLesson, "id" | "timestamp">) => {
-    const newLesson: TradeLesson = {
-      ...lesson,
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      timestamp: new Date().toISOString(),
-    };
-    setLessons((prev) => {
-      const filtered = prev.filter((item) => item.tradeId !== newLesson.tradeId);
-      const updated = [newLesson, ...filtered].slice(0, 200);
-      writeToStorage(updated);
-      return updated;
-    });
-    return newLesson;
+    const tmp: TradeLesson = { ...lesson, id: tempId(), timestamp: new Date().toISOString() };
+    return lessonsResource.mutate<{ lesson: TradeLesson }>({
+      optimistic: (d) => [tmp, ...d.filter((l) => !lesson.tradeId || l.tradeId !== lesson.tradeId)],
+      request: jsonRequest("/api/lessons", "POST", lesson),
+      apply: (d, body) => d.map((l) => (l.id === tmp.id ? body.lesson : l)),
+    }).catch(() => undefined);
   }, []);
 
-  const removeLesson = useCallback((id: string) => {
-    setLessons((prev) => {
-      const updated = prev.filter((item) => item.id !== id);
-      writeToStorage(updated);
-      return updated;
-    });
-  }, []);
+  const removeLesson = useCallback((id: string) => lessonsResource.mutate({
+    optimistic: (d) => d.filter((l) => l.id !== id),
+    request: jsonRequest(`/api/lessons/${id}`, "DELETE"),
+  }).catch(() => undefined), []);
 
-  const clearLessons = useCallback(() => {
-    setLessons([]);
-    writeToStorage([]);
-  }, []);
+  const clearLessons = useCallback(() => lessonsResource.mutate({
+    optimistic: () => [],
+    request: jsonRequest("/api/lessons", "DELETE"),
+  }).catch(() => undefined), []);
 
-  return { lessons, addLesson, removeLesson, clearLessons };
-}
-
-/**
- * Read lessons synchronously (for non-hook contexts, e.g. building an API payload).
- * Returns the most recent lessons sorted by timestamp desc.
- */
-export function getRelevantLessons({ symbol, limit = 6 }: { symbol?: string; limit?: number } = {}): TradeLesson[] {
-  const all = readFromStorage();
-  const sorted = [...all].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-  if (!symbol) return sorted.slice(0, limit);
-  const sameSymbol = sorted.filter((item) => item.symbol === symbol);
-  const others = sorted.filter((item) => item.symbol !== symbol);
-  return [...sameSymbol, ...others].slice(0, limit);
+  return { lessons, loaded, error, addLesson, removeLesson, clearLessons };
 }

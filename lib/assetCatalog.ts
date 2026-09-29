@@ -6,39 +6,41 @@ export interface Asset {
   category: AssetCategory;
   binanceSymbol?: string;   // e.g. "BTCUSDT" — only for crypto
   yahooSymbol?: string;     // e.g. "GC=F"   — for tradfi
+  coingeckoId?: string;     // market cap / supply (crypto)
+  defillamaSlug?: string;   // chain fees & revenue (crypto)
   newsKeyword: string;      // Used to search news API
   icon: string;             // Emoji icon
 }
 
 export const ASSET_CATALOG: Asset[] = [
   // ─── Crypto ───────────────────────────────────────────────
-  { symbol: "BTC/USDT",  name: "Bitcoin",          category: "crypto",      binanceSymbol: "BTCUSDT",  newsKeyword: "Bitcoin",        icon: "₿" },
-  { symbol: "ETH/USDT",  name: "Ethereum",         category: "crypto",      binanceSymbol: "ETHUSDT",  newsKeyword: "Ethereum",       icon: "Ξ" },
-  { symbol: "BNB/USDT",  name: "BNB",              category: "crypto",      binanceSymbol: "BNBUSDT",  newsKeyword: "BNB Binance",    icon: "⬡" },
-  { symbol: "SOL/USDT",  name: "Solana",           category: "crypto",      binanceSymbol: "SOLUSDT",  newsKeyword: "Solana SOL",     icon: "◎" },
-  { symbol: "XRP/USDT",  name: "XRP",              category: "crypto",      binanceSymbol: "XRPUSDT",  newsKeyword: "XRP Ripple",     icon: "✕" },
-  { symbol: "ADA/USDT",  name: "Cardano",          category: "crypto",      binanceSymbol: "ADAUSDT",  newsKeyword: "Cardano ADA",    icon: "₳" },
-  { symbol: "AVAX/USDT", name: "Avalanche",        category: "crypto",      binanceSymbol: "AVAXUSDT", newsKeyword: "Avalanche AVAX", icon: "🔺" },
-  { symbol: "DOGE/USDT", name: "Dogecoin",         category: "crypto",      binanceSymbol: "DOGEUSDT", newsKeyword: "Dogecoin DOGE",  icon: "Ð" },
-  { symbol: "TRX/USDT",  name: "TRON",             category: "crypto",      binanceSymbol: "TRXUSDT",  newsKeyword: "TRON TRX",       icon: "◈" },
-  { symbol: "DOT/USDT",  name: "Polkadot",         category: "crypto",      binanceSymbol: "DOTUSDT",  newsKeyword: "Polkadot DOT",   icon: "●" },
-  { symbol: "LINK/USDT", name: "Chainlink",        category: "crypto",      binanceSymbol: "LINKUSDT", newsKeyword: "Chainlink LINK", icon: "⬡" },
-  { symbol: "UNI/USDT",  name: "Uniswap",          category: "crypto",      binanceSymbol: "UNIUSDT",  newsKeyword: "Uniswap UNI",    icon: "🦄" },
-  { symbol: "LTC/USDT",  name: "Litecoin",         category: "crypto",      binanceSymbol: "LTCUSDT",  newsKeyword: "Litecoin LTC",   icon: "Ł" },
-  { symbol: "ATOM/USDT", name: "Cosmos",           category: "crypto",      binanceSymbol: "ATOMUSDT", newsKeyword: "Cosmos ATOM",    icon: "⚛" },
-  { symbol: "NEAR/USDT", name: "NEAR Protocol",    category: "crypto",      binanceSymbol: "NEARUSDT", newsKeyword: "NEAR Protocol",  icon: "Ⓝ" },
-  { symbol: "APT/USDT",  name: "Aptos",            category: "crypto",      binanceSymbol: "APTUSDT",  newsKeyword: "Aptos APT",      icon: "◈" },
-  { symbol: "OP/USDT",   name: "Optimism",         category: "crypto",      binanceSymbol: "OPUSDT",   newsKeyword: "Optimism OP",    icon: "🔴" },
-  { symbol: "ARB/USDT",  name: "Arbitrum",         category: "crypto",      binanceSymbol: "ARBUSDT",  newsKeyword: "Arbitrum ARB",   icon: "🔵" },
-  { symbol: "SUI/USDT",  name: "Sui",              category: "crypto",      binanceSymbol: "SUIUSDT",  newsKeyword: "Sui Network",    icon: "💧" },
-  { symbol: "TON/USDT",  name: "Toncoin",          category: "crypto",      binanceSymbol: "TONUSDT",  newsKeyword: "Toncoin TON",    icon: "💎" },
-  { symbol: "FIL/USDT",  name: "Filecoin",         category: "crypto",      binanceSymbol: "FILUSDT",  newsKeyword: "Filecoin FIL",   icon: "📁" },
-  { symbol: "PEPE/USDT", name: "Pepe",             category: "crypto",      binanceSymbol: "PEPEUSDT", newsKeyword: "PEPE meme coin", icon: "🐸" },
-  { symbol: "SHIB/USDT", name: "Shiba Inu",        category: "crypto",      binanceSymbol: "SHIBUSDT", newsKeyword: "Shiba Inu SHIB", icon: "🐕" },
-  { symbol: "FLOKI/USDT",name: "Floki",            category: "crypto",      binanceSymbol: "FLOKIUSDT",newsKeyword: "Floki meme coin",icon: "🐶" },
-  { symbol: "WIF/USDT",  name: "dogwifhat",        category: "crypto",      binanceSymbol: "WIFUSDT",  newsKeyword: "dogwifhat WIF",  icon: "🎩" },
-  { symbol: "BONK/USDT", name: "Bonk",             category: "crypto",      binanceSymbol: "BONKUSDT", newsKeyword: "Bonk BONK",      icon: "🏏" },
-  { symbol: "FARTCOIN/USD",  name: "Fartcoin",     category: "crypto",      yahooSymbol: "FARTCOIN-USD",  newsKeyword: "Fartcoin",   icon: "💨" },
+  { symbol: "BTC/USDT",  name: "Bitcoin",          category: "crypto",      binanceSymbol: "BTCUSDT",  coingeckoId: "bitcoin", defillamaSlug: "bitcoin", newsKeyword: "Bitcoin",        icon: "₿" },
+  { symbol: "ETH/USDT",  name: "Ethereum",         category: "crypto",      binanceSymbol: "ETHUSDT",  coingeckoId: "ethereum", defillamaSlug: "ethereum", newsKeyword: "Ethereum",       icon: "Ξ" },
+  { symbol: "BNB/USDT",  name: "BNB",              category: "crypto",      binanceSymbol: "BNBUSDT",  coingeckoId: "binancecoin", defillamaSlug: "bsc", newsKeyword: "BNB Binance",    icon: "⬡" },
+  { symbol: "SOL/USDT",  name: "Solana",           category: "crypto",      binanceSymbol: "SOLUSDT",  coingeckoId: "solana", defillamaSlug: "solana", newsKeyword: "Solana SOL",     icon: "◎" },
+  { symbol: "XRP/USDT",  name: "XRP",              category: "crypto",      binanceSymbol: "XRPUSDT",  coingeckoId: "ripple", newsKeyword: "XRP Ripple",     icon: "✕" },
+  { symbol: "ADA/USDT",  name: "Cardano",          category: "crypto",      binanceSymbol: "ADAUSDT",  coingeckoId: "cardano", defillamaSlug: "cardano", newsKeyword: "Cardano ADA",    icon: "₳" },
+  { symbol: "AVAX/USDT", name: "Avalanche",        category: "crypto",      binanceSymbol: "AVAXUSDT", coingeckoId: "avalanche-2", defillamaSlug: "avalanche", newsKeyword: "Avalanche AVAX", icon: "🔺" },
+  { symbol: "DOGE/USDT", name: "Dogecoin",         category: "crypto",      binanceSymbol: "DOGEUSDT", coingeckoId: "dogecoin", newsKeyword: "Dogecoin DOGE",  icon: "Ð" },
+  { symbol: "TRX/USDT",  name: "TRON",             category: "crypto",      binanceSymbol: "TRXUSDT",  coingeckoId: "tron", defillamaSlug: "tron", newsKeyword: "TRON TRX",       icon: "◈" },
+  { symbol: "DOT/USDT",  name: "Polkadot",         category: "crypto",      binanceSymbol: "DOTUSDT",  coingeckoId: "polkadot", defillamaSlug: "polkadot", newsKeyword: "Polkadot DOT",   icon: "●" },
+  { symbol: "LINK/USDT", name: "Chainlink",        category: "crypto",      binanceSymbol: "LINKUSDT", coingeckoId: "chainlink", newsKeyword: "Chainlink LINK", icon: "⬡" },
+  { symbol: "UNI/USDT",  name: "Uniswap",          category: "crypto",      binanceSymbol: "UNIUSDT",  coingeckoId: "uniswap", newsKeyword: "Uniswap UNI",    icon: "🦄" },
+  { symbol: "LTC/USDT",  name: "Litecoin",         category: "crypto",      binanceSymbol: "LTCUSDT",  coingeckoId: "litecoin", defillamaSlug: "litecoin", newsKeyword: "Litecoin LTC",   icon: "Ł" },
+  { symbol: "ATOM/USDT", name: "Cosmos",           category: "crypto",      binanceSymbol: "ATOMUSDT", coingeckoId: "cosmos", newsKeyword: "Cosmos ATOM",    icon: "⚛" },
+  { symbol: "NEAR/USDT", name: "NEAR Protocol",    category: "crypto",      binanceSymbol: "NEARUSDT", coingeckoId: "near", defillamaSlug: "near", newsKeyword: "NEAR Protocol",  icon: "Ⓝ" },
+  { symbol: "APT/USDT",  name: "Aptos",            category: "crypto",      binanceSymbol: "APTUSDT",  coingeckoId: "aptos", defillamaSlug: "aptos", newsKeyword: "Aptos APT",      icon: "◈" },
+  { symbol: "OP/USDT",   name: "Optimism",         category: "crypto",      binanceSymbol: "OPUSDT",   coingeckoId: "optimism", newsKeyword: "Optimism OP",    icon: "🔴" },
+  { symbol: "ARB/USDT",  name: "Arbitrum",         category: "crypto",      binanceSymbol: "ARBUSDT",  coingeckoId: "arbitrum", defillamaSlug: "arbitrum", newsKeyword: "Arbitrum ARB",   icon: "🔵" },
+  { symbol: "SUI/USDT",  name: "Sui",              category: "crypto",      binanceSymbol: "SUIUSDT",  coingeckoId: "sui", defillamaSlug: "sui", newsKeyword: "Sui Network",    icon: "💧" },
+  { symbol: "TON/USDT",  name: "Toncoin",          category: "crypto",      binanceSymbol: "TONUSDT",  coingeckoId: "the-open-network", defillamaSlug: "ton", newsKeyword: "Toncoin TON",    icon: "💎" },
+  { symbol: "FIL/USDT",  name: "Filecoin",         category: "crypto",      binanceSymbol: "FILUSDT",  coingeckoId: "filecoin", defillamaSlug: "filecoin", newsKeyword: "Filecoin FIL",   icon: "📁" },
+  { symbol: "PEPE/USDT", name: "Pepe",             category: "crypto",      binanceSymbol: "PEPEUSDT", coingeckoId: "pepe", newsKeyword: "PEPE meme coin", icon: "🐸" },
+  { symbol: "SHIB/USDT", name: "Shiba Inu",        category: "crypto",      binanceSymbol: "SHIBUSDT", coingeckoId: "shiba-inu", newsKeyword: "Shiba Inu SHIB", icon: "🐕" },
+  { symbol: "FLOKI/USDT",name: "Floki",            category: "crypto",      binanceSymbol: "FLOKIUSDT",coingeckoId: "floki", newsKeyword: "Floki meme coin",icon: "🐶" },
+  { symbol: "WIF/USDT",  name: "dogwifhat",        category: "crypto",      binanceSymbol: "WIFUSDT",  coingeckoId: "dogwifcoin", newsKeyword: "dogwifhat WIF",  icon: "🎩" },
+  { symbol: "BONK/USDT", name: "Bonk",             category: "crypto",      binanceSymbol: "BONKUSDT", coingeckoId: "bonk", newsKeyword: "Bonk BONK",      icon: "🏏" },
+  { symbol: "FARTCOIN/USD",  name: "Fartcoin",     category: "crypto",      yahooSymbol: "FARTCOIN-USD",  coingeckoId: "fartcoin", newsKeyword: "Fartcoin",   icon: "💨" },
 
   // ─── Indices ──────────────────────────────────────────────
   { symbol: "SPX",      name: "S&P 500",                    category: "indices", yahooSymbol: "^GSPC",      newsKeyword: "S&P 500 stock market",        icon: "📈" },
@@ -83,7 +85,7 @@ export const ASSET_CATALOG: Asset[] = [
 ];
 
 /** Default watchlist symbols shown on first launch */
-export const DEFAULT_WATCHLIST = ["BTC/USDT", "ETH/USDT", "DOGE/USDT", "PEPE/USDT", "SHIB/USDT", "XAU/USD", "SPX", "WTI"];
+export const DEFAULT_WATCHLIST = ["BTC/USDT", "ETH/USDT", "XAU/USD", "SPX", "EUR/USD"]; // ≤ watchlist max (5)
 
 /** Find a single asset by symbol */
 export function findAsset(symbol: string): Asset | undefined {

@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: alphaboard-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: alphaboard
+      POSTGRES_PASSWORD: alphaboard
+      POSTGRES_DB: alphaboard
+    ports:
+      - "5434:5432"
+    volumes:
+      - alphaboard_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alphaboard -d alphaboard"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    profiles: ["full"]
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://alphaboard:alphaboard@db:5432/alphaboard
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: "true"
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      NEWS_API_KEY: ${NEWS_API_KEY}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+    ports:
+      - "3000:3000"
+
+volumes:
+  alphaboard_pgdata:

@@ -86,7 +86,7 @@ function detectOrderBlocks(candles: Candle[]) {
           bias: "Bullish",
           confidence,
           candles: IMPULSE_CANDLES + 1,
-          description: "آخرین کندل نزولی قبل از یک حرکت صعودی قوی شناسایی شده — این ناحیه نشان‌دهنده‌ی سفارشات انباشته‌ی خریداران بزرگ است و معمولاً در بازگشت قیمت به این سطح، واکنش صعودی ایجاد می‌شود.",
+          description: "Last bearish candle before a strong upside impulse. It marks a zone of accumulated buy orders; price often reacts higher when it returns here.",
         }));
       }
     }
@@ -103,7 +103,7 @@ function detectOrderBlocks(candles: Candle[]) {
           bias: "Bearish",
           confidence,
           candles: IMPULSE_CANDLES + 1,
-          description: "آخرین کندل صعودی پیش از یک ریزش تند شناسایی شده — این منطقه جایی‌ست که فروشندگان سازمانی سفارشات خود را قرار داده‌اند و قیمت در بازگشت احتمالاً با فشار فروش مواجه می‌شود.",
+          description: "Last bullish candle before a sharp drop. It marks a zone where large sell orders sat; price is likely to meet selling pressure if it returns here.",
         }));
       }
     }
@@ -155,7 +155,7 @@ function detectFairValueGaps(candles: Candle[]) {
           bias: "Bullish",
           confidence,
           candles: 3,
-          description: "یک شکاف قیمتی صعودی بین کندل‌های اخیر شناسایی شده — قیمت اغلب به این ناحیه باز می‌گردد تا «فاصله» را پر کند و این سطح می‌تواند به‌عنوان حمایت عمل کند.",
+          description: "Bullish price imbalance between recent candles. Price often returns to fill the gap, and the zone can act as support.",
         }));
       }
     }
@@ -174,7 +174,7 @@ function detectFairValueGaps(candles: Candle[]) {
           bias: "Bearish",
           confidence,
           candles: 3,
-          description: "یک شکاف قیمتی نزولی در ساختار کندل‌های اخیر دیده می‌شود — قیمت معمولاً دوباره به این ناحیه سر می‌زند و این سطح می‌تواند به‌عنوان مقاومت عمل کند.",
+          description: "Bearish price imbalance in recent candles. Price often revisits the zone, which can act as resistance.",
         }));
       }
     }
@@ -206,7 +206,7 @@ function detectFlag(candles: Candle[]) {
       bias: "Bullish",
       confidence: 78 + poleMove * 180,
       candles: consolidation.length,
-      description: "یک حرکت صعودی تند با فاز استراحت کوتاه‌مدت دیده می‌شود که می‌تواند ادامه‌ی روند رو به بالا را آماده کند.",
+      description: "Sharp advance followed by a brief pause; this often sets up a continuation higher.",
     }));
   }
 
@@ -217,7 +217,7 @@ function detectFlag(candles: Candle[]) {
       bias: "Bearish",
       confidence: 78 + Math.abs(poleMove) * 180,
       candles: consolidation.length,
-      description: "افت سریع قیمت و سپس یک استراحت فشرده شکل گرفته که اغلب ادامه‌ی فشار فروش را تداعی می‌کند.",
+      description: "Fast decline followed by a tight pause; this often precedes further selling.",
     }));
   }
 
@@ -249,7 +249,7 @@ function detectTriangle(candles: Candle[]) {
       bias: "Neutral",
       confidence: 72 + (1 - compression) * 22,
       candles: sample.length,
-      description: "سقف‌ها پایین‌تر و کف‌ها بالاتر آمده‌اند؛ بازار در حال فشرده‌شدن است و منتظر شکست جهت‌دار می‌ماند.",
+      description: "Lower highs and higher lows: the market is coiling and waiting for a directional break.",
     }));
   }
 
@@ -260,7 +260,7 @@ function detectTriangle(candles: Candle[]) {
       bias: "Bullish",
       confidence: 76 + (1 - compression) * 18,
       candles: sample.length,
-      description: "فشار خریداران در کف‌های بالاتر جمع می‌شود و مقاومت بالایی تقریباً ثابت مانده؛ این الگو معمولاً تمایل صعودی دارد.",
+      description: "Buyers are pressing with higher lows against a flat resistance; this pattern usually leans bullish.",
     }));
   }
 
@@ -271,7 +271,7 @@ function detectTriangle(candles: Candle[]) {
       bias: "Bearish",
       confidence: 76 + (1 - compression) * 18,
       candles: sample.length,
-      description: "سقف‌ها در حال افت هستند و کف تقریباً ثابت مانده؛ فشار فروش تدریجی می‌تواند به شکست نزولی ختم شود.",
+      description: "Falling highs against a flat floor; steady selling pressure can end in a downside break.",
     }));
   }
 
@@ -301,7 +301,7 @@ function detectWedge(candles: Candle[]) {
       bias: "Bearish",
       confidence: 79 + (1 - lateWidth / Math.max(earlyWidth, 1)) * 18,
       candles: sample.length,
-      description: "قیمت هنوز بالا می‌رود اما دامنه‌ی حرکت جمع می‌شود؛ این الگو اغلب اخطار ضعف و شکست نزولی است.",
+      description: "Price is still rising but the range is narrowing; this often warns of weakness and a downside break.",
     }));
   }
 
@@ -312,7 +312,7 @@ function detectWedge(candles: Candle[]) {
       bias: "Bullish",
       confidence: 79 + (1 - lateWidth / Math.max(earlyWidth, 1)) * 18,
       candles: sample.length,
-      description: "افت قیمت در قالب یک دامنه‌ی فشرده در حال کند شدن است و اغلب زمینه‌ی شکست صعودی را فراهم می‌کند.",
+      description: "The decline is slowing inside a narrowing range; this often sets up an upside break.",
     }));
   }
 
@@ -343,7 +343,7 @@ function detectChannel(candles: Candle[]) {
       bias: "Bullish",
       confidence: 74 + Math.max(0, 0.004 - parallelism) * 3000,
       candles: sample.length,
-      description: "قیمت در یک کانال صعودی منظم حرکت می‌کند و تا زمان شکست کف کانال، ساختار بازار رو به بالا باقی می‌ماند.",
+      description: "Price is moving in an orderly rising channel; structure stays bullish until the channel floor breaks.",
     }));
   }
 
@@ -354,7 +354,7 @@ function detectChannel(candles: Candle[]) {
       bias: "Bearish",
       confidence: 74 + Math.max(0, 0.004 - parallelism) * 3000,
       candles: sample.length,
-      description: "حرکت قیمت در یک کانال نزولی منظم نشان می‌دهد فروشندگان هنوز کنترل ساختار کوتاه‌مدت را در دست دارند.",
+      description: "Price is moving in an orderly falling channel; sellers still control the short-term structure.",
     }));
   }
 
@@ -382,7 +382,7 @@ export function detectChartPatterns(candles: Candle[]) {
         bias: "Neutral",
         confidence: 34,
         candles: Math.min(validCandles.length, 20),
-        description: "در ساختار چند کندل اخیر، الگوی واضحی از نوع فلگ، مثلث، وج یا کانال دیده نمی‌شود.",
+        description: "No clear flag, triangle, wedge, or channel in the recent structure.",
       }),
       matches: [] as ChartPatternMatch[],
     };

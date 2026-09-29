@@ -1,67 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect } from "react";
+import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
+import type { PriceAlert } from "@/lib/types/userData";
 
-export interface PriceAlert {
-  id: string;
-  symbol: string;
-  targetPrice: number;
-  condition: "above" | "below";
-  createdAt: string;
-  triggered: boolean;
-  triggeredAt?: string;
-}
+export type { PriceAlert };
 
-const STORAGE_KEY = "alphaboard_price_alerts";
+const EMPTY: PriceAlert[] = [];
+const alertsResource = createResource<PriceAlert[]>("/api/alerts", { fallback: EMPTY, select: (j) => (j as { alerts: PriceAlert[] }).alerts });
+
+const replace = (list: PriceAlert[], id: string, next: PriceAlert | null) =>
+  next ? list.map((a) => (a.id === id ? next : a)) : list;
 
 export function useAlerts() {
-  const [alerts, setAlerts] = useState<PriceAlert[]>([]);
+  const { data: alerts, loaded, error } = useResource(alertsResource);
 
-  // Load from localStorage on mount
+  // Alerts are fired by the server tick; pick up newly triggered ones while the page is open.
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        setAlerts(JSON.parse(stored));
-      }
-    } catch (e) {
-      console.error("Failed to load alerts", e);
-    }
+    const t = setInterval(() => { if (document.visibilityState === "visible") alertsResource.revalidate(Date.now(), 29_000); }, 30_000);
+    return () => clearInterval(t);
   }, []);
 
-  // Save to localStorage whenever alerts change
-  const saveAlerts = (newAlerts: PriceAlert[]) => {
-    setAlerts(newAlerts);
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(newAlerts));
-    } catch (e) {
-      console.error("Failed to save alerts", e);
-    }
-  };
+  const addAlert = useCallback((symbol: string, targetPrice: number, condition: "above" | "below") => {
+    const tmp: PriceAlert = { id: tempId(), symbol, targetPrice, condition, createdAt: new Date().toISOString(), triggered: false };
+    return alertsResource.mutate<{ alert: PriceAlert }>({
+      optimistic: (d) => [tmp, ...d],
+      request: jsonRequest("/api/alerts", "POST", { symbol, targetPrice, condition }),
+      apply: (d, body) => replace(d, tmp.id, body.alert),
+    }).catch(() => undefined);
+  }, []);
 
-  const addAlert = (symbol: string, targetPrice: number, condition: "above" | "below") => {
-    const newAlert: PriceAlert = {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-      symbol,
-      targetPrice,
-      condition,
-      createdAt: new Date().toISOString(),
-      triggered: false,
-    };
-    saveAlerts([newAlert, ...alerts]);
-  };
+  const removeAlert = useCallback((id: string) => alertsResource.mutate({
+    optimistic: (d) => d.filter((a) => a.id !== id),
+    request: jsonRequest(`/api/alerts/${id}`, "DELETE"),
+  }).catch(() => undefined), []);
 
-  const removeAlert = (id: string) => {
-    saveAlerts(alerts.filter((a) => a.id !== id));
-  };
-
-  const markTriggered = (id: string) => {
-    saveAlerts(
-      alerts.map((a) =>
-        a.id === id ? { ...a, triggered: true, triggeredAt: new Date().toISOString() } : a
-      )
-    );
-  };
-
-  return { alerts, addAlert, removeAlert, markTriggered };
+  return { alerts, loaded, error, addAlert, removeAlert };
 }
