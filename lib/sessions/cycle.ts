@@ -24,6 +24,7 @@ export const EVENT_MOVE = 0.015;
 export const QUIET_MOVE = 0.002;
 export const MAX_SKIPS = 2;
 export const FAILS_TO_PAUSE = 3;
+export const RETRY_AFTER_FAIL_MS = 2 * 60_000;
 
 export interface CycleDeps {
   ai?: AiFn;
@@ -157,7 +158,8 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
   if (!due && !event) return none("not due");
 
   const openCount = s.positions.filter((p) => !p.closedAt).length;
-  if (!deps.force && !event && s.cycleCount > 0 && openCount === 0 && maxMove < QUIET_MOVE && s.skipStreak < MAX_SKIPS) {
+  // Skip only after a completed cycle that decided to hold — never after an agent failure.
+  if (!deps.force && !event && s.cycleCount > 0 && s.agentFailStreak === 0 && openCount === 0 && maxMove < QUIET_MOVE && s.skipStreak < MAX_SKIPS) {
     const traded = s.lastCycleAt ? await prisma.sessionOrder.count({ where: { sessionId, purpose: "ENTRY", createdAt: { gte: s.lastCycleAt } } }) : 1;
     if (traded === 0) {
       await prisma.tradingSession.update({ where: { id: sessionId }, data: { nextCycleAt: new Date(now.getTime() + interval), skipStreak: { increment: 1 } } });
@@ -213,7 +215,8 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
     logger.warn({ sessionId, err: msg }, "session agents failed");
     const streak = s.agentFailStreak + 1;
     await post(sessionId, "SYSTEM", "ALERT", `Agent error (${msg.slice(0, 200)}) — no trades this cycle.`, null, extra);
-    await schedule({ agentFailStreak: streak, skipStreak: 0 });
+    // Retry sooner than a full interval: the failure says nothing about the market.
+    await schedule({ agentFailStreak: streak, skipStreak: 0, nextCycleAt: new Date(now.getTime() + Math.min(interval, RETRY_AFTER_FAIL_MS)) });
     if (streak >= FAILS_TO_PAUSE) {
       await prisma.tradingSession.updateMany({ where: { id: sessionId, status: "RUNNING" }, data: { status: "PAUSED" } });
       await post(sessionId, "SYSTEM", "ALERT", `Paused after ${streak} failed cycles in a row. Stops stay active; resume when the AI provider is healthy.`);

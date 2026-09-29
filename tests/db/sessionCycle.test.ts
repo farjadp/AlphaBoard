@@ -93,6 +93,20 @@ describe.skipIf(!run)("decision cycle (Postgres)", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("never skips as 'quiet' right after a failed cycle, and retries within 2 minutes", async () => {
+    const s = await start();
+    fail = new AiError("AI_SCHEMA", "bad");
+    await runCycle(s.id, deps);
+    const after = await prisma.tradingSession.findUniqueOrThrow({ where: { id: s.id } });
+    expect(after.nextCycleAt!.getTime() - Date.now()).toBeLessThanOrEqual(2 * 60_000 + 1_000);
+    fail = null;
+    plan = { commentary: "hold", decisions: [] };
+    calls.length = 0;
+    const r = await runCycle(s.id, { ...deps, now: new Date(Date.now() + 3 * 60_000) });
+    expect(r.ran).toBe(true);
+    expect(calls).toContain("session.strategist");
+  });
+
   it("stops cycling when the AI budget is used, and pauses after repeated agent failures", async () => {
     const s = await start({ maxLlmCostUsd: 0.05 });
     plan = { commentary: "hold", decisions: [] };

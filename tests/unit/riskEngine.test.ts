@@ -32,10 +32,22 @@ describe("risk engine — sizing", () => {
     expect(reasons(v)).toMatch(/clamped/);
   });
 
-  it("uses the mandate leverage on swap and caps by free capital", () => {
+  it("uses the mandate leverage on swap and caps by free capital (after fee + slippage)", () => {
     const v = evaluateProposal(long({ exitPlan: { stopLoss: 99.5, takeProfit: 110, invalidation: "", horizonMin: 60 } }), swap, state({ freeCapital: 300 }), rules());
-    // cap = min(300, 500) × 5 / 100 = 15 units; qtyRisk = 20 → clamped to 15; margin = 1500/5 = 300
-    expect(v).toMatchObject({ kind: "clamped", qty: 15, leverage: 5, margin: 300 });
+    // ≈ min(300 / (1 + 5 × 0.0005) / 1.0005, 500) × 5 / 100 ≈ 14.95 units (risk size 20 → clamped)
+    expect(v).toMatchObject({ kind: "clamped", leverage: 5 });
+    if (v.kind !== "clamped") return;
+    expect(v.qty).toBeGreaterThan(14.9);
+    expect(v.qty).toBeLessThan(15);
+    expect(v.margin * (1 + 5 * 0.0005) * 1.0005).toBeLessThanOrEqual(300);
+  });
+
+  it("leaves room for the entry fee and slippage when free capital is the binding cap", () => {
+    const v = evaluateProposal(long({ exitPlan: { stopLoss: 99.5, takeProfit: 110, invalidation: "", horizonMin: 60 } }), spot, state({ freeCapital: 49.95 }), rules());
+    expect(v.kind).toBe("clamped");
+    if (v.kind !== "clamped") return;
+    const fill = 100 * (1 + 0.0005);
+    expect(v.qty * fill * (1 + 0.0005)).toBeLessThanOrEqual(49.95);
   });
 
   it("floors to the venue step", () => {

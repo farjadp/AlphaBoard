@@ -75,3 +75,15 @@ describe("agent runners", () => {
     expect(r.commentary).toBe("trend intact");
   });
 });
+
+describe("prompts spell out the JSON shape", () => {
+  it("every runner's system prompt names its keys", async () => {
+    const seen: AiRequest<never>[] = [];
+    const note = { notes: [] };
+    await runAnalysts({ ai: stubAi({ "session.market": note, "session.news": note }, seen), userId: "u", mandate }, ctx);
+    await runStrategist({ ai: stubAi({ "session.strategist": { decisions: [], commentary: "" } }, seen), userId: "u", mandate }, ctx, note as never, note as never, null);
+    expect(seen[0].system).toContain('{"notes":[');
+    expect(seen.at(-1)!.system).toContain('"decisions":[');
+    expect(seen.at(-1)!.system).toContain('"invalidation"');
+  });
+});

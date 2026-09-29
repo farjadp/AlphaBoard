@@ -62,7 +62,9 @@ export async function startSession(userId: string, input: { name?: string; manda
     throw badRequest(`Daily loss limit reached (${money(usage.lossToday)} of ${money(usage.limits.maxDailyLoss)})`, "DAILY_LIMIT");
 
   const startPrices = Object.fromEntries(await Promise.all(mandate.symbols.map(async (s) => [s, await priceOf(s).catch(() => null)] as const)));
-  const name = (input.name?.trim() || `${mandate.symbols.join(" · ")} · ${Math.round(mandate.durationMin / 60 * 10) / 10}h`).slice(0, 80);
+  const d = mandate.durationMin;
+  const length = d < 60 ? `${d} min` : `${Math.floor(d / 60)}h${d % 60 ? ` ${d % 60}m` : ""}`;
+  const name = (input.name?.trim() || `${mandate.symbols.join(" · ")} · ${length}`).slice(0, 80);
   const s = await prisma.tradingSession.create({
     data: {
       userId, name, mandate: mandate as unknown as Prisma.InputJsonValue, capital: mandate.capital, venue: mandate.venue,

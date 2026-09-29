@@ -43,3 +43,18 @@ export const SESSION_SUMMARY = `${SHARED}
 Role: session reporter. Summarise the session for the owner in at most 200 words: what the desk tried, what worked, what did not,
 how the result compares with simply holding, and the cost of fees and AI. Then up to 5 concrete lessons for the next session.
 All numbers are given; do not recompute or invent them.`;
+
+/**
+ * Exact output shapes. Providers without schema-constrained output (OpenAI json_object mode, OpenRouter,
+ * DeepSeek) only see the prompt, so every role spells its JSON out.
+ */
+export const SHAPES = {
+  analystNotes: `{"notes":[{"symbol":"BTC/USDT","stance":"bullish|bearish|neutral","confidence":0.6,"summary":"…","keyPoints":["…"]}]}`,
+  debate: `{"bull":"…","bear":"…"}`,
+  strategistPlan: `{"decisions":[{"action":"OPEN_LONG|OPEN_SHORT|CLOSE|TIGHTEN_STOP|HOLD","symbol":"BTC/USDT","positionId":null,"conviction":0.6,"thesis":"…","stopLoss":123.4,"takeProfit":130.5,"invalidation":"…","horizonMin":240}],"commentary":"…"}`,
+  tradeLesson: `{"outcome":"WIN|LOSS|BREAKEVEN","rootCause":"…","mistakes":["…"],"strengths":["…"],"lesson":"…","tags":["…"]}`,
+  sessionSummary: `{"summary":"…","lessons":["…"]}`,
+} as const;
+
+export const withShape = (system: string, shape: string) =>
+  `${system}\n\nReturn one JSON object with exactly these keys (no extra keys, no markdown):\n${shape}\nUse null where a number does not apply; "decisions" or "notes" may be empty arrays.`;

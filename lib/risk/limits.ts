@@ -9,8 +9,10 @@ export function floorToStep(qty: number, step: number): number {
 }
 
 /** Price-aware formatting for reasons shown in the room. */
-export function fmt(n: number, digits = 6): string {
-  return n.toLocaleString("en-US", { maximumFractionDigits: digits });
+export function fmt(n: number, digits?: number): string {
+  const a = Math.abs(n);
+  const d = digits ?? (a >= 1000 ? 2 : a >= 10 ? 3 : a >= 1 ? 4 : a >= 0.01 ? 6 : 8);
+  return n.toLocaleString("en-US", { maximumFractionDigits: d });
 }
 
 export const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

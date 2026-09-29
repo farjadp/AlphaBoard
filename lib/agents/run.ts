@@ -29,7 +29,7 @@ function notesText(label: string, notes: AnalystNotes) {
 
 export async function runAnalysts(d: AgentDeps, ctx: ContextData) {
   const call = (feature: string, system: string, view: "technical" | "news") => d.ai({
-    feature, userId: d.userId, model: d.mandate.models.analyst, system, user: formatContext(ctx, view),
+    feature, userId: d.userId, model: d.mandate.models.analyst, system: P.withShape(system, P.SHAPES.analystNotes), user: formatContext(ctx, view),
     schema: AnalystNotesSchema, jsonSchema: AGENT_JSON_SCHEMAS.analystNotes, maxTokens: 1_200, temperature: 0.2, timeoutMs: TIMEOUT_MS,
   });
   const [market, news] = await Promise.all([
@@ -41,7 +41,7 @@ export async function runAnalysts(d: AgentDeps, ctx: ContextData) {
 
 export async function runDebate(d: AgentDeps, ctx: ContextData, market: AnalystNotes, news: AnalystNotes) {
   const r = await d.ai({
-    feature: "session.debate", userId: d.userId, model: d.mandate.models.strategist, system: P.DEBATE,
+    feature: "session.debate", userId: d.userId, model: d.mandate.models.strategist, system: P.withShape(P.DEBATE, P.SHAPES.debate),
     user: `${formatContext(ctx, "full")}\n\n## ANALYST NOTES\n${notesText("Market", market)}\n${notesText("News", news)}`,
     schema: DebateSchema, jsonSchema: AGENT_JSON_SCHEMAS.debate, maxTokens: 900, temperature: 0.4, timeoutMs: TIMEOUT_MS,
   });
@@ -50,7 +50,7 @@ export async function runDebate(d: AgentDeps, ctx: ContextData, market: AnalystN
 
 export async function runStrategist(d: AgentDeps, ctx: ContextData, market: AnalystNotes, news: AnalystNotes, debate: Debate | null) {
   const r = await d.ai({
-    feature: "session.strategist", userId: d.userId, model: d.mandate.models.strategist, system: P.STRATEGIST,
+    feature: "session.strategist", userId: d.userId, model: d.mandate.models.strategist, system: P.withShape(P.STRATEGIST, P.SHAPES.strategistPlan),
     user: [
       formatContext(ctx, "full"),
       "## ANALYST NOTES", notesText("Market", market), notesText("News", news),
@@ -77,7 +77,7 @@ export async function runStrategist(d: AgentDeps, ctx: ContextData, market: Anal
 
 export async function runTradeLesson(d: AgentDeps, tradeText: string) {
   const r = await d.ai({
-    feature: "session.journal", userId: d.userId, model: d.mandate.models.journal, system: P.TRADE_JOURNAL, user: tradeText,
+    feature: "session.journal", userId: d.userId, model: d.mandate.models.journal, system: P.withShape(P.TRADE_JOURNAL, P.SHAPES.tradeLesson), user: tradeText,
     schema: TradeLessonSchema, jsonSchema: AGENT_JSON_SCHEMAS.tradeLesson, maxTokens: 900, temperature: 0.3, timeoutMs: TIMEOUT_MS,
   });
   return { data: r.data, costUsd: r.meta.costUsd };
@@ -85,7 +85,7 @@ export async function runTradeLesson(d: AgentDeps, tradeText: string) {
 
 export async function runSessionSummary(d: AgentDeps, reportText: string) {
   const r = await d.ai({
-    feature: "session.report", userId: d.userId, model: d.mandate.models.journal, system: P.SESSION_SUMMARY, user: reportText,
+    feature: "session.report", userId: d.userId, model: d.mandate.models.journal, system: P.withShape(P.SESSION_SUMMARY, P.SHAPES.sessionSummary), user: reportText,
     schema: SessionSummarySchema, jsonSchema: AGENT_JSON_SCHEMAS.sessionSummary, maxTokens: 1_000, temperature: 0.3, timeoutMs: TIMEOUT_MS,
   });
   return { data: r.data, costUsd: r.meta.costUsd };

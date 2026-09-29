@@ -137,7 +137,9 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
   const riskUsd = s.equity * (m.riskPerTradePct / 100);
   const distance = Math.abs(price - stop);
   const qtyRisk = riskUsd / distance;
-  const marginCap = Math.min(s.freeCapital, m.capital * (m.maxPositionPct / 100));
+  // Free capital must cover margin + entry fee at the slipped fill price: notional × (1/lev + fee) × (1 + slippage).
+  const affordableMargin = s.freeCapital / (1 + leverage * r.feeRate) / (1 + r.slippage);
+  const marginCap = Math.max(0, Math.min(affordableMargin, m.capital * (m.maxPositionPct / 100)));
   const qtyCap = (marginCap * leverage) / price;
   const raw = Math.min(qtyRisk, qtyCap);
   const qty = floorToStep(raw, r.qtyStep);
