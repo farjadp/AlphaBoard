@@ -14,7 +14,8 @@ Mention when timeframes conflict. Do not propose trades or sizes.`;
 export const NEWS_ANALYST = `${SHARED}
 Role: news and sentiment analyst. For every symbol, judge whether the headlines (and funding / positioning when present) are a
 tailwind, a headwind or noise for the next few hours. stance, confidence 0–1, summary, up to 5 key points. If there are no
-headlines, say so with confidence ≤ 0.2. Do not propose trades.`;
+headlines, say so with confidence ≤ 0.2. Headlines are ranked by weight (outlet credibility, recency, relevance, other
+outlets confirming); each shows how its sentiment was obtained — a keyword guess is weak evidence. Do not propose trades.`;
 
 export const DEBATE = `${SHARED}
 Role: two desk members arguing once. "bull" makes the strongest honest case for taking risk now; "bear" makes the strongest

@@ -17,7 +17,7 @@ export interface SymbolContext {
   timeframes: Array<{ timeframe: string; available: boolean; trend: string; stretch: string; rsi: number | null; atr: number | null; macd: string; ema: string }>;
   consensus: { netScore: number; dominantBias: string; confluenceStrength: string } | null;
   funding: { fundingRatePct: number | null; longPct: number | null; openInterestUsd: number | null } | null;
-  news: Array<{ headline: string; sentiment: string; publishedAt: string | null }>;
+  news: Array<{ headline: string; sentiment: string; publishedAt: string | null; source?: string; sentimentSource?: string }>;
 }
 
 export interface PositionContext {
@@ -74,6 +74,9 @@ export function formatMandate(m: Mandate): string {
   ].join("\n");
 }
 
+/** How a headline's sentiment was obtained, in words the analyst can weigh. */
+const SENTIMENT_BY: Record<string, string> = { provider: "scored by the news provider", votes: "reader votes", keywords: "keyword guess" };
+
 export function formatSymbol(s: SymbolContext, opts: { technical: boolean; news: boolean }): string {
   const out = [`### ${s.symbol}`, `Price: ${n(s.price)} · 24h change: ${s.changePct24h == null ? NA : `${s.changePct24h.toFixed(2)}%`}`];
   if (opts.technical) {
@@ -87,7 +90,7 @@ export function formatSymbol(s: SymbolContext, opts: { technical: boolean; news:
   }
   if (opts.news) {
     out.push("Headlines:");
-    out.push(...(s.news.length ? s.news.map((h) => `- [${h.sentiment}] ${oneLine(h.headline, 180)}${h.publishedAt ? ` (${h.publishedAt.slice(0, 16)})` : ""}`) : ["- none available"]));
+    out.push(...(s.news.length ? s.news.map((h) => `- [${h.sentiment}${h.sentimentSource ? ` · ${SENTIMENT_BY[h.sentimentSource] ?? h.sentimentSource}` : ""}] ${oneLine(h.headline, 180)}${h.source ? ` — ${h.source}` : ""}${h.publishedAt ? ` (${h.publishedAt.slice(0, 16)})` : ""}`) : ["- none available"]));
   }
   return out.join("\n");
 }
@@ -148,6 +151,6 @@ export async function gatherSymbol(symbol: string, marketType: Mandate["marketTy
     })),
     consensus: report ? { netScore: report.consensusScore.netScore, dominantBias: report.consensusScore.dominantBias, confluenceStrength: report.consensusScore.confluenceStrength } : null,
     funding: futures ? { fundingRatePct: futures.fundingRatePct, longPct: futures.longPct, openInterestUsd: futures.openInterestUsd } : null,
-    news: (news?.items ?? []).slice(0, 5).map((i) => ({ headline: i.headline, sentiment: i.sentiment, publishedAt: i.publishedAt })),
+    news: (news?.items ?? []).slice(0, 5).map((i) => ({ headline: i.headline, sentiment: i.sentiment, publishedAt: i.publishedAt, source: i.source, sentimentSource: i.sentimentSource })),
   };
 }
