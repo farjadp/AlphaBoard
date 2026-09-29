@@ -4,6 +4,7 @@ import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "rea
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import DeskTable from "@/components/sessions/DeskTable";
+import DeskRoundTable from "@/components/sessions/DeskRoundTable";
 import { CAST } from "@/lib/agents/cast";
 import { useRoom, useSessionReport, useSessionView } from "@/hooks/useSessions";
 import { price as fmtPrice, qty as fmtQty } from "@/components/paper/format";
@@ -111,7 +112,13 @@ function Room({ id, mandate }: { id: string; mandate: Mandate }) {
         <div className="flex-1 overflow-y-auto px-4 py-4">
           {!loaded && <p className="text-sm text-ink-3">Loading the room…</p>}
           {error && <p role="alert" className="text-sm text-down">{error}</p>}
-          {loaded && <DeskTable messages={messages} mandate={mandate} now={now} />}
+          {loaded && (
+            <>
+              {/* The round table needs room to breathe; below sm it collapses to the seat grid instead. */}
+              <div className="hidden sm:block"><DeskRoundTable messages={messages} mandate={mandate} now={now} /></div>
+              <div className="sm:hidden"><DeskTable messages={messages} mandate={mandate} now={now} /></div>
+            </>
+          )}
         </div>
       ) : (
       <div ref={ref} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }} className="flex-1 overflow-y-auto px-4 py-4">

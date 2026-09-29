@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { SEATS, deriveSeats, STALE_MS } from "@/lib/sessions/seats";
+import { SEATS, deriveSeats, speakOrder, STALE_MS } from "@/lib/sessions/seats";
 import type { SessionMessageDto, SessionRole } from "@/lib/types/sessions";
 
 const T0 = Date.parse("2026-09-29T12:00:00.000Z");
@@ -138,5 +138,35 @@ describe("deriveSeats", () => {
     ], { debate: false, now: T0 + 62_000 });
     expect(seat(rows, "MARKET").costUsd).toBeCloseTo(0.01, 6);
     expect(seat(rows, "EXECUTOR").costUsd).toBe(0);
+  });
+});
+
+describe("speakOrder", () => {
+  it("is empty when nobody has spoken this cycle yet", () => {
+    expect(speakOrder([], 1)).toEqual([]);
+  });
+
+  it("lists seats in the order they first posted within the given cycle", () => {
+    const rows = [
+      msg("MARKET", "TEXT", "m", { cycle: 1 }),
+      msg("NEWS", "TEXT", "n", { cycle: 1, at: T0 + 1_000 }),
+      msg("BULL", "TEXT", "b", { cycle: 1, at: T0 + 2_000 }),
+      msg("BEAR", "TEXT", "r", { cycle: 1, at: T0 + 2_500 }),
+      msg("STRATEGIST", "TEXT", "c", { cycle: 1, at: T0 + 3_000 }),
+      msg("STRATEGIST", "PROPOSAL", "p", { cycle: 1, at: T0 + 3_100 }),
+      msg("RISK", "VERDICT", "v", { cycle: 1, at: T0 + 3_500 }),
+      msg("EXECUTOR", "FILL", "f", { cycle: 1, at: T0 + 4_000 }),
+    ];
+    expect(speakOrder(rows, 1)).toEqual(["MARKET", "NEWS", "BULL", "BEAR", "STRATEGIST", "RISK", "EXECUTOR"]);
+  });
+
+  it("ignores messages from other cycles and from non-seat roles", () => {
+    const rows = [
+      msg("MARKET", "TEXT", "m", { cycle: 1 }),
+      msg("SYSTEM", "ALERT", "a", { cycle: 1, at: T0 + 500 }),
+      msg("USER", "TEXT", "u", { cycle: 1, at: T0 + 600 }),
+      msg("NEWS", "TEXT", "n", { cycle: 2, at: T0 + 60_000 }),
+    ];
+    expect(speakOrder(rows, 1)).toEqual(["MARKET"]);
   });
 });

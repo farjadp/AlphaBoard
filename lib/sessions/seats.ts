@@ -25,8 +25,10 @@ export interface Seat extends CastMember {
   cycle: number | null;
 }
 
-/** How far through a cycle each seat sits. The journal runs outside the cycle, on a close. */
-const STAGE: Record<SeatRole, number> = { MARKET: 0, NEWS: 0, BULL: 1, BEAR: 1, STRATEGIST: 2, RISK: 3, EXECUTOR: 4, JOURNAL: -1 };
+/** How far through a cycle each seat sits. The journal runs outside the cycle, on a close.
+ * Exported so views that draw a stage rail (the round table) read the same map the derivation uses. */
+export const SEAT_STAGE: Record<SeatRole, number> = { MARKET: 0, NEWS: 0, BULL: 1, BEAR: 1, STRATEGIST: 2, RISK: 3, EXECUTOR: 4, JOURNAL: -1 };
+export const STAGE_LABEL = ["analysts", "debate", "chair", "gatekeeper", "hand"] as const;
 
 const SEAT_ROLES = new Set<string>(SEAT_CAST.map((c) => c.role));
 const isSeat = (m: SessionMessageDto): m is SessionMessageDto & { role: SeatRole } => SEAT_ROLES.has(m.role);
@@ -42,6 +44,19 @@ function strongestNote(m: SessionMessageDto): Note | null {
   const notes = (m.data as { notes?: Note[] } | null)?.notes;
   if (!notes?.length) return null;
   return notes.reduce((best, n) => (n.confidence > best.confidence ? n : best));
+}
+
+/** The order seats first spoke in one cycle, for drawing a conversation thread between them.
+ * Each seat appears once, at its first message — a strategist's later PROPOSAL does not move it. */
+export function speakOrder(messages: SessionMessageDto[], cycle: number): SeatRole[] {
+  const seen = new Set<SeatRole>();
+  const order: SeatRole[] = [];
+  for (const m of messages) {
+    if (m.cycle !== cycle || !isSeat(m) || seen.has(m.role)) continue;
+    seen.add(m.role);
+    order.push(m.role);
+  }
+  return order;
 }
 
 export function deriveSeats(messages: SessionMessageDto[], opts: { debate: boolean; now: number }): Seat[] {
@@ -77,23 +92,23 @@ export function deriveSeats(messages: SessionMessageDto[], opts: { debate: boole
   const pending = new Set<SeatRole>();
   if (cycle != null) {
     let reached = -1;
-    for (const r of posted) reached = Math.max(reached, STAGE[r]);
+    for (const r of posted) reached = Math.max(reached, SEAT_STAGE[r]);
     const want = (stage: number) => {
-      if (stage === STAGE.MARKET) {
+      if (stage === SEAT_STAGE.MARKET) {
         if (!posted.has("MARKET")) pending.add("MARKET");
         if (!posted.has("NEWS")) pending.add("NEWS");
-      } else if (stage === STAGE.BULL && opts.debate) {
+      } else if (stage === SEAT_STAGE.BULL && opts.debate) {
         if (!posted.has("BULL")) pending.add("BULL");
         if (!posted.has("BEAR")) pending.add("BEAR");
-      } else if (stage === STAGE.STRATEGIST) {
+      } else if (stage === SEAT_STAGE.STRATEGIST) {
         if (!posted.has("STRATEGIST")) pending.add("STRATEGIST");
-      } else if (stage === STAGE.RISK) {
+      } else if (stage === SEAT_STAGE.RISK) {
         if (proposals > 0 && !verdicts.length) pending.add("RISK");
-      } else if (stage === STAGE.EXECUTOR) {
+      } else if (stage === SEAT_STAGE.EXECUTOR) {
         if (!posted.has("EXECUTOR") && verdicts.some((v) => PASSING.has(verdictKind(v) ?? ""))) pending.add("EXECUTOR");
       }
     };
-    for (let stage = Math.max(reached, 0); stage <= STAGE.EXECUTOR && !pending.size; stage += 1) want(stage);
+    for (let stage = Math.max(reached, 0); stage <= SEAT_STAGE.EXECUTOR && !pending.size; stage += 1) want(stage);
   }
 
   return SEAT_CAST.map((c) => {
