@@ -8,7 +8,7 @@ describe("db → client mappers", () => {
     const dto = journalToDto({
       id: "j1", userId: "u", legacyId: null, symbol: "ETH/USDT", position: "SHORT", status: "CLOSED",
       entryPrice: 2000, exitPrice: 1900, pnlPercent: 4.9, grossPnlPercent: 5, feeRatePercent: null, pnlSource: "calculated",
-      emotion: "Neutral", notes: "", leverage: null, margin: 50, marginMode: "Isolated", screenshotId: "a1",
+      emotion: "Neutral", notes: "", leverage: null, margin: 50, marginMode: "Isolated", screenshotId: "a1", sessionPositionId: null,
       postMortem: { outcome: "WIN" }, openedAt: d, closedAt: d, createdAt: d, updatedAt: d,
     });
     expect(dto).toMatchObject({ id: "j1", timestamp: d.toISOString(), position: "SHORT", screenshotUrl: "/api/attachments/a1", margin: 50 });

@@ -33,16 +33,19 @@ model User {
   inviteUsed     Invite?    @relation("InviteConsumer")
   auditLogs      AuditLog[]
 
-  watchlist      WatchlistItem[]
-  attachments    Attachment[]
-  journalEntries JournalEntry[]
-  tradeLessons   TradeLesson[]
-  signals        Signal[]
-  chartLessons   ChartLesson[]
-  priceAlerts    PriceAlert[]
-  aiUsage        AiUsage[]
-  paperAccount   PaperAccount?
-  notifications  Notification[]
+  watchlist       WatchlistItem[]
+  attachments     Attachment[]
+  journalEntries  JournalEntry[]
+  tradeLessons    TradeLesson[]
+  signals         Signal[]
+  chartLessons    ChartLesson[]
+  priceAlerts     PriceAlert[]
+  aiUsage         AiUsage[]
+  paperAccount    PaperAccount?
+  notifications   Notification[]
+  tradingSessions TradingSession[]
+  tradingLimits   UserTradingLimits?
+  telegramActions TelegramAction[]
 }
 
 model Invite {
@@ -129,31 +132,33 @@ model Attachment {
 }
 
 model JournalEntry {
-  id              String        @id @default(cuid())
-  userId          String
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  legacyId        String?
-  symbol          String
-  position        TradePosition
-  status          TradeStatus   @default(OPEN)
-  entryPrice      Float
-  exitPrice       Float?
-  pnlPercent      Float?
-  grossPnlPercent Float?
-  feeRatePercent  Float?
-  pnlSource       String?
-  emotion         String
-  notes           String        @default("")
-  leverage        Float?
-  margin          Float?
-  marginMode      String?
-  screenshotId    String?
-  screenshot      Attachment?   @relation(fields: [screenshotId], references: [id], onDelete: SetNull)
-  postMortem      Json?
-  openedAt        DateTime      @default(now())
-  closedAt        DateTime?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id                String        @id @default(cuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legacyId          String?
+  symbol            String
+  position          TradePosition
+  status            TradeStatus   @default(OPEN)
+  entryPrice        Float
+  exitPrice         Float?
+  pnlPercent        Float?
+  grossPnlPercent   Float?
+  feeRatePercent    Float?
+  pnlSource         String?
+  emotion           String
+  notes             String        @default("")
+  leverage          Float?
+  margin            Float?
+  marginMode        String?
+  screenshotId      String?
+  /// Set when the entry was written by an agent trading session (P8).
+  sessionPositionId String?       @unique
+  screenshot        Attachment?   @relation(fields: [screenshotId], references: [id], onDelete: SetNull)
+  postMortem        Json?
+  openedAt          DateTime      @default(now())
+  closedAt          DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   lesson TradeLesson?
 
@@ -470,4 +475,226 @@ model SystemEvent {
 
   @@index([lastAt])
   @@index([fingerprint, lastAt])
+}
+
+// ─── Agent trading sessions (P8) ─────────────────────────────────────────────
+
+enum SessionStatus {
+  RUNNING
+  PAUSED
+  AWAITING_EXTENSION
+  ENDING
+  ENDED
+  HALTED
+}
+
+enum SessionEndReason {
+  COMPLETED
+  USER_ENDED
+  LOSS_LIMIT
+  KILL
+  RECONCILE_MISMATCH
+  LLM_BUDGET
+  ERROR
+  EXTENSION_TIMEOUT
+}
+
+enum SessionRole {
+  MARKET
+  NEWS
+  BULL
+  BEAR
+  STRATEGIST
+  RISK
+  EXECUTOR
+  JOURNAL
+  SYSTEM
+  USER
+}
+
+enum SessionMessageKind {
+  TEXT
+  PROPOSAL
+  VERDICT
+  ORDER
+  FILL
+  ALERT
+  REPORT
+}
+
+enum SessionOrderStatus {
+  PENDING
+  OPEN
+  PARTIAL
+  FILLED
+  CANCELED
+  REJECTED
+  UNKNOWN
+}
+
+enum SessionOrderPurpose {
+  ENTRY
+  EXIT
+  STOP
+  TAKE_PROFIT
+}
+
+enum SessionCloseReason {
+  MANUAL
+  STRATEGIST
+  STOP_LOSS
+  TAKE_PROFIT
+  LIQUIDATION
+  LOSS_LIMIT
+  KILL
+  SESSION_END
+}
+
+/// A time-boxed run of the agent team under a frozen mandate (spec P8 §3).
+model TradingSession {
+  id                 String            @id @default(cuid())
+  userId             String
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name               String
+  status             SessionStatus     @default(RUNNING)
+  live               Boolean           @default(false)
+  venue              String            @default("paper")
+  mandate            Json
+  capital            Float
+  startedAt          DateTime          @default(now())
+  endsAt             DateTime
+  endedAt            DateTime?
+  endReason          SessionEndReason?
+  realizedPnl        Float             @default(0)
+  fees               Float             @default(0)
+  llmCostUsd         Float             @default(0)
+  tradesCount        Int               @default(0)
+  cycleCount         Int               @default(0)
+  skipStreak         Int               @default(0)
+  agentFailStreak    Int               @default(0)
+  llmBudgetHit       Boolean           @default(false)
+  lastCycleAt        DateTime?
+  nextCycleAt        DateTime?
+  /// Prices at the last decision cycle / at start (symbol → price), for event triggers and buy-and-hold.
+  lastPrices         Json?
+  startPrices        Json?
+  extensionPromptAt  DateTime?
+  extensionChatId    String?
+  extensionMessageId Int?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  positions SessionPosition[]
+  orders    SessionOrder[]
+  messages  SessionMessage[]
+  report    SessionReport?
+  actions   TelegramAction[]
+
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model SessionPosition {
+  id             String              @id @default(cuid())
+  sessionId      String
+  session        TradingSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  symbol         String
+  side           PaperSide
+  qty            Float
+  entryPrice     Float
+  leverage       Float
+  margin         Float
+  stopLoss       Float?
+  takeProfit     Float?
+  /// Strategist exit plan (take profit, stop, invalidation, horizon, thesis, initial stop) — re-injected every cycle.
+  exitPlan       Json
+  /// Entry + exit fees charged so far.
+  fees           Float               @default(0)
+  openedAt       DateTime            @default(now())
+  closedAt       DateTime?
+  closePrice     Float?
+  realizedPnl    Float?
+  closeReason    SessionCloseReason?
+  journalEntryId String?             @unique
+
+  orders SessionOrder[]
+
+  @@index([sessionId, closedAt])
+}
+
+model SessionOrder {
+  id            String              @id @default(cuid())
+  sessionId     String
+  session       TradingSession      @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  positionId    String?
+  position      SessionPosition?    @relation(fields: [positionId], references: [id], onDelete: SetNull)
+  /// Deterministic id sent to the venue; a replay returns the existing order instead of filling twice.
+  clientOrderId String              @unique
+  venueOrderId  String?
+  symbol        String
+  side          PaperOrderAction
+  type          String              @default("market")
+  purpose       SessionOrderPurpose
+  reduceOnly    Boolean             @default(false)
+  amount        Float
+  price         Float?
+  status        SessionOrderStatus  @default(PENDING)
+  filled        Float               @default(0)
+  avgPrice      Float?
+  fee           Float?
+  error         String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@index([sessionId, createdAt])
+}
+
+model SessionMessage {
+  id        String             @id @default(cuid())
+  sessionId String
+  session   TradingSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role      SessionRole
+  kind      SessionMessageKind @default(TEXT)
+  body      String
+  data      Json?
+  costUsd   Float?
+  cycle     Int?
+  createdAt DateTime           @default(now())
+
+  @@index([sessionId, createdAt])
+}
+
+model SessionReport {
+  id        String         @id @default(cuid())
+  sessionId String         @unique
+  session   TradingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  summary   String
+  metrics   Json
+  lessons   Json
+  createdAt DateTime       @default(now())
+}
+
+/// Account-wide limits across all sessions of a day (spec E19).
+model UserTradingLimits {
+  userId            String   @id
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  maxDailyLoss      Float?
+  maxSessionsPerDay Int?
+  updatedAt         DateTime @updatedAt
+}
+
+/// Opaque token behind a Telegram inline button (callback_data), valid 24 h, single use.
+model TelegramAction {
+  token      String          @id
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionId  String?
+  session    TradingSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  action     String
+  positionId String?
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime        @default(now())
+
+  @@index([expiresAt])
 }
