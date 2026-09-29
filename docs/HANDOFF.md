@@ -19,7 +19,8 @@ Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
 | P7 · UI & release | ✅ Done | Light redesign, risk-disclaimer gate + `/legal` + footer, public landing + waitlist + SEO, Admin → System (health, errors), track record on the ticket, accessibility audit 15→19/20 (axe 0 violations), CHANGELOG/README, version 2.0.0 + tag `v2.0.0` |
 | **Release** | ⏸ Waiting | Push `v2` + tag, PR to `main`, first Railway deploy (fresh DB) — needs Farjad's go-ahead |
 | P8a · Agent sessions (paper) | ✅ Done | Mandate → desk room (analysts, optional debate, strategist) → deterministic risk engine → paper venue; 15 s monitor (stops, loss limit, end prompt + 5-min timeout), journal lessons, report; interactive Telegram; leased worker. Spec `docs/superpowers/specs/2026-09-28-p8-agent-trading-sessions-design.md`, plan `docs/superpowers/plans/2026-09-28-p8a-sessions-on-paper.md`, research `docs/superpowers/research/2026-09-28-p8-agents-exchanges.md` |
-| **P8b · Live via ccxt** | ⏭ **Next** | Encrypted exchange connections, ccxt venue (spot + perp), idempotent executor, native/software stops, reconciler, kill switch, live gating (`LIVE_TRADING_ENABLED`, admin, typed confirm). Binance Spot Testnet first, then small live runs. Verify MEXC futures API access before relying on it |
+| P8b · Live via ccxt | ✅ Built, testnet run pending | Encrypted exchange connections (Settings), ccxt venue (spot + perp, market orders, intent-first client ids, lookup on unknown outcome), halt on unknown orders, 30 s reconciler, `TRADING_HALT`, gating (`LIVE_TRADING_ENABLED` + `EXCHANGE_KEY_SECRET`, admin, typed LIVE for real money). Plan `docs/superpowers/plans/2026-09-29-p8b-live-ccxt.md`. Waiting for Farjad's Binance testnet keys for the live check; opt-in test `tests/db/binanceTestnet.test.ts` |
+| P8c · Native stops | Next | Exchange-side stop orders where ccxt supports them (software stops remain the fallback); bundled standalone worker image; MEXC futures API check |
 | P9 · Forex & metals | Planned | OANDA venue (practice + live), FX/XAU/XAG; optional MT5 bridge |
 
 Quality gates at handoff: **299 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems, production build clean. P8a was verified live: a paper session on BTC/ETH with real data and gpt-5.4-mini (debate on) — cycle, verdicts, fill, partial close from the UI, end prompt, 5-minute timeout, journal lesson and report; the test data was deleted afterwards.
@@ -64,6 +65,14 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 - `WORKER_MODE=inline` (default) → started by `instrumentation.ts` in the web process. `WORKER_MODE=separate` → the web process starts nothing; run `npm run worker` (Node with `--conditions=react-server` so `server-only` resolves, loads `.env` + `.env.local`). A bundled production worker image comes with P8b (ccxt).
 - Loops: `runTick()` every 60 s (`TICK_DISABLED=1` turns only this off; `POST /api/cron/tick` still works), `monitorSessions()` every 15 s, Telegram `getUpdates` long-poll (25 s).
 - `runTick()` in `lib/jobs/tick.ts`: paper settlement (+ notifications) → equity snapshots → signal evaluation (P5) → price alerts (P6). Each part has its own try/catch.
+
+## Exchange sessions (P8b)
+
+- Local `.env.local` has `LIVE_TRADING_ENABLED=1` and a generated `EXCHANGE_KEY_SECRET` (changing the secret makes stored keys unreadable → re-add connections). Production has neither yet.
+- `lib/venues/ccxtClient.ts` caches one ccxt instance per connection + key version (sandbox set before any call, rate limit on, time sync, recvWindow 5 s); tests inject a fake via `setExchangeFactory` (`tests/setup/fakeExchange.ts`).
+- Catalog symbols map to `BASE/<quote>` (spot) or `BASE/<quote>:<quote>` (swap); exchange sessions are crypto only (forex/metals → P9 OANDA).
+- Exchange sessions price everything (stops, marks, risk) from the exchange ticker; agents still read market data from `lib/market`.
+- Unknown order outcome → `haltSession(RECONCILE_MISMATCH)`; the monitor then closes the remaining positions. The owner should check the exchange by hand.
 
 ## Agent sessions (P8a)
 

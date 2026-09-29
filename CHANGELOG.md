@@ -4,6 +4,13 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P8b · Exchange execution (ccxt)
+- **Exchange connections** in Settings (owner only, with `LIVE_TRADING_ENABLED=1` and `EXCHANGE_KEY_SECRET`): any ccxt exchange, spot or perpetual, a quote currency, testnet or real money. Keys are AES-256-GCM encrypted; only the last four characters are shown; "Test" loads markets and reads the balance.
+- **Sessions on an exchange:** pick a tested connection in the mandate form. Real-money sessions need the typed confirmation `LIVE`. Start checks the market type, that every symbol is listed, and that the capital fits the free quote balance.
+- **Safe execution:** market orders with a deterministic client id written to the database before sending; a timeout is resolved by looking the order up (never re-sent); an order that stays unknown halts the session. Fills, fees (including fees paid in the base asset) and P&L come from the exchange.
+- **Reconciler every 30 s:** our own orders left open are cancelled, stale orders are resolved, and spot balances / perpetual positions must match the ledger — any mismatch halts the session and closes what it holds.
+- **`TRADING_HALT=1`** refuses new entries everywhere; exits still run. Stops are software stops on the exchange price, checked every 15 s.
+
 ### P8a · Agent trading sessions (paper)
 - **Sessions:** start a time-boxed session under a mandate — symbols (any catalog asset), spot or perpetual with a leverage cap, capital, risk per trade, max position, max open positions, max trades, loss limit, cooldown after a stop, decision interval, what happens at the end, per-role AI models, an AI budget. The mandate is frozen once the session starts.
 - **Desk room:** market and news analysts, an optional bull/bear debate, and a strategist whose every entry carries an exit plan (stop, target, invalidation, horizon) that is re-read on every later cycle. Everything — including the risk engine's reasons and each fill — is posted in a live room.

@@ -2,7 +2,7 @@
 
 **Know when to trade, and when to stay flat.** AlphaBoard is an invite-only trading-intelligence workspace: it reads live markets across six timeframes, drafts a plan with the AI model you choose, lets you rehearse it with paper money, then grades every call against what price actually did next.
 
-Analysis and paper trading only — AlphaBoard never places real orders and is not financial advice.
+Analysis and paper trading by default. Agent sessions can also trade on a crypto exchange (testnet or real money) once the owner connects one — at their own risk. AlphaBoard is not financial advice.
 
 Version **2.0.0** · Next.js 16 · TypeScript · PostgreSQL · see [CHANGELOG.md](CHANGELOG.md)
 
@@ -15,7 +15,7 @@ Version **2.0.0** · Next.js 16 · TypeScript · PostgreSQL · see [CHANGELOG.md
 | **Read** | 66 assets — crypto (Binance), gold, indices and forex (Yahoo Finance). Trend and momentum from 5-minute to weekly candles side by side, candlestick and chart patterns (incl. order blocks and FVGs), futures funding / open interest / long-short, news and fundamentals. Missing data shows as “Unavailable”, never a guess. |
 | **Decide** | One click asks the chosen AI model (OpenAI, Anthropic Claude, OpenRouter or DeepSeek) for a plan built from data the server gathers itself: entry, stop, target, sizing and reasoning. Output is schema-validated; the plan can be “stay flat”. |
 | **Practise** | A 10,000 USDT paper account: isolated margin, leverage up to 20×, 0.05% slippage and a 0.05% fee per side, stops and targets checked every minute on candle highs/lows — even with the tab closed. |
-| **Delegate** | **Agent sessions:** give a small AI desk a mandate (capital, symbols, spot or perpetual, risk per trade, loss limit, time box) and watch it work in a live room — market and news analysts, an optional bull/bear debate, a strategist, then a rule-based risk engine that sizes, clamps or vetoes every trade. Stops, the loss limit and the end-of-session prompt (web and Telegram, 5-minute answer window) are enforced by code. Every closed trade lands in the Journal with a lesson; each session ends with a report against buy-and-hold. Paper only for now. |
+| **Delegate** | **Agent sessions:** give a small AI desk a mandate (capital, symbols, spot or perpetual, risk per trade, loss limit, time box) and watch it work in a live room — market and news analysts, an optional bull/bear debate, a strategist, then a rule-based risk engine that sizes, clamps or vetoes every trade. Stops, the loss limit and the end-of-session prompt (web and Telegram, 5-minute answer window) are enforced by code. Every closed trade lands in the Journal with a lesson; each session ends with a report against buy-and-hold. Runs on paper, or on any ccxt exchange (spot or perpetual) — testnet first, real money only after typing LIVE. |
 | **Measure** | Every BUY/SELL signal is replayed on later candles and scored in R: win rate, expectancy, profit factor, drawdown, confidence calibration, by model / asset / timeframe. Your record shows on the trade ticket. |
 
 Also: trade journal with AI screenshot auto-fill and post-mortems, chart-reading academy, price alerts (in-app bell, optional Telegram), signal archive, per-user AI allowance, admin console (system health, users, invites & waitlist, AI usage and cost).
@@ -52,6 +52,8 @@ Sign in as the admin, accept the risk disclaimer, then invite traders from **Adm
 | `TELEGRAM_BOT_TOKEN` | optional | Alert delivery to Telegram (users link a chat in Settings) |
 | `CRON_SECRET` | optional | Lets an external scheduler call `POST /api/cron/tick` |
 | `TICK_DISABLED` | optional | `1` turns the 60-second tick off (sessions and Telegram keep running) |
+| `LIVE_TRADING_ENABLED`, `EXCHANGE_KEY_SECRET` | optional | Both needed for exchange sessions: the flag, and 32 random bytes (base64) that encrypt stored API keys |
+| `TRADING_HALT` | optional | `1` refuses every new exchange entry (exits still run) |
 | `WORKER_MODE` | optional | `inline` (default): background work runs inside the web process · `separate`: run `npm run worker` as its own process |
 
 ### Scripts
@@ -78,6 +80,7 @@ The image runs as a non-root user, applies migrations at boot and exposes `GET /
 - **Security:** nonce-based CSP (`proxy.ts`) plus HSTS, frame, referrer and permissions headers (`next.config.ts`); per-IP rate limits (auth, AI, API, public forms); size-capped JSON bodies; zod validation on every input and every AI answer.
 - **Data:** PostgreSQL via Prisma migrations; every row scoped to its user; screenshots as owner-only attachments; `/import` moves data saved in the browser by v1.
 - **Worker:** one leased worker (inside the web process by default) runs the 60-second tick (paper stops/targets, equity, signal grading, alerts), the 15-second session monitor (session stops, loss limits, end prompts, decision cycles, journal and reports) and Telegram long-polling (link codes, `/sessions`, `/positions`, inline buttons). A database lease guarantees a single active worker.
+- **Exchanges:** `lib/venues/ccxt.ts` (ccxt, market orders, deterministic client ids written before sending, lookup on an unknown outcome, never a blind retry), `lib/exec/reconciler.ts` (exchange vs ledger every 30 s; any mismatch halts), keys AES-256-GCM encrypted (`lib/secrets`). Stops are software stops checked every 15 s.
 - **Agent sessions:** `lib/sessions` (mandate, lifecycle, cycle, monitor, report), `lib/agents` (context block, prompts, runners), `lib/risk` (deterministic risk engine), `lib/venues` (venue interface; paper today, exchanges next).
 - **Observability:** pino JSON logs with a request id on every response; server errors stored for **Admin → System**.
 
