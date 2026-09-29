@@ -5,12 +5,21 @@
  */
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
-export type Command = { type: "link"; code: string } | { type: "unlink" } | { type: "help" };
+export type Command =
+  | { type: "link"; code: string }
+  | { type: "unlink" }
+  | { type: "help" }
+  | { type: "sessions" | "positions" | "pause" | "resume" | "kill" };
+
+const SESSION_COMMANDS = new Set(["sessions", "positions", "pause", "resume", "kill"]);
 
 export function parseCommand(text: string): Command {
-  const m = /^\/(start|stop)(?:@\w+)?(?:\s+([A-Za-z0-9]{4,32}))?\s*$/.exec(text.trim());
+  const t = text.trim();
+  const m = /^\/(start|stop)(?:@\w+)?(?:\s+([A-Za-z0-9]{4,32}))?\s*$/.exec(t);
   if (m?.[1] === "stop") return { type: "unlink" };
   if (m?.[1] === "start" && m[2]) return { type: "link", code: m[2].toUpperCase() };
+  const c = /^\/([a-z]+)(?:@\w+)?\s*$/.exec(t)?.[1];
+  if (c && SESSION_COMMANDS.has(c)) return { type: c as "sessions" };
   return { type: "help" };
 }
 

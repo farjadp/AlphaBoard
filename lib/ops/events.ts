@@ -9,7 +9,7 @@ const RETENTION_DAYS = 14;
 
 export interface NewEvent {
   level?: "error" | "warn";
-  source: "http" | "render" | "tick" | "scheduler";
+  source: "http" | "render" | "tick" | "scheduler" | "worker";
   message: string;
   requestId?: string;
   meta?: Record<string, unknown>;

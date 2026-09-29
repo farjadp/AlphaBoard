@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { badRequest, HttpError, notFound } from "@/lib/http/errors";
 import { livePrice } from "@/lib/paper/account";
 import { notify } from "@/lib/notify/notifications";
-import type { Telegram } from "@/lib/notify/telegram";
+import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
+import { resolveExtensionPrompt } from "@/lib/notify/sessionTelegram";
 import { formatMandate } from "@/lib/agents/context";
 import { fmt, money } from "@/lib/risk/limits";
 import type { SessionSummaryDto } from "@/lib/types/sessions";
@@ -115,6 +116,7 @@ export async function extendSession(userId: string, id: string, minutes: number,
   const next: Status = s.status === "AWAITING_EXTENSION" ? "RUNNING" : s.status;
   await setStatus(s, next, { endsAt, extensionPromptAt: null, ...(next === "RUNNING" && s.status !== "RUNNING" ? { nextCycleAt: now } : {}) });
   await post(s.id, "USER", "TEXT", `Extended by ${minutes} min — now ends ${endsAt.toISOString().slice(11, 16)} UTC.`);
+  await resolveExtensionPrompt(s, `extended by ${minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60}h` : `${minutes} min`}.`, deps.telegram === undefined ? telegramFromEnv() : deps.telegram);
   await say(s, `Session extended by ${minutes} min.`, deps.telegram);
   return endsAt;
 }
@@ -148,6 +150,7 @@ export async function endSession(userId: string, id: string, mode: "CLOSE_ALL" |
   if (!isActive(s.status)) throw badRequest("The session has already ended", "BAD_STATE");
   await post(s.id, "USER", "TEXT", mode === "CLOSE_ALL" ? "End the session and close all positions." : "End the session and keep positions with their stops.");
   await finishSession(s, "USER_ENDED", mode, deps);
+  await resolveExtensionPrompt(s, mode === "CLOSE_ALL" ? "ended, positions closed." : "ended, positions kept with their stops.", deps.telegram === undefined ? telegramFromEnv() : deps.telegram);
 }
 
 export async function killSession(userId: string, id: string, deps: ServiceDeps = {}) {

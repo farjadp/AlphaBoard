@@ -4,8 +4,10 @@ export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
   const { logBoot } = await import("./lib/http/boot");
   logBoot();
-  const { startScheduler } = await import("./lib/jobs/scheduler");
-  startScheduler();
+  // Background work runs here unless a separate worker process is deployed (WORKER_MODE=separate).
+  if (process.env.WORKER_MODE === "separate") return;
+  const { startWorker } = await import("./lib/worker");
+  startWorker();
 }
 
 /** Server render / action errors → admin dashboard "Recent errors" (API route errors are recorded by route()). */

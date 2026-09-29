@@ -15,7 +15,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
-    "test:db": "TEST_DATABASE_URL=postgresql://alphaboard:alphaboard@localhost:5434/alphaboard?schema=test vitest run"
+    "test:db": "TEST_DATABASE_URL=postgresql://alphaboard:alphaboard@localhost:5434/alphaboard?schema=test vitest run",
+    "worker": "node --env-file-if-exists=.env --env-file-if-exists=.env.local --conditions=react-server --import tsx scripts/worker.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
@@ -28,6 +29,7 @@
     "prisma": "^6.4.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "server-only": "0.0.1",
     "technicalindicators": "^3.1.0",
     "yahoo-finance2": "^3.14.0",
     "zod": "^4.4.3"

@@ -10,7 +10,6 @@ import { evaluatePendingSignals, type SignalBarsOf } from "@/lib/eval/job";
 import { evaluateAlerts } from "@/lib/alerts/job";
 import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
-import { processTelegramUpdates } from "@/lib/notify/telegramLink";
 import { pruneEvents, recordEvent } from "@/lib/ops/events";
 
 export const TICK_KEY = "tick.last";
@@ -38,7 +37,6 @@ export interface TickResult {
   snapshots: number;
   signals: { checked: number; resolved: number };
   alerts: { active: number; fired: number };
-  telegram: { updates: number; linked: number } | null;
   errors: string[];
 }
 
@@ -51,8 +49,8 @@ const liveBars = async (symbol: string): Promise<Bar[] | null> => {
 /**
  * One scheduler tick: settle paper positions whose SL/TP/liquidation level was crossed by a candle
  * high/low (or the live quote), snapshot equity for active accounts, evaluate pending AI signals (P5),
- * fire price alerts and process Telegram link messages (P6). Each part is isolated: one failing never
- * skips the rest.
+ * and fire price alerts (P6). Telegram messages are long-polled by the worker (lib/worker). Each part is
+ * isolated: one failing never skips the rest.
  */
 export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
   const now = deps.now ?? (() => new Date());
@@ -145,18 +143,9 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
     errors.push(`alerts: ${e instanceof Error ? e.message : e}`);
   }
 
-  let tg: TickResult["telegram"] = null;
-  if (telegram) {
-    try {
-      tg = await processTelegramUpdates(telegram, now());
-    } catch (e) {
-      errors.push(`telegram: ${e instanceof Error ? e.message : e}`);
-    }
-  }
-
   const result: TickResult = {
     at: started.toISOString(), ms: now().getTime() - started.getTime(),
-    positions: open.length, symbols: symbols.length, closed, snapshots, signals, alerts, telegram: tg, errors: errors.slice(0, 20),
+    positions: open.length, symbols: symbols.length, closed, snapshots, signals, alerts, errors: errors.slice(0, 20),
   };
   const value = result as unknown as Prisma.InputJsonValue;
   await prisma.appSetting.upsert({ where: { key: TICK_KEY }, create: { key: TICK_KEY, value }, update: { value } });
