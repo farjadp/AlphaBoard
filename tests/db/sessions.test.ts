@@ -45,9 +45,8 @@ describe.skipIf(!run)("session service (Postgres)", () => {
     expect((await listSessions(A))[0]).toMatchObject({ id: s.id, symbols: ["BTC/USDT", "ETH/USDT"], openPositions: 0 });
   });
 
-  it("refuses bad mandates, live mode and too many sessions", async () => {
+  it("refuses bad mandates and too many sessions", async () => {
     await expect(startSession(A, { mandate: { ...mandate, maxLeverage: 3 } }, deps)).rejects.toMatchObject({ status: 400, code: "BAD_MANDATE" });
-    await expect(startSession(A, { mandate, live: true }, deps)).rejects.toMatchObject({ code: "LIVE_DISABLED" });
     for (let i = 0; i < 3; i++) await startSession(A, { mandate }, deps);
     await expect(startSession(A, { mandate }, deps)).rejects.toMatchObject({ code: "TOO_MANY_SESSIONS" });
   });

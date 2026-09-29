@@ -7,11 +7,45 @@ import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
 import { fmt, money } from "@/lib/risk/limits";
 import { paperVenue } from "@/lib/venues/paper";
-import type { Venue } from "@/lib/venues/types";
+import { VenueError, type Venue } from "@/lib/venues/types";
+import { ccxtVenue } from "@/lib/venues/ccxt";
 import { post } from "./room";
 
-export function venueFor(_session: Pick<TradingSession, "venue">, priceOf: PriceOf = livePrice): Venue {
-  return paperVenue(priceOf);
+/** The session's venue: paper, or the ccxt venue of its exchange connection. */
+export async function venueFor(session: Pick<TradingSession, "venue" | "connectionId">, priceOf: PriceOf = livePrice): Promise<Venue> {
+  if (session.venue !== "exchange") return paperVenue(priceOf);
+  if (!session.connectionId) throw new VenueError("Exchange session without a connection", "BAD_ORDER");
+  const conn = await prisma.exchangeConnection.findUniqueOrThrow({ where: { id: session.connectionId } });
+  if (conn.status === "DELETED") throw new VenueError("The exchange connection was deleted", "BAD_ORDER");
+  return ccxtVenue(conn);
+}
+
+/**
+ * Prices a session should act on: the exchange's own ticker for exchange sessions (its quote currency and
+ * its fills), the market-data quote for paper. Returns null when unavailable — never a guess.
+ */
+export async function sessionPriceOf(session: Pick<TradingSession, "venue" | "connectionId">, fallback: PriceOf = livePrice): Promise<PriceOf> {
+  if (session.venue !== "exchange") return fallback;
+  const venue = await venueFor(session, fallback);
+  return async (symbol) => (await venue.marketRules(symbol))?.price ?? null;
+}
+
+/** An order whose outcome is unknown halts the session: the ledger can no longer be trusted. */
+export const isUnknownOrder = (e: unknown) => e instanceof VenueError && e.code === "UNKNOWN_ORDER";
+
+/**
+ * Stop trading now (unknown order outcome, venue mismatch). Positions still open are closed by the
+ * monitor's pending-close pass; the owner is told to check the exchange by hand.
+ */
+export async function haltSession(session: Pick<TradingSession, "id" | "userId" | "name">, reason: "RECONCILE_MISMATCH" | "ERROR", detail: string, telegram?: Telegram | null) {
+  const r = await prisma.tradingSession.updateMany({
+    where: { id: session.id, status: { in: ["RUNNING", "PAUSED", "AWAITING_EXTENSION", "ENDING"] } },
+    data: { status: "HALTED", endReason: reason, endedAt: new Date(), keepOpen: false, nextCycleAt: null, extensionPromptAt: null },
+  });
+  if (!r.count) return;
+  const body = `Trading halted: ${detail} Open positions will be closed; please check the exchange for anything unexpected.`;
+  await post(session.id, "SYSTEM", "ALERT", body);
+  await notify(session.userId, { type: "session", title: `${session.name}: halted`, body, data: { sessionId: session.id, href: `/sessions/${session.id}` } }, telegram).catch(() => undefined);
 }
 
 /** Deterministic client order id: same intent → same id → the venue refuses to fill twice. */
@@ -30,15 +64,21 @@ export interface ExitDeps { priceOf?: PriceOf; telegram?: Telegram | null; venue
  * Returns null when it was already closed. Throws VenueError when no price is available.
  */
 export async function exitPosition(
-  session: Pick<TradingSession, "id" | "userId" | "name" | "venue">,
+  session: Pick<TradingSession, "id" | "userId" | "name" | "venue" | "connectionId">,
   pos: Pick<SessionPosition, "id" | "symbol" | "side">,
   reason: SessionCloseReason,
   opts: ExitDeps & { fraction?: number; price?: number; tag?: string; cycle?: number } = {},
 ) {
-  const venue = opts.venue ?? venueFor(session, opts.priceOf);
+  const venue = opts.venue ?? (await venueFor(session, opts.priceOf));
   const partial = opts.fraction != null && opts.fraction < 1;
   const tag = opts.tag ?? (partial ? uniqueTag("p") : `x-${pos.id.slice(-8)}`);
-  const r = await venue.closePosition({ sessionId: session.id, clientOrderId: orderId(session.id, tag), positionId: pos.id, reason, fraction: opts.fraction, price: opts.price });
+  let r;
+  try {
+    r = await venue.closePosition({ sessionId: session.id, clientOrderId: orderId(session.id, tag), positionId: pos.id, reason, fraction: opts.fraction, price: opts.price });
+  } catch (e) {
+    if (isUnknownOrder(e)) await haltSession(session, "RECONCILE_MISMATCH", (e as Error).message, opts.telegram);
+    throw e;
+  }
   if (!r) return null;
   const what = partial ? `Closed ${Math.round((opts.fraction ?? 1) * 100)}% of` : "Closed";
   const body = `${what} ${pos.side} ${pos.symbol} at ${fmt(r.fill.price)} (${REASON_TEXT[reason]}) · net ${r.realizedPnl >= 0 ? "+" : "−"}${money(Math.abs(r.realizedPnl))}`;
@@ -49,7 +89,7 @@ export async function exitPosition(
 }
 
 /** Close every open position of a session. Positions without a price stay open and are retried by the monitor. */
-export async function flatten(session: Pick<TradingSession, "id" | "userId" | "name" | "venue">, reason: SessionCloseReason, deps: ExitDeps = {}) {
+export async function flatten(session: Pick<TradingSession, "id" | "userId" | "name" | "venue" | "connectionId">, reason: SessionCloseReason, deps: ExitDeps = {}) {
   const open = await prisma.sessionPosition.findMany({ where: { sessionId: session.id, closedAt: null } });
   const failed: string[] = [];
   for (const p of open) {

@@ -12,7 +12,9 @@ const modelRef = ModelRefSchema.nullable().default(null);
 
 export const MandateSchema = z
   .object({
-    venue: z.literal("paper").default("paper"),
+    venue: z.enum(["paper", "exchange"]).default("paper"),
+    /** ExchangeConnection id when venue = exchange. */
+    connectionId: z.string().min(1).max(40).nullable().default(null),
     marketType: z.enum(["spot", "swap"]).default("spot"),
     symbols: z.array(z.string().trim().min(1).max(30)).min(1).max(10),
     capital: z.number().finite().min(10).max(10_000_000),
@@ -64,7 +66,9 @@ export function parseMandate(input: unknown): Mandate {
   if (m.marketType === "spot" && m.maxLeverage !== 1) issues.push("maxLeverage: spot sessions trade without leverage (use 1 or switch to swap)");
   const lossLimit = m.lossLimit ?? Math.round(m.capital * 0.1 * 100) / 100;
   if (lossLimit > m.capital) issues.push("lossLimit: the loss limit cannot exceed the session capital");
-  if (m.orderStyle !== "market") issues.push("orderStyle: paper sessions fill market orders only (limit orders arrive with live venues)");
+  if (m.orderStyle !== "market") issues.push("orderStyle: sessions place market orders only for now");
+  if (m.venue === "exchange" && !m.connectionId) issues.push("connectionId: pick an exchange connection");
+  if (m.venue === "paper" && m.connectionId) issues.push("connectionId: only exchange sessions use a connection");
   if (issues.length) throw new MandateError(issues);
   return { ...m, lossLimit };
 }

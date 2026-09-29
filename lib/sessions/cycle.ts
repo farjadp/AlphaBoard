@@ -14,7 +14,7 @@ import { evaluateProposal, type Proposal, type RiskState, type Verdict } from "@
 import { sessionFreeCapital } from "@/lib/venues/paper";
 import { VenueError, type Venue } from "@/lib/venues/types";
 import { dailyUsage } from "./limits";
-import { exitPosition, orderId, venueFor } from "./exits";
+import { exitPosition, haltSession, isUnknownOrder, orderId, sessionPriceOf, venueFor } from "./exits";
 import type { Mandate } from "./mandate";
 import { post } from "./room";
 import { mandateOf, markOpen, sessionMoney } from "./view";
@@ -136,13 +136,13 @@ export async function runCycle(sessionId: string, deps: CycleDeps = {}): Promise
 
 async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
   const now = deps.now ?? new Date();
-  const priceOf = deps.priceOf ?? livePrice;
   const ai = deps.ai ?? (aiJson as AiFn);
   const gather = deps.gather ?? gatherSymbol;
   const none = (skipped: string): CycleResult => ({ ran: false, skipped, decisions: 0, executed: 0 });
 
   const s = await prisma.tradingSession.findUnique({ where: { id: sessionId }, include: { positions: true } });
   if (!s || s.status !== "RUNNING") return none("not running");
+  const priceOf = deps.priceOf ?? (await sessionPriceOf(s, livePrice));
   if (s.llmBudgetHit) return none("ai budget used");
   const m = mandateOf(s);
   const interval = m.decisionIntervalMin * 60_000;
@@ -227,7 +227,7 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
   }
 
   // Risk + execution, one decision at a time against fresh state.
-  const venue = deps.venue ?? venueFor(s, priceOf);
+  const venue = deps.venue ?? (await venueFor(s, priceOf));
   let executed = 0;
   for (const [i, p] of proposals.entries()) {
     const current = await prisma.tradingSession.findUniqueOrThrow({ where: { id: sessionId }, select: { status: true, endsAt: true } });
@@ -264,6 +264,10 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
     } catch (e) {
       const msg = e instanceof VenueError ? e.message : e instanceof Error ? e.message : String(e);
       await post(sessionId, "SYSTEM", "ALERT", `Execution failed for ${p.symbol}: ${msg}`, null, extra);
+      if (isUnknownOrder(e)) {
+        await haltSession(s, "RECONCILE_MISMATCH", msg, deps.telegram);
+        break;
+      }
     }
   }
 

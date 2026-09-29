@@ -37,8 +37,14 @@ describe("session mandate", () => {
     expect(() => parseMandate({ ...base, lossLimit: 150 })).toThrow(/loss limit/i);
   });
 
-  it("refuses limit orders on paper until P8b", () => {
+  it("refuses limit orders for now", () => {
     expect(() => parseMandate({ ...base, orderStyle: "limit_post_only" })).toThrow(/market/);
+  });
+
+  it("exchange sessions need a connection; paper sessions must not have one", () => {
+    expect(() => parseMandate({ ...base, venue: "exchange" })).toThrow(/connection/);
+    expect(parseMandate({ ...base, venue: "exchange", connectionId: "c1" })).toMatchObject({ venue: "exchange", connectionId: "c1" });
+    expect(() => parseMandate({ ...base, connectionId: "c1" })).toThrow(/connection/);
   });
 
   it("rejects unknown keys and out-of-range numbers", () => {

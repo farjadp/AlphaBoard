@@ -2,7 +2,11 @@ import "server-only";
 import type { Prisma, TradingSession } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { badRequest, HttpError, notFound } from "@/lib/http/errors";
-import { livePrice } from "@/lib/paper/account";
+import { livePrice, type PriceOf } from "@/lib/paper/account";
+import { findAsset } from "@/lib/assetCatalog";
+import { requireExchangeAccess } from "@/lib/exchanges/connections";
+import { ccxtVenue } from "@/lib/venues/ccxt";
+import { exchangeFor } from "@/lib/venues/ccxtClient";
 import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { resolveExtensionPrompt } from "@/lib/notify/sessionTelegram";
@@ -11,8 +15,8 @@ import { fmt, money } from "@/lib/risk/limits";
 import type { SessionSummaryDto } from "@/lib/types/sessions";
 import { canTransition, isActive } from "./lifecycle";
 import { dailyUsage } from "./limits";
-import { MandateError, parseMandate } from "./mandate";
-import { exitPosition, flatten, venueFor, type ExitDeps } from "./exits";
+import { MandateError, parseMandate, type Mandate } from "./mandate";
+import { exitPosition, flatten, sessionPriceOf, venueFor, type ExitDeps } from "./exits";
 import { post } from "./room";
 import { buildView, mandateOf, summaryToDto } from "./view";
 
@@ -42,10 +46,31 @@ async function setStatus(s: TradingSession, to: Status, data: Prisma.TradingSess
 const say = (s: Pick<TradingSession, "id" | "userId" | "name">, body: string, telegram?: Telegram | null) =>
   notify(s.userId, { type: "session", title: s.name, body, data: { sessionId: s.id, href: `/sessions/${s.id}` } }, telegram).catch(() => undefined);
 
-export async function startSession(userId: string, input: { name?: string; mandate: unknown; live?: boolean }, deps: ServiceDeps = {}) {
+export interface StartInput { name?: string; mandate: unknown; confirmLive?: string }
+
+/** Exchange checks (spec E6): access, connection health, market type, listed symbols, enough quote balance. */
+async function checkExchange(userId: string, mandate: Mandate, confirmLive: string | undefined) {
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true } });
+  requireExchangeAccess(user);
+  const conn = await prisma.exchangeConnection.findFirst({ where: { id: mandate.connectionId ?? "", userId, status: { not: "DELETED" } } });
+  if (!conn) throw badRequest("Exchange connection not found", "BAD_CONNECTION");
+  if (conn.status !== "OK") throw badRequest(`Test the ${conn.label} connection first (status ${conn.status})`, "BAD_CONNECTION");
+  if (conn.marketType !== mandate.marketType) throw badRequest(`The ${conn.label} connection trades ${conn.marketType}; the mandate asks for ${mandate.marketType}`, "BAD_CONNECTION");
+  if (!conn.sandbox && confirmLive !== "LIVE") throw badRequest('Real-money session: type LIVE to confirm', "CONFIRM_LIVE");
+  const venue = ccxtVenue(conn);
+  for (const sym of mandate.symbols) {
+    if (findAsset(sym)?.category !== "crypto") throw badRequest(`${sym}: exchange sessions trade crypto only (forex and metals arrive with P9)`, "BAD_SYMBOL");
+    if (!(await venue.marketRules(sym))) throw badRequest(`${venue.symbolFor(sym)} is not available on ${conn.exchange}`, "BAD_SYMBOL");
+  }
+  const ex = await exchangeFor(conn);
+  const bal = await ex.fetchBalance().catch((e) => { throw new HttpError(502, `Could not read the ${conn.exchange} balance: ${e instanceof Error ? e.message : e}`, "EXCHANGE_ERROR"); });
+  const free = bal.free?.[conn.quote] ?? 0;
+  if (free < mandate.capital) throw badRequest(`Session capital ${money(mandate.capital)} is more than the free ${conn.quote} balance (${free.toFixed(2)})`, "INSUFFICIENT_BALANCE");
+  return { conn, venue };
+}
+
+export async function startSession(userId: string, input: StartInput, deps: ServiceDeps = {}) {
   const now = deps.now ?? new Date();
-  const priceOf = deps.priceOf ?? livePrice;
-  if (input.live) throw badRequest("Live trading arrives with exchange connections (P8b); sessions run on paper for now", "LIVE_DISABLED");
   let mandate;
   try {
     mandate = parseMandate(input.mandate);
@@ -61,19 +86,26 @@ export async function startSession(userId: string, input: { name?: string; manda
   if (usage.limits.maxDailyLoss != null && usage.lossToday >= usage.limits.maxDailyLoss)
     throw badRequest(`Daily loss limit reached (${money(usage.lossToday)} of ${money(usage.limits.maxDailyLoss)})`, "DAILY_LIMIT");
 
+  const exchange = mandate.venue === "exchange" ? await checkExchange(userId, mandate, input.confirmLive) : null;
+  const priceOf: PriceOf = deps.priceOf ?? (exchange ? async (sym) => (await exchange.venue.marketRules(sym))?.price ?? null : livePrice);
   const startPrices = Object.fromEntries(await Promise.all(mandate.symbols.map(async (s) => [s, await priceOf(s).catch(() => null)] as const)));
   const d = mandate.durationMin;
   const length = d < 60 ? `${d} min` : `${Math.floor(d / 60)}h${d % 60 ? ` ${d % 60}m` : ""}`;
   const name = (input.name?.trim() || `${mandate.symbols.join(" · ")} · ${length}`).slice(0, 80);
+  const live = !!exchange && !exchange.conn.sandbox;
   const s = await prisma.tradingSession.create({
     data: {
       userId, name, mandate: mandate as unknown as Prisma.InputJsonValue, capital: mandate.capital, venue: mandate.venue,
+      connectionId: exchange?.conn.id ?? null, live,
       startedAt: now, endsAt: new Date(now.getTime() + mandate.durationMin * 60_000), nextCycleAt: now,
       startPrices: startPrices as Prisma.InputJsonValue, lastPrices: startPrices as Prisma.InputJsonValue,
     },
   });
-  await post(s.id, "SYSTEM", "TEXT", `Session started on paper. The first decision cycle runs within a minute.\n${formatMandate(mandate)}`);
-  await say(s, `Session started: ${mandate.symbols.join(", ")}, ${mandate.durationMin} min, loss limit ${money(mandate.lossLimit)}.`, deps.telegram);
+  const where = exchange
+    ? `${live ? "LIVE — real money" : "testnet"} on ${exchange.conn.exchange} (${exchange.conn.label}), symbols ${mandate.symbols.map((x) => exchange.venue.symbolFor(x)).join(", ")}. Stops are software stops checked every 15 s; the venue is reconciled every 30 s.`
+    : "on paper";
+  await post(s.id, "SYSTEM", "TEXT", `Session started ${where}. The first decision cycle runs within a minute.\n${formatMandate(mandate)}`);
+  await say(s, `Session started${live ? " (LIVE)" : exchange ? " (testnet)" : ""}: ${mandate.symbols.join(", ")}, ${mandate.durationMin} min, loss limit ${money(mandate.lossLimit)}.`, deps.telegram);
   return s;
 }
 
@@ -88,7 +120,8 @@ export async function listSessions(userId: string): Promise<SessionSummaryDto[]>
 export async function sessionView(userId: string, id: string, deps: ServiceDeps = {}) {
   const s = await prisma.tradingSession.findFirst({ where: { id, userId }, include: { positions: true, report: { select: { id: true } } } });
   if (!s) throw notFound("Session not found");
-  return buildView(s, deps.priceOf ?? livePrice, deps.now);
+  const priceOf = deps.priceOf ?? (await sessionPriceOf(s, livePrice).catch(() => livePrice));
+  return buildView(s, priceOf, deps.now);
 }
 
 export async function pauseSession(userId: string, id: string, deps: ServiceDeps = {}) {
@@ -196,7 +229,7 @@ export async function moveStopToBreakeven(userId: string, positionId: string, de
   const long = pos.side === "LONG";
   if (long ? price <= be : price >= be) throw badRequest(`Price ${fmt(price)} has not moved past the entry ${fmt(be)} yet`, "NOT_IN_PROFIT");
   if (pos.stopLoss != null && (long ? pos.stopLoss >= be : pos.stopLoss <= be)) throw badRequest("The stop is already at or beyond breakeven", "ALREADY_PROTECTED");
-  await venueFor(pos.session, deps.priceOf).setStop(pos.id, be);
+  await (await venueFor(pos.session, deps.priceOf)).setStop(pos.id, be);
   await post(pos.sessionId, "USER", "TEXT", `Move ${pos.symbol} stop to breakeven (${fmt(be)}).`);
   await post(pos.sessionId, "EXECUTOR", "ORDER", `${pos.symbol} stop moved ${pos.stopLoss == null ? "" : `${fmt(pos.stopLoss)} → `}${fmt(be)}.`, { positionId: pos.id, stopLoss: be });
   return be;

@@ -10,7 +10,8 @@ import { notify } from "@/lib/notify/notifications";
 import type { AiFn } from "@/lib/agents/run";
 import { money } from "@/lib/risk/limits";
 import { runCycle } from "./cycle";
-import { exitPosition, flatten } from "./exits";
+import { exitPosition, flatten, sessionPriceOf } from "./exits";
+import { reconcileSession, RECONCILE_EVERY_MS } from "@/lib/exec/reconciler";
 import { journalClosedPosition, writeReport } from "./journal";
 import { isActive, timerTransition } from "./lifecycle";
 import { post } from "./room";
@@ -65,6 +66,9 @@ function cachedPrices(priceOf: PriceOf): PriceOf {
 export async function monitorSessions(deps: MonitorDeps = {}): Promise<MonitorResult> {
   const now = deps.now ?? new Date();
   const priceOf = cachedPrices(deps.priceOf ?? livePrice);
+  // Exchange sessions act on the exchange's own ticker unless a price source is injected (tests).
+  const priceFor = async (s: { venue: string; connectionId: string | null }) =>
+    (deps.priceOf || s.venue !== "exchange" ? priceOf : cachedPrices(await sessionPriceOf(s, priceOf)));
   const telegram = deps.telegram === undefined ? telegramFromEnv() : deps.telegram;
   const exitDeps = { priceOf, telegram };
   const result: MonitorResult = { sessions: 0, exits: [], halted: [], prompted: [], ended: [], errors: [] };
@@ -91,7 +95,16 @@ export async function monitorSessions(deps: MonitorDeps = {}): Promise<MonitorRe
 
   for (const s of sessions) {
     try {
-      await monitorOne(s, now, priceOf, exitDeps, result);
+      const sp = await priceFor(s);
+      await monitorOne(s, now, sp, { ...exitDeps, priceOf: sp }, result);
+      // Exchange sessions: compare the venue with the ledger every 30 s while active or holding positions.
+      if (s.venue === "exchange" && (!s.lastReconciledAt || now.getTime() - s.lastReconciledAt.getTime() >= RECONCILE_EVERY_MS)) {
+        const latest = await prisma.tradingSession.findUniqueOrThrow({ where: { id: s.id }, include: { positions: { where: { closedAt: null }, select: { id: true } } } });
+        if (isActive(latest.status) || latest.positions.length) {
+          const r = await reconcileSession(latest, { now, telegram });
+          if (r.issues.length) result.halted.push(s.id);
+        }
+      }
     } catch (e) {
       result.errors.push(`${s.id}: ${e instanceof Error ? e.message : String(e)}`);
     }
@@ -104,7 +117,7 @@ export async function monitorSessions(deps: MonitorDeps = {}): Promise<MonitorRe
       const waited = now.getTime() - (fresh.endedAt ?? now).getTime() > 5 * 60_000;
       if (!pendingJournal || waited) bg(`report ${fresh.id}`, writeReport(fresh.id, { ai: deps.ai, priceOf, telegram, now }));
     }
-    if (fresh.status === "RUNNING" && deps.cycles !== false) bg(`cycle ${fresh.id}`, runCycle(fresh.id, { ai: deps.ai, priceOf, telegram, now }));
+    if (fresh.status === "RUNNING" && deps.cycles !== false) bg(`cycle ${fresh.id}`, runCycle(fresh.id, { ai: deps.ai, priceOf: deps.priceOf ? priceOf : undefined, telegram, now }));
   }
 
   if (deps.awaitBackground) await Promise.all(background);
