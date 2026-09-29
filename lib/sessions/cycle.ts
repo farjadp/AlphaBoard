@@ -186,6 +186,16 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
     await schedule();
     return none("no data");
   }
+  // Broker sessions: when no allowed market is open (FX weekend, metals daily break), skip the AI call.
+  if (s.venue === "exchange" && !s.positions.some((p) => !p.closedAt)) {
+    const v = deps.venue ?? (await venueFor(s, priceOf));
+    const open = await Promise.all(m.symbols.map((x) => v.marketRules(x).then((r) => !!r).catch(() => false)));
+    if (!open.some(Boolean)) {
+      await post(sessionId, "SYSTEM", "TEXT", "Markets closed (or no tradable price) at the broker for every session symbol — no AI call this cycle.", null, extra);
+      await schedule();
+      return none("markets closed");
+    }
+  }
 
   const ctx = await buildContext(s, m, symbols, priceOf, now);
   const agentDeps = { ai, userId: s.userId, mandate: m };

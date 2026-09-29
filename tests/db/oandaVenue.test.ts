@@ -118,6 +118,17 @@ describe.skipIf(!run)("OANDA venue (Postgres, fake v20 server)", () => {
     void a;
   });
 
+  it("a cycle skips the AI while every session market is closed", async () => {
+    const { runCycle } = await import("@/lib/sessions/cycle");
+    fake.state.tradeable = false;
+    let aiCalls = 0;
+    const ai = (async () => { aiCalls++; throw new Error("should not be called"); }) as never;
+    const gather = async (symbol: string) => ({ symbol, price: 2600, changePct24h: 0, timeframes: [], consensus: null, funding: null, news: [] });
+    const r = await runCycle(sessionId, { ai, gather, telegram: null, force: true });
+    expect(r.skipped).toBe("markets closed");
+    expect(aiCalls).toBe(0);
+  });
+
   it("session start: forex and metals only, balance from the broker", async () => {
     process.env.LIVE_TRADING_ENABLED = "1";
     await expect(startSession(userId, { mandate: { venue: "exchange", connectionId: conn.id, symbols: ["BTC/USDT"], capital: 100, marketType: "swap", maxLeverage: 5 } }))

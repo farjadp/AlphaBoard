@@ -4,6 +4,13 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P9 · Forex, gold and silver via OANDA
+- **OANDA connections** in Settings: practice or live, v20 account id and API token (encrypted), account currency.
+- **Sessions on OANDA** trade forex and metals as margin CFDs, long or short, sized in units, with leverage capped by OANDA's margin rate for each instrument. Only instruments quoted in the account currency are offered (XAU/USD, EUR/USD on a USD account).
+- **Entry and stop are one atomic order** (stop-loss attached on fill, at the broker). Moving a stop edits it at OANDA. Stops, targets and margin closeouts that happen at OANDA are detected and booked with OANDA's own P&L, commission and financing.
+- **Safety:** orders carry our client id, so an unclear outcome is looked up and never re-sent. New trades never net against another trade (`OPEN_ONLY`). A reconciler compares OANDA's open trades with the ledger every 30 s.
+- While every session market is closed (FX weekend, metals break), cycles skip the AI call.
+
 ### P8c · Native exchange stops
 - **Stop-loss orders on the exchange** where ccxt supports them (Binance, Bybit, OKX, Coinbase): placed right after each entry for the quantity actually held, replaced when the strategist or you move the stop, cancelled before any market close, left in place with "keep with stops" at the end. A stop that fires on the exchange is booked from the exchange's fill, once. Other venues keep software stops, and the room says which mode a session uses.
 - The software stop remains as a fallback, acting 0.3% beyond an exchange-held stop.
