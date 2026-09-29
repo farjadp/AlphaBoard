@@ -2,6 +2,18 @@
 
 All notable changes to AlphaBoard are documented here.
 
+## [Unreleased]
+
+### P8a · Agent trading sessions (paper)
+- **Sessions:** start a time-boxed session under a mandate — symbols (any catalog asset), spot or perpetual with a leverage cap, capital, risk per trade, max position, max open positions, max trades, loss limit, cooldown after a stop, decision interval, what happens at the end, per-role AI models, an AI budget. The mandate is frozen once the session starts.
+- **Desk room:** market and news analysts, an optional bull/bear debate, and a strategist whose every entry carries an exit plan (stop, target, invalidation, horizon) that is re-read on every later cycle. Everything — including the risk engine's reasons and each fill — is posted in a live room.
+- **Risk engine (code, not AI):** sizes from the stop distance and risk per trade; clamps to the position cap and free capital (after fees); refuses shorts on spot, stops beyond liquidation, targets too close to pay fees, trades past the limits or during a cooldown, and new entries in the last minutes. Exits are never blocked.
+- **Enforcement every 15 s:** software stops, targets and liquidation on live prices; the session loss limit (realized + unrealized − fees) halts and flattens; at the end a prompt (web + Telegram) waits 5 minutes, then closes everything or keeps positions with their stops.
+- **Telegram controls:** `/sessions`, `/positions`, `/pause`, `/resume`, `/kill`; inline buttons to close, close 50% or move a stop to breakeven, with confirmation for destructive actions; single-use, chat-bound buttons.
+- **Journal and report:** every closed session trade becomes a Journal entry with an AI lesson; each session ends with metrics computed in code (net of fees and AI cost, win rate, expectancy in R, drawdown, rejections, buy-and-hold) plus a written summary.
+- **Daily limits** across sessions (max daily loss, max sessions per day); at most 3 sessions at once.
+- **Worker:** background work moved from the ad-hoc scheduler to a leased worker (`lib/worker`), inline by default or separate with `WORKER_MODE=separate` + `npm run worker`; Telegram now long-polls instead of polling once a minute.
+
 ## [2.0.0] — 2026-09-29
 
 AlphaBoard v2 turns the single-browser dashboard into an invite-only, multi-user trading-intelligence workspace: every user's data in PostgreSQL, four AI providers with cost control, paper trading, AI signals graded against the market, server-side alerts, a new light interface, and a public landing page. No live order execution — analysis and paper trading only.

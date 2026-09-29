@@ -1,6 +1,6 @@
 # AlphaBoard v2 — Session Handoff
 
-_Last updated: 2026-09-29 · branch `v2` · release **v2.0.0** (tagged locally, not pushed)_
+_Last updated: 2026-09-29 · branch `v2` · release **v2.0.0** (tagged locally, not pushed) + **P8a** on top_
 
 Read this first in a new session. Source of truth for the plan: `docs/superpowers/specs/2026-09-27-alphaboard-v2-design.md`.
 Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
@@ -17,9 +17,12 @@ Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
 | P5 · Signal evaluation | ✅ Done | `lib/eval` (evaluator, metrics, job in the tick), `SignalEvaluation` model, `/performance` (win rate, expectancy, profit factor, drawdown, cumulative R, calibration, breakdowns, URL filters), outcome badges in Archive. Rules: `docs/superpowers/plans/2026-09-28-p5-signal-evaluation.md` |
 | P6 · Alerts | ✅ Done | Alerts fire server-side in the tick (5m candle high/low + quote, once, with trigger price); `Notification` model + bell in NavBar (also for paper SL/TP/liquidation closes); optional Telegram (`TELEGRAM_BOT_TOKEN`, link via `/start CODE` from Settings, `getUpdates` in the tick, `/stop` unlinks, blocked bot auto-unlinks). Clients can no longer mark alerts triggered |
 | P7 · UI & release | ✅ Done | Light redesign, risk-disclaimer gate + `/legal` + footer, public landing + waitlist + SEO, Admin → System (health, errors), track record on the ticket, accessibility audit 15→19/20 (axe 0 violations), CHANGELOG/README, version 2.0.0 + tag `v2.0.0` |
-| **Release** | ⏭ **Next** | Push `v2` + tag, PR to `main`, first Railway deploy (fresh DB) — needs Farjad's go-ahead |
+| **Release** | ⏸ Waiting | Push `v2` + tag, PR to `main`, first Railway deploy (fresh DB) — needs Farjad's go-ahead |
+| P8a · Agent sessions (paper) | ✅ Done | Mandate → desk room (analysts, optional debate, strategist) → deterministic risk engine → paper venue; 15 s monitor (stops, loss limit, end prompt + 5-min timeout), journal lessons, report; interactive Telegram; leased worker. Spec `docs/superpowers/specs/2026-09-28-p8-agent-trading-sessions-design.md`, plan `docs/superpowers/plans/2026-09-28-p8a-sessions-on-paper.md`, research `docs/superpowers/research/2026-09-28-p8-agents-exchanges.md` |
+| **P8b · Live via ccxt** | ⏭ **Next** | Encrypted exchange connections, ccxt venue (spot + perp), idempotent executor, native/software stops, reconciler, kill switch, live gating (`LIVE_TRADING_ENABLED`, admin, typed confirm). Binance Spot Testnet first, then small live runs. Verify MEXC futures API access before relying on it |
+| P9 · Forex & metals | Planned | OANDA venue (practice + live), FX/XAU/XAG; optional MT5 bridge |
 
-Quality gates at handoff: **216 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems (all rules on), production build clean.
+Quality gates at handoff: **299 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems, production build clean. P8a was verified live: a paper session on BTC/ETH with real data and gpt-5.4-mini (debate on) — cycle, verdicts, fill, partial close from the UI, end prompt, 5-minute timeout, journal lesson and report; the test data was deleted afterwards.
 
 ## Local environment
 
@@ -55,13 +58,24 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 - Default AI model → `gpt-5.4-mini` (built-in default; vision model stays `gpt-4o`). An admin value saved in Admin → AI still wins.
 - Claude Opus 5 refusal fallbacks stay on; every fallback is recorded (`AiUsage.fallbackFrom`) and shown in Admin → AI (Fallbacks column, `requested → served` in By model).
 
-## Tick job
+## Worker (tick, sessions, Telegram)
 
-- Runs every 60s in-process (single instance). Disable with `TICK_DISABLED=1`; external trigger: `POST /api/cron/tick` with `Authorization: Bearer $CRON_SECRET` (or an admin session). Last run: `tick` on `/api/health`.
-- `runTick()` in `lib/jobs/tick.ts`: paper settlement (+ notifications) → equity snapshots → signal evaluation (P5) → price alerts (P6) → Telegram link messages. Each part has its own try/catch.
+- `lib/worker/index.ts` `startWorker()`: a lease row (`AppSetting worker.lease`, 45 s, renewed every 15 s) makes exactly one process the worker; another takes over when it expires. Heartbeat: `AppSetting worker.last`.
+- `WORKER_MODE=inline` (default) → started by `instrumentation.ts` in the web process. `WORKER_MODE=separate` → the web process starts nothing; run `npm run worker` (Node with `--conditions=react-server` so `server-only` resolves, loads `.env` + `.env.local`). A bundled production worker image comes with P8b (ccxt).
+- Loops: `runTick()` every 60 s (`TICK_DISABLED=1` turns only this off; `POST /api/cron/tick` still works), `monitorSessions()` every 15 s, Telegram `getUpdates` long-poll (25 s).
+- `runTick()` in `lib/jobs/tick.ts`: paper settlement (+ notifications) → equity snapshots → signal evaluation (P5) → price alerts (P6). Each part has its own try/catch.
+
+## Agent sessions (P8a)
+
+- Flow per cycle (`lib/sessions/cycle.ts`): triggers (interval, a close since the last cycle, ≥1.5% move; a quiet all-hold interval is skipped at most twice) → context block (`lib/agents/context.ts`, "unavailable" instead of guesses) → analysts (market + news, parallel) → optional debate → strategist (exit plan per entry) → `evaluateProposal` (`lib/risk/verdict.ts`) → paper venue (`lib/venues/paper.ts`, idempotent `clientOrderId`) → room messages.
+- Monitor (`lib/sessions/monitor.ts`): stops/targets/liquidation on live prices, loss limit (realized + unrealized − fees) → HALTED + flatten, end → AWAITING_EXTENSION + prompt → timeout → `onEnd`; retries closes without a price; journals closed trades and writes the report in the background.
+- AI prompts spell out their JSON shape (`SHAPES` in `lib/agents/prompts.ts`) because OpenAI runs in `json_object` mode; zod validates every answer. Per-role models via `AiRequest.model`.
+- Agent failure → no trading that cycle, retry in 2 min; 3 in a row → PAUSED. AI budget reached → no more cycles, stops keep running.
+- Limits: at most 3 active sessions per user; daily limits in `UserTradingLimits`; live mode refused until P8b.
 
 ## Telegram (optional)
 
 1. Create a bot with @BotFather, put the token in `TELEGRAM_BOT_TOKEN` (never commit it).
-2. Users link in Settings → Telegram: they send `/start CODE` (or tap the deep link); the next tick links the chat.
-3. Uses `getUpdates` polling from the single instance — do not also set a webhook on that bot (Telegram rejects getUpdates while a webhook is set).
+2. Users link in Settings → Telegram: they send `/start CODE` (or tap the deep link); the worker links the chat within seconds.
+3. Linked chats get `/sessions`, `/positions`, `/pause`, `/resume`, `/kill` and inline buttons (`TelegramAction` tokens: single use, 24 h, bound to the owner's chat; kill/close ask for confirmation). The end-of-session prompt is edited with the outcome.
+4. Uses `getUpdates` long-polling from the single worker — do not also set a webhook on that bot (Telegram rejects getUpdates while a webhook is set).

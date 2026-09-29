@@ -13,6 +13,9 @@ import { computeMetrics, metricsText, type ClosedTrade } from "./report";
 import { post } from "./room";
 import { mandateOf } from "./view";
 
+/** Journal prices at 8 significant digits (fills carry slippage noise like 83124.40700500002). */
+const sig = (n: number) => Number(n.toPrecision(8));
+
 export interface JournalDeps { ai?: AiFn; priceOf?: PriceOf; telegram?: Telegram | null; now?: Date }
 
 async function openedQtyOf(positionId: string, fallback: number) {
@@ -38,10 +41,10 @@ export async function journalClosedPosition(positionId: string, deps: JournalDep
   try {
     const entry = await prisma.journalEntry.create({
       data: {
-        userId: s.userId, symbol: pos.symbol, position: pos.side, status: "CLOSED", entryPrice: pos.entryPrice, exitPrice: pos.closePrice,
+        userId: s.userId, symbol: pos.symbol, position: pos.side, status: "CLOSED", entryPrice: sig(pos.entryPrice), exitPrice: pos.closePrice == null ? null : sig(pos.closePrice),
         pnlPercent, feeRatePercent: FEE_RATE * 100, pnlSource: "SESSION", emotion: "Neutral",
         notes: [`Agent session "${s.name}" · closed: ${pos.closeReason?.toLowerCase().replace("_", " ") ?? "closed"} · net ${money(net)}`, plan.thesis ? `Thesis: ${plan.thesis}` : "", plan.invalidation ? `Invalidation: ${plan.invalidation}` : ""].filter(Boolean).join("\n"),
-        leverage: pos.leverage, margin: marginAtOpen, marginMode: "Isolated", openedAt: pos.openedAt, closedAt: pos.closedAt, sessionPositionId: pos.id,
+        leverage: pos.leverage, margin: Math.round(marginAtOpen * 100) / 100, marginMode: "Isolated", openedAt: pos.openedAt, closedAt: pos.closedAt, sessionPositionId: pos.id,
       },
     });
     entryId = entry.id;

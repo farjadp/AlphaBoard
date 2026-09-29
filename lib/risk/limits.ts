@@ -15,4 +15,4 @@ export function fmt(n: number, digits?: number): string {
   return n.toLocaleString("en-US", { maximumFractionDigits: d });
 }
 
-export const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export const money = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

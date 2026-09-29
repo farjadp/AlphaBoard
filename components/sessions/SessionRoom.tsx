@@ -249,7 +249,12 @@ export default function SessionRoom({ id }: { id: string }) {
         <Controls v={v} busy={busy} control={(b) => void run(() => control(b))} />
       </header>
 
-      {(actionError || error) && <p role="alert" className="rounded-lg bg-down-soft px-3 py-2 text-sm text-down">{actionError ?? error}</p>}
+      {(actionError || error) && (
+        <div role="alert" className="flex items-start justify-between gap-3 rounded-lg bg-down-soft px-3 py-2 text-sm text-down">
+          <span>{actionError ?? error}</span>
+          {actionError && <button type="button" onClick={() => setActionError(null)} className="shrink-0 text-xs font-semibold underline">Dismiss</button>}
+        </div>
+      )}
 
       {v.status === "AWAITING_EXTENSION" && (
         <section role="alertdialog" aria-labelledby="ext-title" className="rounded-2xl border border-accent/30 bg-accent-soft p-4">
@@ -282,7 +287,7 @@ export default function SessionRoom({ id }: { id: string }) {
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Room id={id} />
-        <aside className="space-y-4" aria-label="Positions">
+        <aside className="order-first space-y-4 lg:order-none" aria-label="Positions">
           <section className="panel p-4" aria-labelledby="open-heading">
             <h2 id="open-heading" className="text-sm font-semibold text-ink">Open positions</h2>
             {v.positions.length ? (
