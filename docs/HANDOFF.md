@@ -1,6 +1,6 @@
 # AlphaBoard v2 — Session Handoff
 
-_Last updated: 2026-09-28 · branch `v2` · after P6_
+_Last updated: 2026-09-29 · branch `v2` · release **v2.0.0** (tagged locally, not pushed)_
 
 Read this first in a new session. Source of truth for the plan: `docs/superpowers/specs/2026-09-27-alphaboard-v2-design.md`.
 Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
@@ -16,7 +16,8 @@ Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
 | P4 · Paper trading | ✅ Done | `lib/paper` engine (isolated margin, 0.05% fee + 0.05% slippage, liquidation, SL/TP on 5m candle high/low + live quote), 60s tick (`lib/jobs`, `instrumentation.ts`, `POST /api/cron/tick`), `/paper` (ticket, positions, history, equity curve, reset), "Trade on paper" from Archive signals. Plan: `docs/superpowers/plans/2026-09-28-p4-paper-trading.md` |
 | P5 · Signal evaluation | ✅ Done | `lib/eval` (evaluator, metrics, job in the tick), `SignalEvaluation` model, `/performance` (win rate, expectancy, profit factor, drawdown, cumulative R, calibration, breakdowns, URL filters), outcome badges in Archive. Rules: `docs/superpowers/plans/2026-09-28-p5-signal-evaluation.md` |
 | P6 · Alerts | ✅ Done | Alerts fire server-side in the tick (5m candle high/low + quote, once, with trigger price); `Notification` model + bell in NavBar (also for paper SL/TP/liquidation closes); optional Telegram (`TELEGRAM_BOT_TOKEN`, link via `/start CODE` from Settings, `getUpdates` in the tick, `/stop` unlinks, blocked bot auto-unlinks). Clients can no longer mark alerts triggered |
-| **P7 · UI & release** | ⏳ In progress | Done: light redesign (tokens, fonts, market screen), risk disclaimer gate (`/welcome`, JWT claim checked in `proxy.ts`, APIs 403 until accepted) + `/legal` + footer; public landing at `/` (signed-in users still go to their market) with a waitlist (`AccessRequest`, Admin → Invites turns a request into an invite), SEO metadata, `robots.txt`, `sitemap.xml`, OG image from a real screenshot, JSON-LD; `PRODUCT.md` (impeccable brief); admin **System** page `/admin` (overall status, scheduler health strip of the last 120 runs, people, workload, AI, recent errors from `SystemEvent`: API 5xx via `route()`, render errors via `onRequestError`, tick/scheduler failures; deduped per 10 min, kept 14 days); track record on the market ticket (dots + win rate + expectancy for this symbol/timeframe, same maths as /performance) and archived plans that already played out are marked as such with their paper/alert actions hidden. Left: a11y + `/impeccable audit`, CHANGELOG P4–P7, tag `v2.0.0`, push + deploy |
+| P7 · UI & release | ✅ Done | Light redesign, risk-disclaimer gate + `/legal` + footer, public landing + waitlist + SEO, Admin → System (health, errors), track record on the ticket, accessibility audit 15→19/20 (axe 0 violations), CHANGELOG/README, version 2.0.0 + tag `v2.0.0` |
+| **Release** | ⏭ **Next** | Push `v2` + tag, PR to `main`, first Railway deploy (fresh DB) — needs Farjad's go-ahead |
 
 Quality gates at handoff: **216 tests passing** (`npm run test:db`), `tsc` clean, ESLint 0 problems (all rules on), production build clean.
 
