@@ -3,9 +3,12 @@
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
+import DeskTable from "@/components/sessions/DeskTable";
+import { CAST } from "@/lib/agents/cast";
 import { useRoom, useSessionReport, useSessionView } from "@/hooks/useSessions";
 import { price as fmtPrice, qty as fmtQty } from "@/components/paper/format";
-import type { SessionMessageDto, SessionPositionDto, SessionRole, SessionViewDto } from "@/lib/types/sessions";
+import type { Mandate } from "@/lib/sessions/mandate";
+import type { SessionMessageDto, SessionPositionDto, SessionViewDto } from "@/lib/types/sessions";
 import { END_REASON, Meter, StatusPill, durationText, timeLeft, usd } from "./ui";
 
 // ─── Clock (1 s) without setState in effects ─────────────────────────────────
@@ -27,19 +30,6 @@ const useNow = () => useSyncExternalStore(clock.subscribe, () => clock.now, () =
 
 // ─── Room ────────────────────────────────────────────────────────────────────
 
-const ROLE: Record<SessionRole, { name: string; badge: string; tone: string }> = {
-  MARKET: { name: "Market analyst", badge: "M", tone: "bg-accent-soft text-accent" },
-  NEWS: { name: "News analyst", badge: "N", tone: "bg-accent-soft text-accent" },
-  BULL: { name: "Bull", badge: "B", tone: "bg-up-soft text-up" },
-  BEAR: { name: "Bear", badge: "B", tone: "bg-down-soft text-down" },
-  STRATEGIST: { name: "Strategist", badge: "S", tone: "bg-ink text-paper" },
-  RISK: { name: "Risk engine", badge: "R", tone: "bg-amber-soft text-amber" },
-  EXECUTOR: { name: "Executor", badge: "E", tone: "bg-wash text-ink" },
-  JOURNAL: { name: "Journal", badge: "J", tone: "bg-wash text-ink-2" },
-  SYSTEM: { name: "System", badge: "i", tone: "bg-wash text-ink-3" },
-  USER: { name: "You", badge: "Y", tone: "bg-ink text-paper" },
-};
-
 const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 function bubbleTone(m: SessionMessageDto) {
@@ -54,14 +44,15 @@ function bubbleTone(m: SessionMessageDto) {
 }
 
 function Message({ m }: { m: SessionMessageDto }) {
-  const r = ROLE[m.role];
+  const r = CAST[m.role];
   const boxed = m.kind !== "TEXT" || m.role === "USER";
   return (
     <li className="flex gap-3">
       <span aria-hidden className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-[11px] font-bold ${r.tone}`}>{r.badge}</span>
       <div className="min-w-0 flex-1">
         <p className="flex flex-wrap items-baseline gap-x-2 text-xs">
-          <span className="font-semibold text-ink">{r.name}</span>
+          <span className="font-semibold text-ink" title={r.title}>{r.name}</span>
+          {r.kind === "engine" && <span className="text-ink-3">{r.title}</span>}
           {m.kind === "PROPOSAL" && <span className="label-caps">proposal</span>}
           {m.kind === "VERDICT" && <span className="label-caps">verdict</span>}
           {m.kind === "REPORT" && <span className="label-caps">report</span>}
@@ -74,8 +65,23 @@ function Message({ m }: { m: SessionMessageDto }) {
   );
 }
 
-function Room({ id }: { id: string }) {
+const VIEW_KEY = "alphaboard:roomView";
+type RoomView = "transcript" | "table";
+
+const storedView = (): RoomView => {
+  try { return localStorage.getItem(VIEW_KEY) === "table" ? "table" : "transcript"; } catch { return "transcript"; }
+};
+
+function Room({ id, mandate }: { id: string; mandate: Mandate }) {
   const { messages, loaded, error } = useRoom(id);
+  const now = useNow();
+  // The panel only mounts once the view has loaded on the client, so reading storage here cannot
+  // disagree with the server render.
+  const [view, setView] = useState<RoomView>(() => (typeof window === "undefined" ? "transcript" : storedView()));
+  const pickView = (next: RoomView) => {
+    setView(next);
+    try { localStorage.setItem(VIEW_KEY, next); } catch { /* private mode: the choice just does not stick */ }
+  };
   const ref = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   useEffect(() => {
@@ -94,8 +100,20 @@ function Room({ id }: { id: string }) {
     <section aria-labelledby="room-heading" className="panel flex min-h-[420px] flex-col lg:h-[calc(100vh-15rem)]">
       <header className="flex items-center justify-between border-b border-line px-4 py-3">
         <h2 id="room-heading" className="text-sm font-semibold text-ink">Desk room</h2>
-        <span className="text-[11px] text-ink-3">Live · updates every few seconds</span>
+        <div className="flex items-center gap-1" role="group" aria-label="Room view">
+          {(["table", "transcript"] as const).map((v) => (
+            <button key={v} type="button" aria-pressed={view === v} onClick={() => pickView(v)}
+              className={`rounded-md px-2 py-1 text-xs font-medium ${view === v ? "bg-ink text-paper" : "text-ink-2 hover:text-ink"}`}>{v}</button>
+          ))}
+        </div>
       </header>
+      {view === "table" ? (
+        <div className="flex-1 overflow-y-auto px-4 py-4">
+          {!loaded && <p className="text-sm text-ink-3">Loading the room…</p>}
+          {error && <p role="alert" className="text-sm text-down">{error}</p>}
+          {loaded && <DeskTable messages={messages} mandate={mandate} now={now} />}
+        </div>
+      ) : (
       <div ref={ref} onScroll={(e) => { const el = e.currentTarget; stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }} className="flex-1 overflow-y-auto px-4 py-4">
         {!loaded && <p className="text-sm text-ink-3">Loading the room…</p>}
         {error && <p role="alert" className="text-sm text-down">{error}</p>}
@@ -113,6 +131,7 @@ function Room({ id }: { id: string }) {
           ))}
         </ol>
       </div>
+      )}
     </section>
   );
 }
@@ -286,7 +305,7 @@ export default function SessionRoom({ id }: { id: string }) {
       {v.hasReport && <ReportPanel id={id} />}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Room id={id} />
+        <Room id={id} mandate={v.mandate} />
         <aside className="order-first space-y-4 lg:order-none" aria-label="Positions">
           <section className="panel p-4" aria-labelledby="open-heading">
             <h2 id="open-heading" className="text-sm font-semibold text-ink">Open positions</h2>
