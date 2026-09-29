@@ -31,11 +31,12 @@ export async function reconcileSession(s: Pick<TradingSession, "id" | "userId" |
   const prefix = `ab-${s.id.slice(-10)}-`;
   const sessionSymbols = [...new Set((await prisma.sessionOrder.findMany({ where: { sessionId: s.id }, select: { symbol: true } })).map((o) => o.symbol))];
 
-  // 1. Our orders must not be resting on the book.
+  // 1. Our orders must not be resting on the book — except the stop orders the ledger placed.
+  const restingStops = new Set((await prisma.sessionOrder.findMany({ where: { sessionId: s.id, purpose: "STOP", status: "OPEN" }, select: { clientOrderId: true } })).map((o) => o.clientOrderId));
   for (const sym of sessionSymbols) {
     const xs = exchangeSymbol(sym, conn.quote, conn.marketType);
     const open = await ex.fetchOpenOrders(xs).catch(() => []);
-    for (const o of open.filter((x) => x.clientOrderId?.startsWith(prefix))) {
+    for (const o of open.filter((x) => x.clientOrderId?.startsWith(prefix) && !restingStops.has(x.clientOrderId))) {
       await ex.cancelOrder(o.id, xs).catch(() => undefined);
       issues.push(`order ${o.clientOrderId} was still open on ${conn.exchange} and has been cancelled`);
     }

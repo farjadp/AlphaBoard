@@ -16,7 +16,7 @@ import type { SessionSummaryDto } from "@/lib/types/sessions";
 import { canTransition, isActive } from "./lifecycle";
 import { dailyUsage } from "./limits";
 import { MandateError, parseMandate, type Mandate } from "./mandate";
-import { exitPosition, flatten, sessionPriceOf, venueFor, type ExitDeps } from "./exits";
+import { announceExit, exitPosition, flatten, sessionPriceOf, venueFor, type ExitDeps } from "./exits";
 import { post } from "./room";
 import { buildView, mandateOf, summaryToDto } from "./view";
 
@@ -102,7 +102,11 @@ export async function startSession(userId: string, input: StartInput, deps: Serv
     },
   });
   const where = exchange
-    ? `${live ? "LIVE — real money" : "testnet"} on ${exchange.conn.exchange} (${exchange.conn.label}), symbols ${mandate.symbols.map((x) => exchange.venue.symbolFor(x)).join(", ")}. Stops are software stops checked every 15 s; the venue is reconciled every 30 s`
+    ? `${live ? "LIVE — real money" : "testnet"} on ${exchange.conn.exchange} (${exchange.conn.label}), symbols ${mandate.symbols.map((x) => exchange.venue.symbolFor(x)).join(", ")}. ${
+      (await exchange.venue.stopMode(mandate.symbols[0])) === "native"
+        ? "Each position gets a stop-loss order resting on the exchange (software stop as a fallback)"
+        : `${exchange.conn.exchange} stop orders are not supported here, so stops are software stops checked every 15 s`
+    }; the venue is reconciled every 30 s`
     : "on paper";
   await post(s.id, "SYSTEM", "TEXT", `Session started ${where}. The first decision cycle runs within a minute.\n${formatMandate(mandate)}`);
   await say(s, `Session started${live ? " (LIVE)" : exchange ? " (testnet)" : ""}: ${mandate.symbols.join(", ")}, ${mandate.durationMin} min, loss limit ${money(mandate.lossLimit)}.`, deps.telegram);
@@ -229,7 +233,11 @@ export async function moveStopToBreakeven(userId: string, positionId: string, de
   const long = pos.side === "LONG";
   if (long ? price <= be : price >= be) throw badRequest(`Price ${fmt(price)} has not moved past the entry ${fmt(be)} yet`, "NOT_IN_PROFIT");
   if (pos.stopLoss != null && (long ? pos.stopLoss >= be : pos.stopLoss <= be)) throw badRequest("The stop is already at or beyond breakeven", "ALREADY_PROTECTED");
-  await (await venueFor(pos.session, deps.priceOf)).setStop(pos.id, be);
+  const fired = await (await venueFor(pos.session, deps.priceOf)).setStop(pos.id, be);
+  if (fired) {
+    await announceExit(pos.session, pos, "STOP_LOSS", fired, { telegram: deps.telegram, onExchange: true });
+    throw badRequest("The exchange stop had already filled — the position is closed", "CLOSED");
+  }
   await post(pos.sessionId, "USER", "TEXT", `Move ${pos.symbol} stop to breakeven (${fmt(be)}).`);
   await post(pos.sessionId, "EXECUTOR", "ORDER", `${pos.symbol} stop moved ${pos.stopLoss == null ? "" : `${fmt(pos.stopLoss)} → `}${fmt(be)}.`, { positionId: pos.id, stopLoss: be });
   return be;

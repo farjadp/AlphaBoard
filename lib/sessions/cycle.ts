@@ -14,7 +14,7 @@ import { evaluateProposal, type Proposal, type RiskState, type Verdict } from "@
 import { sessionFreeCapital } from "@/lib/venues/paper";
 import { VenueError, type Venue } from "@/lib/venues/types";
 import { dailyUsage } from "./limits";
-import { exitPosition, haltSession, isUnknownOrder, orderId, sessionPriceOf, venueFor } from "./exits";
+import { announceExit, exitPosition, haltSession, isUnknownOrder, orderId, sessionPriceOf, venueFor } from "./exits";
 import type { Mandate } from "./mandate";
 import { post } from "./room";
 import { mandateOf, markOpen, sessionMoney } from "./view";
@@ -247,7 +247,8 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
         });
         if (!r.replayed) {
           executed++;
-          const body = `${v.side === "LONG" ? "Bought" : "Sold short"} ${fmt(r.fill.qty)} ${p.symbol} at ${fmt(r.fill.price)} · fee ${money(r.fill.fee)} · stop ${fmt(v.stopLoss)}${v.takeProfit != null ? ` · target ${fmt(v.takeProfit)}` : ""}`;
+          const stopNote = r.stop?.mode === "native" ? " (stop order resting on the exchange)" : r.stop?.error ? ` (exchange stop refused: ${r.stop.error.slice(0, 80)} — software stop active)` : "";
+          const body = `${v.side === "LONG" ? "Bought" : "Sold short"} ${fmt(r.fill.qty)} ${p.symbol} at ${fmt(r.fill.price)} · fee ${money(r.fill.fee)} · stop ${fmt(v.stopLoss)}${stopNote}${v.takeProfit != null ? ` · target ${fmt(v.takeProfit)}` : ""}`;
           await post(sessionId, "EXECUTOR", "FILL", body, { positionId: r.positionId, side: v.side, qty: r.fill.qty, price: r.fill.price, fee: r.fill.fee }, extra);
           await notify(s.userId, { type: "session", title: `${s.name}: ${v.side} ${p.symbol}`, body, data: { sessionId, href: `/sessions/${sessionId}` } }, deps.telegram).catch(() => undefined);
         }
@@ -256,7 +257,11 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
         if (await exitPosition(s, pos, "STRATEGIST", { priceOf, telegram: deps.telegram, venue, tag: `c${cycleNo}-${i}`, cycle: cycleNo })) executed++;
       } else if (v.kind === "tighten") {
         const pos = await prisma.sessionPosition.findUniqueOrThrow({ where: { id: v.positionId } });
-        await venue.setStop(v.positionId, v.stopLoss);
+        const fired = await venue.setStop(v.positionId, v.stopLoss);
+        if (fired) {
+          await announceExit(s, pos, "STOP_LOSS", fired, { cycle: cycleNo, telegram: deps.telegram, onExchange: true });
+          continue;
+        }
         await prisma.sessionPosition.update({ where: { id: v.positionId }, data: { exitPlan: { ...(pos.exitPlan as object), invalidation: p.exitPlan.invalidation || (pos.exitPlan as { invalidation?: string }).invalidation } } });
         await post(sessionId, "EXECUTOR", "ORDER", `${p.symbol} stop moved ${pos.stopLoss == null ? "" : `${fmt(pos.stopLoss)} → `}${fmt(v.stopLoss)}.`, { positionId: v.positionId, stopLoss: v.stopLoss }, extra);
         executed++;

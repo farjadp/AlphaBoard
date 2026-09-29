@@ -19,8 +19,9 @@ process.env.EXCHANGE_KEY_SECRET = randomBytes(32).toString("base64");
 
 const plan = { commentary: "go", decisions: [{ action: "OPEN_LONG", symbol: "BTC/USDT", positionId: null, conviction: 0.7, thesis: "t", stopLoss: 95_000, takeProfit: 120_000, invalidation: "i", horizonMin: 60 }] };
 const note = { notes: [] };
+const lesson = { outcome: "LOSS", rootCause: "r", mistakes: [], strengths: [], lesson: "l", tags: [] };
 const ai = (async (req: AiRequest<never>) => ({
-  data: (req.schema as unknown as { parse(v: unknown): unknown }).parse(req.feature === "session.strategist" ? plan : note),
+  data: (req.schema as unknown as { parse(v: unknown): unknown }).parse(req.feature === "session.strategist" ? plan : req.feature === "session.journal" ? lesson : req.feature === "session.report" ? { summary: "s", lessons: [] } : note),
   meta: { provider: "openai", model: "m", inputTokens: 1, outputTokens: 1, costUsd: 0.001, visionFallback: false },
 })) as unknown as AiFn;
 const gather = async (symbol: string): Promise<SymbolContext> => ({ symbol, price: 100_000, changePct24h: 0, timeframes: [], consensus: null, funding: null, news: [] });

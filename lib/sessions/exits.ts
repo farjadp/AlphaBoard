@@ -7,7 +7,7 @@ import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
 import { fmt, money } from "@/lib/risk/limits";
 import { paperVenue } from "@/lib/venues/paper";
-import { VenueError, type Venue } from "@/lib/venues/types";
+import { VenueError, type CloseResult, type Venue } from "@/lib/venues/types";
 import { ccxtVenue } from "@/lib/venues/ccxt";
 import { post } from "./room";
 
@@ -80,12 +80,25 @@ export async function exitPosition(
     throw e;
   }
   if (!r) return null;
+  await announceExit(session, pos, reason, r, { fraction: opts.fraction, cycle: opts.cycle, telegram: opts.telegram });
+  return r;
+}
+
+/** Room message + notification for a booked exit (a market close or an exchange stop that fired). */
+export async function announceExit(
+  session: Pick<TradingSession, "id" | "userId" | "name">,
+  pos: Pick<SessionPosition, "id" | "symbol" | "side">,
+  reason: SessionCloseReason,
+  r: CloseResult,
+  opts: { fraction?: number; cycle?: number; telegram?: Telegram | null; onExchange?: boolean } = {},
+) {
+  const partial = opts.fraction != null && opts.fraction < 1 && !r.closed;
   const what = partial ? `Closed ${Math.round((opts.fraction ?? 1) * 100)}% of` : "Closed";
-  const body = `${what} ${pos.side} ${pos.symbol} at ${fmt(r.fill.price)} (${REASON_TEXT[reason]}) · net ${r.realizedPnl >= 0 ? "+" : "−"}${money(Math.abs(r.realizedPnl))}`;
+  const how = opts.onExchange ? "stop-loss order filled on the exchange" : REASON_TEXT[reason];
+  const body = `${what} ${pos.side} ${pos.symbol} at ${fmt(r.fill.price)} (${how}) · net ${r.realizedPnl >= 0 ? "+" : "−"}${money(Math.abs(r.realizedPnl))}`;
   await post(session.id, "EXECUTOR", "FILL", body, { positionId: pos.id, reason, price: r.fill.price, qty: r.fill.qty, fee: r.fill.fee, realizedPnl: r.realizedPnl, closed: r.closed }, { cycle: opts.cycle });
   await notify(session.userId, { type: "session", title: `${session.name}: ${pos.symbol} ${partial ? "partly closed" : "closed"}`, body, data: { sessionId: session.id, href: `/sessions/${session.id}` } }, opts.telegram)
     .catch(() => undefined);
-  return r;
 }
 
 /** Close every open position of a session. Positions without a price stay open and are retried by the monitor. */

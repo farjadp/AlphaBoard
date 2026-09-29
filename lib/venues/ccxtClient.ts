@@ -35,6 +35,8 @@ export interface CcxtMarket {
 export interface ExchangeLike {
   id: string;
   has: Record<string, unknown>;
+  /** ccxt capability tree, e.g. features.spot.createOrder.stopLossPrice. */
+  features?: Record<string, unknown>;
   markets?: Record<string, CcxtMarket>;
   loadMarkets(reload?: boolean): Promise<Record<string, CcxtMarket>>;
   fetchTicker(symbol: string): Promise<{ last?: number; bid?: number; ask?: number }>;

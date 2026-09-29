@@ -50,10 +50,15 @@ export interface Venue {
   /** The venue's symbol for a catalog symbol (paper: identity). */
   symbolFor(symbol: string): string;
   marketRules(symbol: string): Promise<MarketRules | null>;
-  openPosition(i: OpenIntent): Promise<{ positionId: string; fill: VenueFill; replayed: boolean }>;
+  /** "native": a stop order rests on the exchange; "software": the monitor watches the price. */
+  stopMode(symbol: string): Promise<"native" | "software">;
+  openPosition(i: OpenIntent): Promise<{ positionId: string; fill: VenueFill; replayed: boolean; stop?: { mode: "native" | "software"; error?: string } }>;
   /** Null when the position is already closed (idempotent). */
   closePosition(i: CloseIntent): Promise<CloseResult | null>;
-  setStop(positionId: string, stopLoss: number): Promise<void>;
+  /** Move the stop. Returns a booked exit when the old exchange stop had already fired. */
+  setStop(positionId: string, stopLoss: number): Promise<CloseResult | null>;
+  /** Book exchange stops that fired since the last check (native-stop venues). */
+  syncStops?(sessionId: string): Promise<Array<{ positionId: string; result: CloseResult }>>;
 }
 
 export class VenueError extends Error {

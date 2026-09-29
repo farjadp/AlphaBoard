@@ -10,7 +10,7 @@ import { notify } from "@/lib/notify/notifications";
 import type { AiFn } from "@/lib/agents/run";
 import { money } from "@/lib/risk/limits";
 import { runCycle } from "./cycle";
-import { exitPosition, flatten, sessionPriceOf } from "./exits";
+import { announceExit, exitPosition, flatten, sessionPriceOf, venueFor } from "./exits";
 import { reconcileSession, RECONCILE_EVERY_MS } from "@/lib/exec/reconciler";
 import { journalClosedPosition, writeReport } from "./journal";
 import { isActive, timerTransition } from "./lifecycle";
@@ -37,6 +37,9 @@ export interface MonitorResult {
   ended: string[];
   errors: string[];
 }
+
+/** How far past an exchange-held stop the software fallback waits before closing at market itself. */
+export const NATIVE_STOP_SLACK = 0.003;
 
 /** Which exit, if any, the live price triggers. Liquidation first, then the stop, then the target. */
 export function exitFor(p: Pick<SessionPosition, "side" | "leverage" | "entryPrice" | "stopLoss" | "takeProfit">, price: number): SessionCloseReason | null {
@@ -129,11 +132,27 @@ type Loaded = TradingSession & { positions: SessionPosition[] };
 async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, exitDeps: { priceOf: PriceOf; telegram: Telegram | null }, result: MonitorResult) {
   const m = mandateOf(s);
 
+  // 0. Exchange stops that fired since the last pass (native-stop venues).
+  const nativelyProtected = new Set<string>();
+  if (s.venue === "exchange" && s.positions.some((p) => !p.closedAt)) {
+    const venue = await venueFor(s);
+    for (const b of (await venue.syncStops?.(s.id)) ?? []) {
+      const pos = s.positions.find((p) => p.id === b.positionId)!;
+      await announceExit(s, pos, "STOP_LOSS", b.result, { telegram: exitDeps.telegram, onExchange: true });
+      result.exits.push({ positionId: pos.id, reason: "STOP_LOSS" });
+    }
+    const resting = await prisma.sessionOrder.findMany({ where: { sessionId: s.id, purpose: "STOP", status: "OPEN" }, select: { positionId: true } });
+    for (const r of resting) if (r.positionId) nativelyProtected.add(r.positionId);
+  }
+
   // 1. Software stops / targets / liquidation — in every state, including after the end (KEEP_WITH_STOPS).
-  for (const p of s.positions.filter((x) => !x.closedAt)) {
+  //    A position with a stop resting on the exchange gets NATIVE_STOP_SLACK first, so the exchange order works.
+  const open = await prisma.sessionPosition.findMany({ where: { sessionId: s.id, closedAt: null } });
+  for (const p of open) {
     const price = await priceOf(p.symbol);
     if (price == null) continue;
-    const reason = exitFor(p, price);
+    const slack = nativelyProtected.has(p.id) && p.stopLoss != null ? p.stopLoss * NATIVE_STOP_SLACK * (p.side === "LONG" ? -1 : 1) : 0;
+    const reason = exitFor({ ...p, stopLoss: p.stopLoss == null ? null : p.stopLoss + slack }, price);
     if (!reason) continue;
     const level = reason === "LIQUIDATION" ? liquidationPrice(p.side, p.entryPrice, p.leverage) : undefined;
     const r = await exitPosition(s, p, reason, { ...exitDeps, price: level });

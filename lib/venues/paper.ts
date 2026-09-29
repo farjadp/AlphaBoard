@@ -34,6 +34,7 @@ export function paperVenue(priceOf: PriceOf): Venue {
     kind: "paper",
     live: false,
     symbolFor: (s: string) => s,
+    stopMode: async () => "software" as const,
 
     async marketRules(symbol: string): Promise<MarketRules | null> {
       const price = await priceOf(symbol).catch(() => null);
@@ -122,6 +123,7 @@ export function paperVenue(priceOf: PriceOf): Venue {
 
     async setStop(positionId: string, stopLoss: number) {
       await prisma.sessionPosition.updateMany({ where: { id: positionId, closedAt: null }, data: { stopLoss } });
+      return null;
     },
   };
 }
