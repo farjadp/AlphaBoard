@@ -33,6 +33,7 @@ export function paperVenue(priceOf: PriceOf): Venue {
   return {
     kind: "paper",
     live: false,
+    symbolFor: (s: string) => s,
 
     async marketRules(symbol: string): Promise<MarketRules | null> {
       const price = await priceOf(symbol).catch(() => null);

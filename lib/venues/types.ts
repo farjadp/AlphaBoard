@@ -44,8 +44,11 @@ export interface CloseResult {
 }
 
 export interface Venue {
-  kind: "paper";
-  live: false;
+  kind: "paper" | "ccxt";
+  /** True only for real money (not paper, not an exchange sandbox). */
+  live: boolean;
+  /** The venue's symbol for a catalog symbol (paper: identity). */
+  symbolFor(symbol: string): string;
   marketRules(symbol: string): Promise<MarketRules | null>;
   openPosition(i: OpenIntent): Promise<{ positionId: string; fill: VenueFill; replayed: boolean }>;
   /** Null when the position is already closed (idempotent). */
@@ -54,7 +57,7 @@ export interface Venue {
 }
 
 export class VenueError extends Error {
-  constructor(message: string, public readonly code: "PRICE_UNAVAILABLE" | "INSUFFICIENT_CAPITAL" | "BAD_ORDER") {
+  constructor(message: string, public readonly code: "PRICE_UNAVAILABLE" | "INSUFFICIENT_CAPITAL" | "BAD_ORDER" | "UNKNOWN_ORDER" | "HALTED") {
     super(message);
     this.name = "VenueError";
   }
