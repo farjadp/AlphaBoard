@@ -1,6 +1,6 @@
 {
   "name": "tradeflow",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "node prisma/seed.mjs",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate",
     "test:db": "TEST_DATABASE_URL=postgresql://alphaboard:alphaboard@localhost:5434/alphaboard?schema=test vitest run"
@@ -47,6 +47,6 @@
     "vitest": "^3.2.7"
   },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "node prisma/seed.mjs"
   }
 }
