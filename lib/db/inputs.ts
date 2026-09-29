@@ -98,3 +98,26 @@ export const PaperExitsInput = z.object({
 export const PaperResetInput = z.object({
   startingBalance: z.number().finite().min(100).max(10_000_000).default(10_000),
 });
+
+// ─── Agent trading sessions (P8) — the mandate itself is validated by lib/sessions/mandate.ts ───
+
+export const SessionStartInput = z.object({
+  name: opt(z.string().trim().max(80)),
+  mandate: z.record(z.string(), z.unknown()),
+  live: z.boolean().optional(),
+});
+
+export const SessionControlInput = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("pause") }),
+  z.object({ action: z.literal("resume") }),
+  z.object({ action: z.literal("kill") }),
+  z.object({ action: z.literal("extend"), minutes: z.number().int().min(5).max(1440) }),
+  z.object({ action: z.literal("end"), mode: z.enum(["CLOSE_ALL", "KEEP_WITH_STOPS"]) }),
+]);
+
+export const SessionPositionInput = z.object({ action: z.enum(["close", "close_half", "breakeven"]) });
+
+export const TradingLimitsInput = z.object({
+  maxDailyLoss: z.number().finite().positive().max(10_000_000).nullable(),
+  maxSessionsPerDay: z.number().int().min(1).max(100).nullable(),
+});
