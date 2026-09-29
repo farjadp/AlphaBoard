@@ -20,6 +20,7 @@ Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
 | **Release** | ⏸ Waiting | Push `v2` + tag, PR to `main`, first Railway deploy (fresh DB) — needs Farjad's go-ahead |
 | P8a · Agent sessions (paper) | ✅ Done | Mandate → desk room (analysts, optional debate, strategist) → deterministic risk engine → paper venue; 15 s monitor (stops, loss limit, end prompt + 5-min timeout), journal lessons, report; interactive Telegram; leased worker. Spec `docs/superpowers/specs/2026-09-28-p8-agent-trading-sessions-design.md`, plan `docs/superpowers/plans/2026-09-28-p8a-sessions-on-paper.md`, research `docs/superpowers/research/2026-09-28-p8-agents-exchanges.md` |
 | P8b · Live via ccxt | ✅ Done (verified on Binance Spot Testnet) | Encrypted exchange connections (Settings), ccxt venue (spot + perp, market orders, intent-first client ids, lookup on unknown outcome), halt on unknown orders, 30 s reconciler, `TRADING_HALT`, gating (`LIVE_TRADING_ENABLED` + `EXCHANGE_KEY_SECRET`, admin, typed LIVE for real money). Plan `docs/superpowers/plans/2026-09-29-p8b-live-ccxt.md`. Testnet run 2026-09-29: real orders filled (7582599 buy, partial close, kill), exchange orders matched the ledger 1:1, reconciler clean, software stop fired a market SELL (7585120); test data removed, the testnet connection kept in Settings. Opt-in test `tests/db/binanceTestnet.test.ts` |
+| News hub | ✅ Done (branch `feat/news-hub`) | Multi-source news (Finnhub, Alpha Vantage, Marketaux, NewsAPI, RSS, Yahoo, CryptoPanic v2), de-dup, weighted headlines, weekly publisher-weights agent with code limits + change log, shadow news index with 4 h/24 h evaluation, Admin → News. Plan `docs/superpowers/plans/2026-09-29-news-hub.md`; spec in Notion |
 | P8c · Native stops | Next | Exchange-side stop orders where ccxt supports them (software stops remain the fallback); bundled standalone worker image; MEXC futures API check |
 | P9 · Forex & metals | Planned | OANDA venue (practice + live), FX/XAU/XAG; optional MT5 bridge |
 
@@ -30,7 +31,7 @@ Quality gates at handoff: **299 tests passing** (`npm run test:db`), `tsc` clean
 - Work in **`~/Developer/alphaboard`** (not the Google Drive copy: its path — spaces + `@` — makes vitest hang). Remotes: `origin` = GitHub, `drive` = old Drive folder. `v2` is **not pushed** to GitHub yet.
 - Dev Postgres: `docker compose up -d db` → `localhost:5434` (5432/5433 are taken by other projects). Test schema: `?schema=test` (used by `npm run test:db`).
 - Run the app: preview config `.claude/launch.json` → `npm start -- -p 3001` (port 3000 belongs to another project). Rebuild (`npm run build`) after code changes before `npm start`.
-- Secrets: `.env` (DB, AUTH_SECRET, ADMIN_EMAIL/ADMIN_PASSWORD for the local admin) and `.env.local` (OPENAI_API_KEY, NEWS_API_KEY). Both git-ignored. Only OpenAI is configured; Anthropic/OpenRouter/DeepSeek need keys for live tests.
+- Secrets: `.env` (DB, AUTH_SECRET, ADMIN_EMAIL/ADMIN_PASSWORD for the local admin) and `.env.local` (API keys only: OpenAI, NewsAPI, Finnhub, Alpha Vantage, Marketaux — never production values). Both git-ignored. Only OpenAI is configured; Anthropic/OpenRouter/DeepSeek need keys for live tests.
 - Local admin login: `ADMIN_EMAIL` in `.env`; password is the local test password set in `.env` (`ADMIN_PASSWORD`).
 
 ## Gotcha: `prisma migrate dev` in this (non-interactive) shell
@@ -73,6 +74,14 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 - Catalog symbols map to `BASE/<quote>` (spot) or `BASE/<quote>:<quote>` (swap); exchange sessions are crypto only (forex/metals → P9 OANDA).
 - Exchange sessions price everything (stops, marks, risk) from the exchange ticker; agents still read market data from `lib/market`.
 - Unknown order outcome → `haltSession(RECONCILE_MISMATCH)`; the monitor then closes the remaining positions. The owner should check the exchange by hand.
+
+## News hub
+
+- `lib/news/`: `sources.ts` (adapters + budgets), `ingest.ts` (targets = watchlists + unfinished sessions + default watchlist; state in `AppSetting news.providers`), `read.ts` (ranked headlines), `measure.ts` (hourly snapshots, returns from 1H candles 24 h later, reports), `weights.ts` (weekly agent, `feature: news.weights`, billed to the first admin), `job.ts` (worker loop every 2 min; `NEWS_DISABLED=1` turns it off; last pass in `AppSetting news.last`).
+- `getNews()` reads the hub; when the hub has nothing for a symbol it fetches that symbol's Yahoo feed once and stores it.
+- Shadow rule: the news index number is never given to trading agents. Revisit after ≥ 4 weeks of evaluation with Farjad (Admin → News shows hit rates and correlation).
+- Keys: `FINNHUB_KEY`, `ALPHAVANTAGE_KEY`, `MARKETAUX_KEY` (free plans; set locally and in Railway 2026-09-29), `NEWS_API_KEY`, optional `CRYPTOPANIC_KEY` + `CRYPTOPANIC_PLAN`.
+- Yahoo per-symbol feeds are loose (mining stocks under gold), so they count as title-level relevance, not tags. Yahoo-syndicated items all share the publisher "Yahoo Finance".
 
 ## Agent sessions (P8a)
 

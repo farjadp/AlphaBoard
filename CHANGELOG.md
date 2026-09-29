@@ -4,6 +4,14 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### News hub
+- **Many sources at once:** Finnhub, Alpha Vantage, Marketaux, NewsAPI, CoinDesk / Cointelegraph / Decrypt RSS, Yahoo and (paid) CryptoPanic v2. Each source keeps its own interval and a daily budget below its free limit; per-symbol sources rotate through watchlists and running sessions.
+- **De-duplication and symbols:** the same article from two sources is merged (canonical URL, then title within 48 h); symbols are found from names and tickers in the headline or summary, plus the providers' own tags.
+- **Weighted headlines:** publisher credibility × recency × relevance × confirmation by other publishers. The market news panel and the agents' news analyst get the top headlines from all sources with the publisher and how the sentiment was obtained (provider score, reader votes or keyword guess).
+- **Publisher weights by an agent, weekly:** it reads each publisher's measured accuracy (price move 4 h / 24 h after its headlines) and proposes weights with reasons; the code applies them within 0.1–1.0, at most ±0.2 a week, only with ≥ 20 evaluated calls. Every change is logged with the numbers; admins can override or revert (Admin → News).
+- **News index (shadow):** hourly weighted sentiment per symbol, evaluated against later returns. It is recorded only and not given to trading agents.
+- Fixed: hidden accessibility labels made long pages taller than the screen, so keyboard focus could scroll the window into a blank area.
+
 ### P8b · Exchange execution (ccxt)
 - **Exchange connections** in Settings (owner only, with `LIVE_TRADING_ENABLED=1` and `EXCHANGE_KEY_SECRET`): any ccxt exchange, spot or perpetual, a quote currency, testnet or real money. Keys are AES-256-GCM encrypted; only the last four characters are shown; "Test" loads markets and reads the balance.
 - **Sessions on an exchange:** pick a tested connection in the mandate form. Real-money sessions need the typed confirmation `LIVE`. Start checks the market type, that every symbol is listed, and that the capital fits the free quote balance.

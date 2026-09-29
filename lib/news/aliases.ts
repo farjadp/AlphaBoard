@@ -33,7 +33,7 @@ export const NEWS_ALIASES: Record<string, string[]> = {
   "BONK/USDT": ["Bonk"],
   "FARTCOIN/USD": ["Fartcoin"],
   // Indices
-  SPX: ["S&P 500", "S&P500", "SPX"],
+  SPX: ["S&P 500", "S&P500", "SPX", "Wall Street", "U.S. stocks", "US stocks"],
   NDX: ["Nasdaq"],
   DJI: ["Dow Jones", "Dow Industrials", "DJIA"],
   FTSE: ["FTSE 100", "FTSE"],

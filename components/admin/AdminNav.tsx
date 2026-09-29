@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/admin/users", label: "Users" },
   { href: "/admin/invites", label: "Invites" },
   { href: "/admin/ai", label: "AI" },
+  { href: "/admin/news", label: "News" },
 ];
 
 export default function AdminNav({ pendingRequests }: { pendingRequests: number }) {

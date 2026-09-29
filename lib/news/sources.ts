@@ -210,7 +210,8 @@ export const PROVIDERS: ProviderSpec[] = [
       if (!asset) return [];
       const s = asset.yahooSymbol ?? `${base(asset)}-USD`;
       const items = parseRss(await fetchText(`https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(s)}&region=US&lang=en-US`), "yahoo", "Yahoo Finance");
-      return items.map((i) => ({ ...i, tags: [{ symbol: asset.symbol, relevance: RELEVANCE.tagged, sentiment: null }] }));
+      // Yahoo's per-symbol feed is loose (mining stocks under gold, politics under BTC): title-level relevance, not "tagged".
+      return items.map((i) => ({ ...i, tags: [{ symbol: asset.symbol, relevance: RELEVANCE.title, sentiment: null }] }));
     },
   },
   {

@@ -48,10 +48,11 @@ Sign in as the admin, accept the risk disclaimer, then invite traders from **Adm
 | `OPENAI_API_KEY` | one AI key | Default provider (default model `gpt-5.4-mini`, images `gpt-4o`) |
 | `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY` | optional | More providers; only providers with a key can be chosen |
 | `AI_DEFAULT_PROVIDER`, `AI_DEFAULT_MODEL` | optional | Initial default until an admin sets one in **Admin → AI** |
-| `NEWS_API_KEY`, `CRYPTOPANIC_KEY` | optional | News panels |
+| `FINNHUB_KEY`, `ALPHAVANTAGE_KEY`, `MARKETAUX_KEY`, `NEWS_API_KEY`, `CRYPTOPANIC_KEY` (+ `CRYPTOPANIC_PLAN`) | optional | News hub sources (RSS and Yahoo need no key); see Admin → News |
 | `TELEGRAM_BOT_TOKEN` | optional | Alert delivery to Telegram (users link a chat in Settings) |
 | `CRON_SECRET` | optional | Lets an external scheduler call `POST /api/cron/tick` |
 | `TICK_DISABLED` | optional | `1` turns the 60-second tick off (sessions and Telegram keep running) |
+| `NEWS_DISABLED` | optional | `1` turns the news hub pass off |
 | `LIVE_TRADING_ENABLED`, `EXCHANGE_KEY_SECRET` | optional | Both needed for exchange sessions: the flag, and 32 random bytes (base64) that encrypt stored API keys |
 | `TRADING_HALT` | optional | `1` refuses every new exchange entry (exits still run) |
 | `WORKER_MODE` | optional | `inline` (default): background work runs inside the web process · `separate`: run `npm run worker` as its own process |

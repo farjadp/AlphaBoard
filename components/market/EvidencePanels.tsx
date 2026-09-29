@@ -153,10 +153,12 @@ export function NewsPanel({ symbol }: { symbol: string }) {
                 title={`Sentiment ${item.sentiment} (${SENTIMENT_SOURCE[item.sentimentSource ?? "keywords"]})`}
                 className={`size-2 shrink-0 translate-y-[-1px] rounded-full ${item.sentiment === "bullish" ? "bg-up" : item.sentiment === "bearish" ? "bg-down" : "bg-ink-3"}`}
               />
-              {item.url
-                ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-ink hover:underline">{item.headline}</a>
-                : <span className="text-ink">{item.headline}</span>}
-              <span className="ml-auto shrink-0 pl-2 text-right text-[11px] text-ink-3">{item.source} · {timeAgo(item.publishedAt)}</span>
+              <div className="min-w-0 flex-1">
+                {item.url
+                  ? <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-ink hover:underline">{item.headline}</a>
+                  : <span className="text-ink">{item.headline}</span>}
+                <span className="mt-0.5 block text-[11px] text-ink-3">{item.source} · {timeAgo(item.publishedAt)}</span>
+              </div>
             </li>
           ))}
         </ul>

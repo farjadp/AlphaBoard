@@ -132,6 +132,6 @@ export async function revertWeightChange(changeId: string, adminId: string) {
   await prisma.$transaction([
     prisma.newsPublisher.update({ where: { key: p.key }, data: { weight: c.from } }),
     prisma.publisherWeightChange.update({ where: { id: c.id }, data: { revertedAt: new Date() } }),
-    prisma.publisherWeightChange.create({ data: { publisherKey: p.key, by: "admin", userId: adminId, from: p.weight, proposed: c.from, to: c.from, reason: `Reverted change ${c.id}`, revertOfId: c.id } }),
+    prisma.publisherWeightChange.create({ data: { publisherKey: p.key, by: "admin", userId: adminId, from: p.weight, proposed: c.from, to: c.from, reason: `Reverted the ${c.by} change of ${c.createdAt.toISOString().slice(0, 16).replace("T", " ")} UTC (${c.from.toFixed(2)} → ${c.to.toFixed(2)})`, revertOfId: c.id } }),
   ]);
 }
