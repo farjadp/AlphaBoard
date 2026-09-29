@@ -128,16 +128,17 @@ export async function finishSession(
 ) {
   const now = deps.now ?? new Date();
   const halted = reason === "KILL" || reason === "LOSS_LIMIT" || reason === "RECONCILE_MISMATCH" || reason === "ERROR";
-  await setStatus(s, halted ? "HALTED" : "ENDED", { endReason: reason, endedAt: now, extensionPromptAt: null, nextCycleAt: null });
+  const keepOpen = mode === "KEEP_WITH_STOPS" && !halted;
+  await setStatus(s, halted ? "HALTED" : "ENDED", { endReason: reason, endedAt: now, extensionPromptAt: null, nextCycleAt: null, keepOpen });
   const closeReason = reason === "KILL" ? "KILL" : reason === "LOSS_LIMIT" ? "LOSS_LIMIT" : "SESSION_END";
-  const r = mode === "CLOSE_ALL" || halted ? await flatten(s, closeReason, deps) : { closed: 0, failed: [] };
+  const r = keepOpen ? { closed: 0, failed: [] } : await flatten(s, closeReason, deps);
   const open = await prisma.sessionPosition.count({ where: { sessionId: s.id, closedAt: null } });
   const text = {
     COMPLETED: "Session completed.", USER_ENDED: "Session ended by you.", EXTENSION_TIMEOUT: "No answer to the extension prompt — session ended.",
     KILL: "Kill switch: all orders cancelled and positions closed.", LOSS_LIMIT: "Session loss limit reached — trading halted and positions closed.",
     LLM_BUDGET: "AI budget used up — session ended.", RECONCILE_MISMATCH: "Venue state did not match — trading halted.", ERROR: "Session halted after repeated errors.",
   }[reason];
-  const tail = open ? ` ${open} position(s) remain open${mode === "KEEP_WITH_STOPS" && !halted ? " with their stops (still enforced)" : " — retrying the close"}.` : r.closed ? ` Closed ${r.closed} position(s).` : "";
+  const tail = open ? ` ${open} position(s) remain open${keepOpen ? " with their stops (still enforced)" : " — retrying the close"}.` : r.closed ? ` Closed ${r.closed} position(s).` : "";
   await post(s.id, "SYSTEM", "ALERT", `${text}${tail} The report follows once every position is closed.`);
   await say(s, `${text}${tail}`, deps.telegram);
 }
@@ -154,6 +155,7 @@ export async function killSession(userId: string, id: string, deps: ServiceDeps 
   if (s.status === "HALTED" || s.status === "ENDED") {
     // A kill after the end still flattens anything left open (e.g. KEEP_WITH_STOPS).
     await post(s.id, "USER", "TEXT", "Kill: close everything that is still open.");
+    await prisma.tradingSession.update({ where: { id: s.id }, data: { keepOpen: false } });
     return flatten(s, "KILL", deps);
   }
   await post(s.id, "USER", "TEXT", "Kill switch.");

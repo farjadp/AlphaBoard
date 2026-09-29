@@ -573,6 +573,8 @@ model TradingSession {
   skipStreak         Int               @default(0)
   agentFailStreak    Int               @default(0)
   llmBudgetHit       Boolean           @default(false)
+  /// Ended with KEEP_WITH_STOPS: open positions stay open and the monitor keeps enforcing their stops.
+  keepOpen           Boolean           @default(false)
   lastCycleAt        DateTime?
   nextCycleAt        DateTime?
   /// Prices at the last decision cycle / at start (symbol → price), for event triggers and buy-and-hold.
