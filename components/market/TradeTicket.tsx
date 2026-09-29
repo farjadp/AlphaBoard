@@ -6,6 +6,8 @@ import { buildTradePlan } from "@/lib/market/tradePlan";
 import { signedPct, timeAgo } from "@/lib/format";
 import type { AnalysisResult } from "@/lib/types/analysis";
 import type { ArchivedSignal } from "@/lib/types/userData";
+import type { TrackRecord } from "@/lib/eval/trackRecord";
+import TrackRecordStrip from "./TrackRecordStrip";
 
 export type PlanSource =
   | { kind: "fresh"; result: AnalysisResult }
@@ -23,6 +25,10 @@ interface TradeTicketProps {
   onGenerate: () => void;
   alert: AlertState;
   onSetAlert: (price: number) => void;
+  /** The user's graded history for this symbol + timeframe (P5). */
+  record: TrackRecord;
+  symbol: string;
+  timeframe: string;
 }
 
 interface PlanView {
@@ -42,6 +48,8 @@ interface PlanView {
   priceAtSignal?: number;
   signalId?: string;
   archived: boolean;
+  /** Set when an archived plan has already played out (P5 evaluation): it is history, not a live plan. */
+  outcome?: { status: string; rMultiple: number | null; resolvedAt: string | null };
 }
 
 function toView(source: PlanSource): PlanView {
@@ -59,6 +67,7 @@ function toView(source: PlanSource): PlanView {
     signal: s.signal, confidence: s.confidence, entry: s.entry, stopLoss: s.stopLoss, takeProfit: s.takeProfit,
     reasoning: s.reasoning, tradeStyle: s.tradeStyle, risk: s.risk_management, breakdown: s.indicators_breakdown,
     generatedAt: s.timestamp, priceAtSignal: s.price, signalId: s.id, archived: true,
+    outcome: s.evaluation && s.evaluation.status !== "OPEN" ? s.evaluation : undefined,
   };
 }
 
@@ -95,6 +104,7 @@ export default function TradeTicket(props: TradeTicketProps) {
         >
           {props.canGenerate ? "Generate plan" : "Waiting for indicator data…"}
         </button>
+        <TrackRecordStrip record={props.record} symbol={props.symbol} timeframe={props.timeframe} timeframeLabel={timeframeLabel} />
       </section>
     );
   }
@@ -103,13 +113,15 @@ export default function TradeTicket(props: TradeTicketProps) {
   const plan = buildTradePlan(v);
   const tone = plan.direction === "long" ? "up" : plan.direction === "short" ? "down" : "none";
   const drift = v.priceAtSignal && props.price ? ((props.price - v.priceAtSignal) / v.priceAtSignal) * 100 : null;
+  const done = v.outcome ? OUTCOME_TEXT[v.outcome.status] ?? "Resolved" : null;
+  const live = plan.direction !== "none" && !done;
 
   return (
     <section aria-label="Trade plan" className="panel flex flex-col overflow-hidden">
       <div className="flex flex-col gap-3 px-6 pb-4 pt-5">
         <div className="flex items-center justify-between gap-3">
-          <span className={`rounded-md px-2.5 py-1 text-xs font-extrabold ${tone === "up" ? "bg-up-soft text-up" : tone === "down" ? "bg-down-soft text-down" : "bg-wash text-ink-2"}`}>
-            {tone === "up" ? "▲ LONG SETUP" : tone === "down" ? "▼ SHORT SETUP" : "■ NO TRADE"}
+          <span className={`rounded-md px-2.5 py-1 text-xs font-extrabold ${done ? "bg-wash text-ink-3" : tone === "up" ? "bg-up-soft text-up" : tone === "down" ? "bg-down-soft text-down" : "bg-wash text-ink-2"}`}>
+            {done ? `${tone === "up" ? "LONG" : tone === "down" ? "SHORT" : "NO TRADE"} · PLAYED OUT` : tone === "up" ? "▲ LONG SETUP" : tone === "down" ? "▼ SHORT SETUP" : "■ NO TRADE"}
           </span>
           <span className="label-caps">{timeframeLabel} · AI confidence <span className="num">{v.confidence}%</span></span>
         </div>
@@ -119,6 +131,13 @@ export default function TradeTicket(props: TradeTicketProps) {
             : <>{plan.direction === "long" ? "Buy" : "Sell"} near <span className="text-accent">{formatPrice(v.entry)}</span></>}
         </p>
         {plan.because && <p className="text-[13.5px] leading-relaxed text-ink-2">{plan.because}</p>}
+        {done && v.outcome && (
+          <p role="status" className={`rounded-lg px-3 py-2 text-[13px] font-semibold ${v.outcome.rMultiple != null && v.outcome.rMultiple > 0 ? "bg-up-soft text-up" : v.outcome.rMultiple != null && v.outcome.rMultiple < 0 ? "bg-down-soft text-down" : "bg-wash text-ink-2"}`}>
+            This plan has already played out: {done}
+            {v.outcome.rMultiple != null && <span className="num"> · {v.outcome.rMultiple > 0 ? "+" : v.outcome.rMultiple < 0 ? "−" : ""}{Math.abs(v.outcome.rMultiple).toFixed(2)}R</span>}
+            {v.outcome.resolvedAt && <span className="font-normal"> · {timeAgo(v.outcome.resolvedAt)}</span>}. Generate a fresh plan before acting.
+          </p>
+        )}
       </div>
 
       {plan.direction !== "none" && (
@@ -148,7 +167,7 @@ export default function TradeTicket(props: TradeTicketProps) {
 
       <div className="flex flex-col gap-3 px-6 pb-5">
         {error && <p role="alert" className="rounded-lg bg-down-soft px-3 py-2 text-[13px] text-down">{error}</p>}
-        {plan.direction !== "none" ? (
+        {live ? (
           <div className="grid grid-cols-2 gap-2">
             {v.signalId ? (
               <Link href={`/paper?signal=${encodeURIComponent(v.signalId)}`} className="flex h-10 items-center justify-center rounded-lg bg-ink text-[13px] font-extrabold text-paper hover:bg-[#23313f]">
@@ -170,7 +189,7 @@ export default function TradeTicket(props: TradeTicketProps) {
           type="button"
           onClick={props.onGenerate}
           disabled={!props.canGenerate}
-          className={plan.direction === "none"
+          className={!live
             ? "h-10 rounded-lg bg-ink text-[13px] font-extrabold text-paper hover:bg-[#23313f] disabled:opacity-40"
             : "self-start text-[12.5px] font-bold text-accent hover:underline disabled:opacity-40"}
         >
@@ -183,10 +202,15 @@ export default function TradeTicket(props: TradeTicketProps) {
           )}
         </p>
         <PlanDetails v={v} />
+        <TrackRecordStrip record={props.record} symbol={props.symbol} timeframe={props.timeframe} timeframeLabel={timeframeLabel} />
       </div>
     </section>
   );
 }
+
+const OUTCOME_TEXT: Record<string, string> = {
+  TP_HIT: "target hit", SL_HIT: "stopped out", EXPIRED: "expired without reaching either level", NO_FILL: "the entry was never reached", INVALID: "it could not be evaluated",
+};
 
 function Figure({ label, value, note, tone }: { label: string; value: string; note?: string; tone?: "up" | "down" }) {
   return (

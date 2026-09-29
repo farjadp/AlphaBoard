@@ -14,6 +14,7 @@ import { useBinanceTickers } from "@/hooks/useBinanceTickers";
 import { useTradfiQuotes } from "@/hooks/useTradfiQuotes";
 import { useCandles } from "@/hooks/useCandles";
 import { invalidateSignals, useSignalHistory } from "@/hooks/useSignalHistory";
+import { trackRecord } from "@/lib/eval/trackRecord";
 import { useAlerts } from "@/hooks/useAlerts";
 import { formatPrice, formatVolume } from "@/lib/binance";
 import { findAsset } from "@/lib/assetCatalog";
@@ -91,6 +92,7 @@ export default function MarketScreen({ symbol }: { symbol: string }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   const { history } = useSignalHistory();
+  const record = useMemo(() => trackRecord(history, symbol, timeframe), [history, symbol, timeframe]);
   const archived = useMemo(() => history
     .filter((s) => s.symbol === symbol && s.timeframe.toUpperCase() === timeframe)
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))[0] ?? null, [history, symbol, timeframe]);
@@ -229,6 +231,9 @@ export default function MarketScreen({ symbol }: { symbol: string }) {
               onGenerate={generate}
               alert={alertState}
               onSetAlert={setAlert}
+              record={record}
+              symbol={symbol}
+              timeframe={timeframe}
             />
           </div>
 
