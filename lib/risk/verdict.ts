@@ -58,6 +58,8 @@ export interface MarketRules {
   qtyStep: number;
   feeRate: number;
   slippage: number;
+  /** Broker cap on leverage for this instrument (OANDA margin rate); the mandate cap still applies. */
+  maxLeverage?: number;
 }
 
 export type Verdict =
@@ -128,7 +130,7 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
     tp = null;
   }
 
-  const leverage = m.marketType === "spot" ? 1 : m.maxLeverage;
+  const leverage = m.marketType === "spot" ? 1 : Math.max(1, Math.min(m.maxLeverage, r.maxLeverage ?? Infinity));
   if (leverage > 1) {
     const liq = liquidationPrice(side, price, leverage);
     if (long ? stop <= liq : stop >= liq) return reject(`stop ${fmt(stop)} is beyond the ${leverage}x liquidation price ≈ ${fmt(liq)}`);

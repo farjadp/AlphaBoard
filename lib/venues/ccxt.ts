@@ -114,6 +114,13 @@ export function ccxtVenue(conn: Conn, deps: CcxtVenueDeps = {}): Venue {
   const venue: Venue = {
     kind: "ccxt",
     live: !conn.sandbox,
+    categories: ["crypto"],
+
+    async balance() {
+      const ex = await exchangeFor(conn);
+      const b = await ex.fetchBalance();
+      return { free: b.free?.[conn.quote] ?? 0, currency: conn.quote };
+    },
     symbolFor: sym,
 
     async marketRules(symbol: string): Promise<MarketRules | null> {

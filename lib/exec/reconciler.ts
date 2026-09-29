@@ -5,6 +5,7 @@ import { logger } from "@/lib/http/logger";
 import type { Telegram } from "@/lib/notify/telegram";
 import { exchangeFor, exchangeSymbol } from "@/lib/venues/ccxtClient";
 import { haltSession } from "@/lib/sessions/exits";
+import { venueForConnection } from "@/lib/venues/registry";
 
 export const RECONCILE_EVERY_MS = 30_000;
 /** Balance / position tolerance: one amount step plus this share of the expected size. */
@@ -25,6 +26,17 @@ export async function reconcileSession(s: Pick<TradingSession, "id" | "userId" |
   if (s.venue !== "exchange" || !s.connectionId) return { checked: false, issues: [] };
   const now = opts.now ?? new Date();
   const conn = await prisma.exchangeConnection.findUniqueOrThrow({ where: { id: s.connectionId } });
+  if (conn.provider !== "ccxt") {
+    // Broker venues (OANDA) reconcile their own way: open trades vs the ledger.
+    const venue = await venueForConnection(conn);
+    const brokerIssues = (await venue.reconcile?.(s.id)) ?? [];
+    await prisma.tradingSession.update({ where: { id: s.id }, data: { lastReconciledAt: now } });
+    if (brokerIssues.length) {
+      logger.error({ sessionId: s.id, issues: brokerIssues }, "reconcile mismatch");
+      await haltSession(s, "RECONCILE_MISMATCH", `the broker does not match the ledger — ${brokerIssues.join("; ")}.`, opts.telegram);
+    }
+    return { checked: true, issues: brokerIssues };
+  }
   const ex = await exchangeFor(conn);
   const markets = await ex.loadMarkets();
   const issues: string[] = [];

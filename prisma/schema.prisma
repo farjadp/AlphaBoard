@@ -622,6 +622,8 @@ model SessionPosition {
   realizedPnl    Float?
   closeReason    SessionCloseReason?
   journalEntryId String?             @unique
+  /// Broker-side trade id when the venue tracks positions as trades (OANDA).
+  venueTradeId   String?
 
   orders SessionOrder[]
 
@@ -710,8 +712,12 @@ model ExchangeConnection {
   id            String    @id @default(cuid())
   userId        String
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// ccxt exchange id, e.g. "binance", "kraken", "mexc".
+  /// "ccxt" (crypto exchanges) or "oanda" (forex / metals broker, P9).
+  provider      String    @default("ccxt")
+  /// ccxt exchange id, e.g. "binance", "kraken"; "oanda" for OANDA.
   exchange      String
+  /// Broker account id (OANDA v20 account, e.g. 101-001-1234567-001). Not secret.
+  accountId     String?
   label         String
   marketType    String    @default("spot")
   /// Quote currency used to map catalog symbols (BTC/USDT → BTC/<quote>).

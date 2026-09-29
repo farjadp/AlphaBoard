@@ -4,6 +4,7 @@
  */
 import type { SessionCloseReason } from "@prisma/client";
 import type { MarketRules } from "@/lib/risk/verdict";
+import type { AssetCategory } from "@/lib/assetCatalog";
 
 export interface VenueFill {
   orderId: string;
@@ -44,7 +45,13 @@ export interface CloseResult {
 }
 
 export interface Venue {
-  kind: "paper" | "ccxt";
+  kind: "paper" | "ccxt" | "oanda";
+  /** Catalog categories this venue can trade (paper: all). */
+  categories: AssetCategory[];
+  /** Free balance in the account currency (paper: not applicable → null). */
+  balance(): Promise<{ free: number; currency: string } | null>;
+  /** Broker-specific ledger check (OANDA); ccxt venues use lib/exec/reconciler. Returns issues. */
+  reconcile?(sessionId: string): Promise<string[]>;
   /** True only for real money (not paper, not an exchange sandbox). */
   live: boolean;
   /** The venue's symbol for a catalog symbol (paper: identity). */

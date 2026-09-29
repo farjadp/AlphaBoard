@@ -33,6 +33,8 @@ export function paperVenue(priceOf: PriceOf): Venue {
   return {
     kind: "paper",
     live: false,
+    categories: ["crypto", "commodities", "forex", "indices"],
+    balance: async () => null,
     symbolFor: (s: string) => s,
     stopMode: async () => "software" as const,
 

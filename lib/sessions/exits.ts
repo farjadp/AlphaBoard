@@ -8,7 +8,7 @@ import type { Telegram } from "@/lib/notify/telegram";
 import { fmt, money } from "@/lib/risk/limits";
 import { paperVenue } from "@/lib/venues/paper";
 import { VenueError, type CloseResult, type Venue } from "@/lib/venues/types";
-import { ccxtVenue } from "@/lib/venues/ccxt";
+import { venueForConnection } from "@/lib/venues/registry";
 import { post } from "./room";
 
 /** The session's venue: paper, or the ccxt venue of its exchange connection. */
@@ -17,7 +17,7 @@ export async function venueFor(session: Pick<TradingSession, "venue" | "connecti
   if (!session.connectionId) throw new VenueError("Exchange session without a connection", "BAD_ORDER");
   const conn = await prisma.exchangeConnection.findUniqueOrThrow({ where: { id: session.connectionId } });
   if (conn.status === "DELETED") throw new VenueError("The exchange connection was deleted", "BAD_ORDER");
-  return ccxtVenue(conn);
+  return venueForConnection(conn);
 }
 
 /**

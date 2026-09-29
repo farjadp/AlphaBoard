@@ -124,13 +124,16 @@ export const TradingLimitsInput = z.object({
 });
 
 export const ExchangeConnectionInput = z.object({
+  provider: z.enum(["ccxt", "oanda"]).default("ccxt"),
+  accountId: opt(z.string().trim().regex(/^[0-9A-Za-z-]{3,40}$/)),
   exchange: z.string().trim().toLowerCase().regex(/^[a-z0-9]{2,30}$/),
   label: opt(z.string().trim().max(60)),
   marketType: z.enum(["spot", "swap"]),
   quote: z.string().trim().toUpperCase().regex(/^[A-Z0-9]{2,10}$/),
   sandbox: z.boolean(),
   apiKey: z.string().trim().min(4).max(512),
-  secret: z.string().trim().min(4).max(4096),
+  /** OANDA uses a single token: the secret may be empty there. */
+  secret: z.string().trim().max(4096),
   password: opt(z.string().max(512)),
   uid: opt(z.string().max(128)),
 });

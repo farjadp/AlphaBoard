@@ -5,8 +5,7 @@ import { badRequest, HttpError, notFound } from "@/lib/http/errors";
 import { livePrice, type PriceOf } from "@/lib/paper/account";
 import { findAsset } from "@/lib/assetCatalog";
 import { requireExchangeAccess } from "@/lib/exchanges/connections";
-import { ccxtVenue } from "@/lib/venues/ccxt";
-import { exchangeFor } from "@/lib/venues/ccxtClient";
+import { venueForConnection } from "@/lib/venues/registry";
 import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { resolveExtensionPrompt } from "@/lib/notify/sessionTelegram";
@@ -57,15 +56,16 @@ async function checkExchange(userId: string, mandate: Mandate, confirmLive: stri
   if (conn.status !== "OK") throw badRequest(`Test the ${conn.label} connection first (status ${conn.status})`, "BAD_CONNECTION");
   if (conn.marketType !== mandate.marketType) throw badRequest(`The ${conn.label} connection trades ${conn.marketType}; the mandate asks for ${mandate.marketType}`, "BAD_CONNECTION");
   if (!conn.sandbox && confirmLive !== "LIVE") throw badRequest('Real-money session: type LIVE to confirm', "CONFIRM_LIVE");
-  const venue = ccxtVenue(conn);
+  const venue = await venueForConnection(conn);
   for (const sym of mandate.symbols) {
-    if (findAsset(sym)?.category !== "crypto") throw badRequest(`${sym}: exchange sessions trade crypto only (forex and metals arrive with P9)`, "BAD_SYMBOL");
-    if (!(await venue.marketRules(sym))) throw badRequest(`${venue.symbolFor(sym)} is not available on ${conn.exchange}`, "BAD_SYMBOL");
+    const category = findAsset(sym)?.category;
+    if (!category || !venue.categories.includes(category))
+      throw badRequest(`${sym}: ${conn.label} trades ${venue.categories.join(" and ")} only`, "BAD_SYMBOL");
+    if (!(await venue.marketRules(sym))) throw badRequest(`${venue.symbolFor(sym)} is not available on ${conn.exchange} right now (unknown symbol or market closed)`, "BAD_SYMBOL");
   }
-  const ex = await exchangeFor(conn);
-  const bal = await ex.fetchBalance().catch((e) => { throw new HttpError(502, `Could not read the ${conn.exchange} balance: ${e instanceof Error ? e.message : e}`, "EXCHANGE_ERROR"); });
-  const free = bal.free?.[conn.quote] ?? 0;
-  if (free < mandate.capital) throw badRequest(`Session capital ${money(mandate.capital)} is more than the free ${conn.quote} balance (${free.toFixed(2)})`, "INSUFFICIENT_BALANCE");
+  const bal = await venue.balance().catch((e) => { throw new HttpError(502, `Could not read the ${conn.exchange} balance: ${e instanceof Error ? e.message : e}`, "EXCHANGE_ERROR"); });
+  const free = bal?.free ?? 0;
+  if (free < mandate.capital) throw badRequest(`Session capital ${money(mandate.capital)} is more than the free ${bal?.currency ?? conn.quote} balance (${free.toFixed(2)})`, "INSUFFICIENT_BALANCE");
   return { conn, venue };
 }
 
