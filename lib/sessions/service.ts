@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma, TradingSession } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { badRequest, HttpError, notFound } from "@/lib/http/errors";
-import { livePrice, type PriceOf } from "@/lib/paper/account";
+import { livePrice } from "@/lib/paper/account";
 import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
 import { formatMandate } from "@/lib/agents/context";
