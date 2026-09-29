@@ -102,7 +102,7 @@ export async function startSession(userId: string, input: StartInput, deps: Serv
     },
   });
   const where = exchange
-    ? `${live ? "LIVE — real money" : "testnet"} on ${exchange.conn.exchange} (${exchange.conn.label}), symbols ${mandate.symbols.map((x) => exchange.venue.symbolFor(x)).join(", ")}. Stops are software stops checked every 15 s; the venue is reconciled every 30 s.`
+    ? `${live ? "LIVE — real money" : "testnet"} on ${exchange.conn.exchange} (${exchange.conn.label}), symbols ${mandate.symbols.map((x) => exchange.venue.symbolFor(x)).join(", ")}. Stops are software stops checked every 15 s; the venue is reconciled every 30 s`
     : "on paper";
   await post(s.id, "SYSTEM", "TEXT", `Session started ${where}. The first decision cycle runs within a minute.\n${formatMandate(mandate)}`);
   await say(s, `Session started${live ? " (LIVE)" : exchange ? " (testnet)" : ""}: ${mandate.symbols.join(", ")}, ${mandate.durationMin} min, loss limit ${money(mandate.lossLimit)}.`, deps.telegram);

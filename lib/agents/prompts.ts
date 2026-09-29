@@ -31,7 +31,7 @@ Rules:
 - Fees and slippage (~0.1% round trip) are real. Prefer HOLD when the edge is unclear or timeframes conflict.
 - Manage open positions against their persisted exit plan: close when the invalidation condition is met or the horizon has
   clearly passed without progress; tighten stops to protect gains. Use the position id given in OPEN POSITIONS.
-- Respect the SESSION limits (loss used, trades left, time left). Near the end of the session do not open new trades.
+- Respect the SESSION limits (loss used, trades left, time left). Pick horizons that fit the time left; code alone blocks new entries in the last few minutes, so time left is not by itself a reason to stay flat.
 - Learn from the listed lessons.
 commentary: 1–3 sentences for the desk explaining the overall call.`;
 
