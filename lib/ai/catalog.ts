@@ -87,12 +87,15 @@ export function resolveModel(opts: {
   configured: ReadonlySet<ProviderId>;
   needsVision: boolean;
   userPref?: { provider?: string | null; model?: string | null } | null;
+  /** Per-call choice (e.g. a session agent role); wins over the user's preference when usable. */
+  override?: { provider?: string | null; model?: string | null } | null;
 }): ResolvedModel {
   const usable = (provider?: string | null, id?: string | null) => {
     const m = findModel(provider, id);
     return m && opts.configured.has(m.provider) ? m : undefined;
   };
   const chosen =
+    usable(opts.override?.provider, opts.override?.model) ??
     usable(opts.userPref?.provider, opts.userPref?.model) ??
     usable(opts.settings.provider, opts.settings.model) ??
     MODELS.find((m) => opts.configured.has(m.provider));

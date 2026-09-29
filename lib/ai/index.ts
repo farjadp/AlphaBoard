@@ -26,6 +26,8 @@ export interface AiRequest<S extends z.ZodType> extends CompletionRequest {
   feature: string;
   userId: string;
   schema: S;
+  /** Model for this call (session agent roles); ignored when its provider is not configured. */
+  model?: { provider: string; model: string } | null;
 }
 
 export interface AiMeta {
@@ -48,6 +50,7 @@ export function createAi(deps: AiDeps) {
       configured,
       needsVision: hasImages(req.user),
       userPref: user ? { provider: user.aiProvider, model: user.aiModel } : null,
+      override: req.model ?? null,
     });
 
     const quota = user?.dailyTokenQuota ?? settings.defaultDailyTokenQuota;

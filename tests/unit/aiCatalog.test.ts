@@ -41,6 +41,14 @@ describe("resolveModel", () => {
     const r = resolveModel({ settings, configured: all, needsVision: true, userPref: { provider: "deepseek", model: "deepseek-v4-pro" } });
     expect(r).toMatchObject({ provider: "openai", model: "gpt-4o", visionFallback: true });
   });
+  it("a per-call override (session agent role) beats the user's preference", () => {
+    const r = resolveModel({ settings, configured: all, needsVision: false, override: { provider: "deepseek", model: "deepseek-flash" }, userPref: { provider: "anthropic", model: "claude-sonnet-5" } });
+    expect(r).toMatchObject({ provider: "deepseek", model: "deepseek-flash" });
+  });
+  it("an unusable override falls back to the user's preference", () => {
+    const r = resolveModel({ settings, configured: new Set(["openai", "anthropic"]), needsVision: false, override: { provider: "deepseek", model: "deepseek-flash" }, userPref: { provider: "anthropic", model: "claude-sonnet-5" } });
+    expect(r).toMatchObject({ provider: "anthropic", model: "claude-sonnet-5" });
+  });
   it("fails clearly when no provider is configured at all", () => {
     expect(() => resolveModel({ settings, configured: new Set(), needsVision: false })).toThrow(expect.objectContaining({ code: "AI_NOT_CONFIGURED" }));
   });
