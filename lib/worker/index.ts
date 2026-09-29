@@ -8,7 +8,7 @@ import { telegramFromEnv } from "@/lib/notify/telegram";
 
 /**
  * Background work (spec E8): the 60 s tick, the 15 s session monitor (stops, loss limit, end prompts,
- * decision cycles) and Telegram long-polling. Exactly one process runs it, guarded by a lease row that
+ * decision cycles), the 2 min news hub pass and Telegram long-polling. Exactly one process runs it, guarded by a lease row that
  * the holder renews; another process takes over when the lease expires.
  *
  * WORKER_MODE=inline (default): started by instrumentation.ts inside the web process.
@@ -19,6 +19,7 @@ export const HEARTBEAT_KEY = "worker.last";
 const LEASE_MS = 45_000;
 const MONITOR_MS = 15_000;
 const TICK_MS = 60_000;
+const NEWS_MS = 120_000;
 
 const g = globalThis as unknown as { __alphaboardWorker?: { stop: () => Promise<void> } };
 
@@ -90,6 +91,14 @@ export function startWorker() {
     if (r.errors.length) logger.warn({ errors: r.errors.slice(0, 5) }, "session monitor errors");
   }, isLeader, isStopped));
 
+  // News hub: providers keep their own intervals and budgets, so a short cadence costs nothing extra.
+  if (process.env.NEWS_DISABLED !== "1") {
+    timers.push(loop("news", NEWS_MS, async () => {
+      const r = await (await import("@/lib/news/job")).runNewsJob();
+      if (r.errors.length) logger.warn({ errors: r.errors.slice(0, 5) }, "news job errors");
+    }, isLeader, isStopped));
+  }
+
   // Telegram long-poll: one request in flight at a time, only on the leader.
   const telegram = telegramFromEnv();
   const poll = async () => {
@@ -118,6 +127,6 @@ export function startWorker() {
       g.__alphaboardWorker = undefined;
     },
   };
-  logger.info({ mode: process.env.WORKER_MODE ?? "inline", telegram: !!telegram, tick: process.env.TICK_DISABLED !== "1" }, "worker started");
+  logger.info({ mode: process.env.WORKER_MODE ?? "inline", telegram: !!telegram, tick: process.env.TICK_DISABLED !== "1", news: process.env.NEWS_DISABLED !== "1" }, "worker started");
   return g.__alphaboardWorker;
 }
