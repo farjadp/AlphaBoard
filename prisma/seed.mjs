@@ -1,6 +1,7 @@
 /**
  * Idempotent bootstrap: creates the first ADMIN from ADMIN_EMAIL / ADMIN_PASSWORD.
  * Safe to run on every deploy — it only creates when no admin exists.
+ * Plain ESM JavaScript on purpose: the production image runs it with `node` (no tsx there).
  */
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";

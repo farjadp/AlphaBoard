@@ -2,6 +2,14 @@
 
 All notable changes to AlphaBoard are documented here.
 
+## [2.0.1] — 2026-09-29
+
+Deployment fixes found by building and booting the production Docker image against an empty database before the first Railway deploy.
+
+- **Admin bootstrap works in the container:** the seed is now plain JavaScript (`prisma/seed.mjs`) run with `node`, and `bcryptjs` is copied into the image. Before, `prisma db seed` needed `tsx`, which the image does not ship, so the first admin was never created (the failure was logged as non-fatal).
+- `robots.txt` and `sitemap.xml` are generated per request, so they use the runtime `APP_URL` instead of the build-time fallback (`localhost`).
+- The Docker `HEALTHCHECK` uses `$PORT` (Railway runs on 8080).
+
 ## [2.0.0] — 2026-09-29
 
 AlphaBoard v2 turns the single-browser dashboard into an invite-only, multi-user trading-intelligence workspace: every user's data in PostgreSQL, four AI providers with cost control, paper trading, AI signals graded against the market, server-side alerts, a new light interface, and a public landing page. No live order execution — analysis and paper trading only.

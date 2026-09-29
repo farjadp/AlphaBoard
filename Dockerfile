@@ -33,12 +33,15 @@ COPY --from=builder --chown=app:app /app/node_modules/prisma ./node_modules/pris
 COPY --from=builder --chown=app:app /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder --chown=app:app /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder --chown=app:app /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+# The seed (prisma/seed.mjs) hashes the admin password; Next bundles bcryptjs into its own chunks,
+# so the standalone output has no node_modules/bcryptjs of its own.
+COPY --from=builder --chown=app:app /app/node_modules/bcryptjs ./node_modules/bcryptjs
 COPY --chown=app:app docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
 USER app
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:3000/api/health || exit 1
+  CMD wget -qO- "http://127.0.0.1:${PORT:-3000}/api/health" || exit 1
 ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["node", "server.js"]
