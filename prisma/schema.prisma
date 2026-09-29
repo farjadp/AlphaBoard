@@ -733,3 +733,125 @@ model ExchangeConnection {
 
   @@index([userId])
 }
+
+// ─── News hub ────────────────────────────────────────────────────────────────
+
+/// A news outlet (Reuters, CoinDesk…), keyed by its normalized name. `weight` (0.1–1.0) is set weekly by the
+/// news-weights agent within code limits, or by an admin; every change is in PublisherWeightChange.
+model NewsPublisher {
+  key       String   @id
+  name      String
+  weight    Float    @default(0.5)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  articles NewsArticle[]
+  changes  PublisherWeightChange[]
+}
+
+model NewsArticle {
+  id              String        @id @default(cuid())
+  /// Canonical URL (no query/fragment) — the primary de-duplication key.
+  urlKey          String        @unique
+  /// Normalized title — catches the same article arriving from two providers with different URLs.
+  titleKey        String
+  url             String
+  title           String
+  summary         String?
+  publisherKey    String
+  publisher       NewsPublisher @relation(fields: [publisherKey], references: [key])
+  publishedAt     DateTime
+  fetchedAt       DateTime      @default(now())
+  /// Providers that returned this article (finnhub, alphavantage, rss, …).
+  providers       String[]
+  /// −1…+1. Provider score when the provider has one, else CryptoPanic votes, else the keyword heuristic.
+  sentiment       Float
+  /// provider | votes | keywords
+  sentimentSource String
+
+  symbols NewsArticleSymbol[]
+
+  @@index([publishedAt])
+  @@index([titleKey])
+}
+
+model NewsArticleSymbol {
+  articleId   String
+  article     NewsArticle @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  symbol      String
+  /// 1 = tagged by the provider, 0.6 = named in the title, 0.3 = named only in the summary.
+  relevance   Float
+  /// Provider's per-symbol sentiment when it has one (Alpha Vantage ticker_sentiment_score).
+  sentiment   Float?
+  /// Return 4 h / 24 h after publication, from 1H candles. Filled once, 24 h after publication.
+  ret4h       Float?
+  ret24h      Float?
+  evaluatedAt DateTime?
+
+  @@id([articleId, symbol])
+  @@index([symbol])
+  @@index([evaluatedAt])
+}
+
+/// Hourly news index per symbol (shadow mode: recorded and evaluated, never given to trading agents).
+model NewsIndexSnapshot {
+  id          String    @id @default(cuid())
+  symbol      String
+  at          DateTime
+  /// Weighted mean sentiment of the last 24 h, −1…+1.
+  score       Float
+  articles    Int
+  publishers  Int
+  weightSum   Float
+  ret4h       Float?
+  ret24h      Float?
+  evaluatedAt DateTime?
+
+  @@unique([symbol, at])
+  @@index([at])
+  @@index([evaluatedAt])
+}
+
+/// One weekly run of the news-weights agent.
+model NewsWeightRun {
+  id      String   @id @default(cuid())
+  at      DateTime @default(now())
+  /// ok | skipped | error
+  status  String
+  summary String?
+  /// Publishers the agent named but the code refused (too few samples, unknown), with the reason.
+  skipped Json?
+  model   String?
+  costUsd Float?
+  error   String?
+
+  changes PublisherWeightChange[]
+
+  @@index([at])
+}
+
+model PublisherWeightChange {
+  id           String         @id @default(cuid())
+  publisherKey String
+  publisher    NewsPublisher  @relation(fields: [publisherKey], references: [key], onDelete: Cascade)
+  runId        String?
+  run          NewsWeightRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+  /// agent | admin
+  by           String
+  userId       String?
+  from         Float
+  proposed     Float
+  to           Float
+  /// True when the code limits (range, max weekly step) changed the proposed value.
+  clamped      Boolean        @default(false)
+  reason       String
+  /// The measured numbers for this publisher at decision time.
+  evidence     Json?
+  /// Set on the change that undid this one.
+  revertOfId   String?
+  revertedAt   DateTime?
+  createdAt    DateTime       @default(now())
+
+  @@index([publisherKey, createdAt])
+  @@index([createdAt])
+}
