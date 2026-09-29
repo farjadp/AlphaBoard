@@ -28,7 +28,7 @@ export function publisherKey(name: string): string {
   return k || "unknown";
 }
 
-const BULL = ["surge", "rally", "gain", "rise", "bull", "record", "all-time high", "jump", "soar", "boost", "recover", "breakout", "inflow"];
+const BULL = ["surge", "rally", "ralli", "gain", "rise", "bull", "record", "all-time high", "jump", "soar", "boost", "recover", "breakout", "inflow"];
 const BEAR = ["drop", "fall", "crash", "bear", "plunge", "slump", "sell-off", "selloff", "fear", "decline", "tumble", "outflow", "liquidat"];
 const hits = (t: string, words: string[]) => words.filter((w) => new RegExp(`\\b${w.replace(/[-]/g, "[- ]?")}`).test(t)).length;
 
