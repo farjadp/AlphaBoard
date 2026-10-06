@@ -33,6 +33,21 @@ async function fetchBinanceCandles(symbol: string, interval: string, limit: numb
   throw new Error(`binance klines failed: ${lastError}`);
 }
 
+type YahooQuote = { date: Date; open?: number | null; high?: number | null; low?: number | null; close?: number | null };
+
+/**
+ * Yahoo bars with missing prices (weekend / holiday gaps on FX and metals) come back as nulls, and
+ * Number(null) is 0 — a 0 low or close turned a 10-pip EUR/USD hour into a 1.13 true range and
+ * poisoned ATR, RSI and EMAs downstream. Keep only bars with four positive, consistent prices.
+ */
+export function yahooQuotesToCandles(quotes: YahooQuote[]): Candle[] {
+  const px = (v: number | null | undefined) => (v == null ? NaN : Number(v));
+  return quotes
+    .map((q) => ({ time: q.date.getTime(), open: px(q.open), high: px(q.high), low: px(q.low), close: px(q.close) }))
+    .filter((c) => [c.open, c.high, c.low, c.close].every((v) => Number.isFinite(v) && v > 0)
+      && c.high >= Math.max(c.open, c.close, c.low) && c.low <= Math.min(c.open, c.close));
+}
+
 async function fetchYahooCandles(
   yahooSymbol: string,
   spec: (typeof TIMEFRAMES)[TimeframeKey]["yahoo"],
@@ -41,9 +56,7 @@ async function fetchYahooCandles(
     period1: new Date(Date.now() - spec.lookbackDays * 86_400_000),
     interval: spec.interval,
   });
-  const candles: Candle[] = (result?.quotes ?? [])
-    .map((q) => ({ time: q.date.getTime(), open: Number(q.open), high: Number(q.high), low: Number(q.low), close: Number(q.close) }))
-    .filter((c) => [c.open, c.high, c.low, c.close].every(Number.isFinite));
+  const candles = yahooQuotesToCandles(result?.quotes ?? []);
   if (candles.length === 0) throw new Error("yahoo returned no candles");
   return spec.bucketMs ? aggregateCandlesByTime(candles, spec.bucketMs) : candles;
 }
