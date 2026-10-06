@@ -10,6 +10,7 @@ import { notify } from "@/lib/notify/notifications";
 import type { AiFn } from "@/lib/agents/run";
 import { money } from "@/lib/risk/limits";
 import { minutesToWeeklyClose, tradesWeekdaysOnly } from "@/lib/market/hours";
+import { nextExtremes } from "./excursion";
 import { runCycle } from "./cycle";
 import { announceExit, exitPosition, flatten, sessionPriceOf, venueFor } from "./exits";
 import { reconcileSession, RECONCILE_EVERY_MS } from "@/lib/exec/reconciler";
@@ -154,6 +155,8 @@ async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, exitDeps: { pr
   for (const p of open) {
     const price = await priceOf(p.symbol);
     if (price == null) continue;
+    const ext = nextExtremes(p, price);
+    if (ext) await prisma.sessionPosition.updateMany({ where: { id: p.id, closedAt: null }, data: ext });
     const slack = nativelyProtected.has(p.id) && p.stopLoss != null ? p.stopLoss * NATIVE_STOP_SLACK * (p.side === "LONG" ? -1 : 1) : 0;
     const reason = exitFor({ ...p, stopLoss: p.stopLoss == null ? null : p.stopLoss + slack }, price);
     if (!reason) continue;

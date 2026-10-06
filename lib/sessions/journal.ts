@@ -9,6 +9,7 @@ import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
 import { runSessionSummary, runTradeLesson, type AiFn } from "@/lib/agents/run";
 import { money } from "@/lib/risk/limits";
+import { excursionR } from "./excursion";
 import { computeMetrics, metricsText, type ClosedTrade } from "./report";
 import { venueFor } from "./exits";
 import { post } from "./room";
@@ -32,7 +33,7 @@ export async function journalClosedPosition(positionId: string, deps: JournalDep
   const pos = await prisma.sessionPosition.findUnique({ where: { id: positionId }, include: { session: true } });
   if (!pos || !pos.closedAt || pos.journalEntryId) return null;
   const s = pos.session;
-  const plan = (pos.exitPlan ?? {}) as { thesis?: string; invalidation?: string; initialStop?: number };
+  const plan = (pos.exitPlan ?? {}) as { thesis?: string; invalidation?: string; initialStop?: number; horizonMin?: number; atr1hAtEntry?: number | null };
   const openedQty = await openedQtyOf(pos.id, pos.qty);
   // Margin in the account currency, like the net P&L it is compared with.
   const marginAtOpen = (pos.entryPrice * openedQty * pos.quoteToAccount) / pos.leverage;
@@ -65,7 +66,8 @@ export async function journalClosedPosition(positionId: string, deps: JournalDep
     const text = [
       `Trade: ${pos.side} ${pos.symbol}, entry ${pos.entryPrice}, exit ${pos.closePrice}, quantity ${openedQty}, leverage ${pos.leverage}x`,
       `Initial stop ${plan.initialStop ?? pos.stopLoss ?? "none"}, target ${pos.takeProfit ?? "none"}, closed by ${pos.closeReason ?? "unknown"}`,
-      `Net P&L after fees ${money(net)} (${pnlPercent == null ? "n/a" : `${pnlPercent.toFixed(2)}% of margin`}), held ${Math.round((pos.closedAt.getTime() - pos.openedAt.getTime()) / 60_000)} min`,
+      `Net P&L after fees ${money(net)} (${pnlPercent == null ? "n/a" : `${pnlPercent.toFixed(2)}% of margin`}), held ${Math.round((pos.closedAt.getTime() - pos.openedAt.getTime()) / 60_000)} min of a planned ${plan.horizonMin ?? "unknown"} min`,
+      ...tradeFacts(pos, plan),
       `Thesis: ${plan.thesis ?? "n/a"}`,
       `Invalidation condition: ${plan.invalidation ?? "n/a"}`,
     ].join("\n");
@@ -96,6 +98,24 @@ async function accountCurrencyOf(s: { venue: string; connectionId: string | null
   }
   const conn = s.connectionId ? await prisma.exchangeConnection.findUnique({ where: { id: s.connectionId }, select: { provider: true, quote: true } }) : null;
   return conn && conn.provider !== "oanda" ? conn.quote : undefined;
+}
+
+/** Measured facts for the journal agent: stop distance in ATR and the best / worst excursion in R. */
+function tradeFacts(
+  pos: { side: "LONG" | "SHORT"; entryPrice: number; stopLoss: number | null; bestPrice: number | null; worstPrice: number | null; closePrice: number | null },
+  plan: { initialStop?: number; atr1hAtEntry?: number | null },
+) {
+  const stop = plan.initialStop ?? pos.stopLoss;
+  const out: string[] = [];
+  if (stop != null && plan.atr1hAtEntry) {
+    const d = Math.abs(pos.entryPrice - stop);
+    out.push(`Initial stop distance ${sig(d)} = ${(d / plan.atr1hAtEntry).toFixed(2)}× the 1H ATR at entry (${sig(plan.atr1hAtEntry)})`);
+  } else out.push("Stop distance in ATR: unavailable (no ATR recorded at entry)");
+  const x = excursionR({ side: pos.side, entryPrice: pos.entryPrice, initialStop: stop, bestPrice: pos.bestPrice, worstPrice: pos.worstPrice, closePrice: pos.closePrice });
+  out.push(x
+    ? `Best move in favour ${x.mfeR.toFixed(2)}R, worst move against ${x.maeR.toFixed(2)}R (best ${pos.bestPrice ?? "n/a"}, worst ${pos.worstPrice ?? "n/a"})`
+    : "Best / worst excursion: unavailable");
+  return out;
 }
 
 /** Final report once a session has ended and every position is closed. Idempotent. */

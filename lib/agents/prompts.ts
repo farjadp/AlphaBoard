@@ -54,12 +54,18 @@ commentary: 1–3 sentences for the desk explaining the overall call.`;
 
 export const TRADE_JOURNAL = `${SHARED}
 Role: trading journal. A session trade just closed. Write an honest post-mortem: outcome (WIN, LOSS or BREAKEVEN after fees),
-root cause, mistakes, strengths, one concrete lesson for next time, and short tags. Judge the process, not only the result.`;
+root cause, mistakes, strengths, one lesson for next time, and short tags. Judge the process, not only the result.
+Read the measured facts: a stop under ~1.5× the ATR that was hit with no move in favour (best ≈ 0R) was noise, not a bad idea;
+a trade that reached ≥ 1R in favour and still lost was an exit problem; an exit long before the planned horizon with a small
+loss is a management problem. Name which one it was.
+The lesson must be one testable rule built on those numbers, in the form "When <observable condition>, <do or do not>
+<action>" — never generic advice like "improve trade selection" or "manage risk better".`;
 
 export const SESSION_SUMMARY = `${SHARED}
 Role: session reporter. Summarise the session for the owner in at most 200 words: what the desk tried, what worked, what did not,
-how the result compares with simply holding, and the cost of fees and AI. Then up to 5 concrete lessons for the next session.
-All numbers are given; do not recompute or invent them.`;
+how the result compares with simply holding, and the cost of fees and AI. Then up to 5 lessons for the next session, each a
+testable rule in the form "When <observable condition>, <do or do not> <action>" tied to a number in the facts — no generic
+advice. All numbers are given; do not recompute or invent them. AI cost is in USD; P&L is in the account currency.`;
 
 /**
  * Exact output shapes. Providers without schema-constrained output (OpenAI json_object mode, OpenRouter,
