@@ -47,6 +47,8 @@ export interface SymbolSignals {
   atr1h: number | null;
   /** "Bullish" | "Bearish" | "Neutral"; null/absent when unavailable. */
   trend4h?: string | null;
+  /** The market (technical) analyst's note for this symbol this cycle; null = no note; absent = not checked. */
+  analyst?: { stance: string; confidence: number } | null;
 }
 
 export interface RiskState {
@@ -97,6 +99,8 @@ export const TIGHTEN_MIN_ATR = 1;
 export const NO_ENTRY_BEFORE_CLOSE_MIN = 60;
 /** Entries below this conviction are refused: "the best of the allowed symbols" is not a setup. */
 export const MIN_ENTRY_CONVICTION = 0.7;
+/** The market analyst must read the symbol in the entry's direction with at least this confidence. */
+export const MIN_ANALYST_CONFIDENCE = 0.6;
 /** Float tolerance for price-distance comparisons (1.103 − 1.102 is 0.000999…). */
 const EPS = 1e-9;
 
@@ -165,6 +169,12 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
     return reject(`conviction ${Math.round(p.conviction * 100)}% is below the ${Math.round(MIN_ENTRY_CONVICTION * 100)}% needed to open — no trade is the default`);
   const t4 = sig?.trend4h?.toLowerCase();
   if (t4 === (long ? "bearish" : "bullish")) return reject(`the 4H trend is ${t4} — no ${side.toLowerCase()} against the higher timeframe`);
+  if (sig && sig.analyst !== undefined) {
+    const want = long ? "bullish" : "bearish";
+    const a = sig.analyst;
+    if (!a || a.stance.toLowerCase() !== want || a.confidence < MIN_ANALYST_CONFIDENCE)
+      return reject(`the market analyst reads ${p.symbol} as ${a ? `${a.stance} ${Math.round(a.confidence * 100)}%` : "—"} — an entry needs a ${want} read of at least ${Math.round(MIN_ANALYST_CONFIDENCE * 100)}%`);
+  }
   if (s.sessionLoss >= m.lossLimit) return reject(`session loss limit reached (${money(s.sessionLoss)} of ${money(m.lossLimit)})`);
   if (s.dailyLossLimit != null && s.dailyLossUsed >= s.dailyLossLimit)
     return reject(`daily loss limit reached (${money(s.dailyLossUsed)} of ${money(s.dailyLossLimit)})`);

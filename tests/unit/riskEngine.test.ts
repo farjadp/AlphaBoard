@@ -192,4 +192,14 @@ describe("risk engine — desk discipline (P10)", () => {
     expect(reasons(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), { atr1h: 0.001, trend4h: "Bearish" }))).toMatch(/4H trend is bearish/);
     expect(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), { atr1h: 0.001, trend4h: "Neutral" }).kind).not.toBe("rejected");
   });
+
+  it("needs the market analyst to read the symbol in the entry's direction (no 'best of the bad')", () => {
+    const s = (analyst: { stance: string; confidence: number } | null) => ({ atr1h: 0.001, trend4h: "Bullish", analyst });
+    // 10-06 paper check: strategist 72% long EUR/USD while the market analyst said neutral 55%.
+    expect(reasons(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), s({ stance: "neutral", confidence: 0.55 })))).toMatch(/market analyst reads EUR\/USD as neutral 55%/);
+    expect(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), s({ stance: "bearish", confidence: 0.8 })).kind).toBe("rejected");
+    expect(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), s(null)).kind).toBe("rejected");
+    expect(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), s({ stance: "bullish", confidence: 0.65 })).kind).not.toBe("rejected");
+  });
 });
+

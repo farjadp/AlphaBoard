@@ -30,8 +30,9 @@ price), HOLD. Return one decision per symbol you have a view on; omit symbols wh
 Entries — no trade is the default:
 - Open only on a clear setup: the 1H and 4H agree with the side, the stretch is not against you, and you can name what makes
   now the moment. Being the best of the allowed symbols is not a reason; when nothing is clear, return no OPEN decisions.
-- conviction is your honest probability-weighted confidence. The risk engine refuses entries below 0.7 and entries against
-  the 4H trend, so do not inflate it to get a trade through.
+- conviction is your honest probability-weighted confidence. The risk engine refuses entries below 0.7, entries against
+  the 4H trend, and entries the market analyst does not read in the same direction at 60% or more — so do not inflate
+  conviction to get a trade through.
 - When the bear argues for staying flat, your commentary must name the specific point of that case that is wrong. If you
   cannot, hold.
 - Every OPEN needs stopLoss (and preferably takeProfit) as absolute prices on the correct side of the current price, an
