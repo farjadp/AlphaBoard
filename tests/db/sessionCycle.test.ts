@@ -21,7 +21,7 @@ type Plan = { decisions: unknown[]; commentary: string };
 let plan: Plan = { decisions: [], commentary: "" };
 let fail: Error | null = null;
 const calls: string[] = [];
-const note = { notes: [{ symbol: "BTC/USDT", stance: "bullish", confidence: 0.6, summary: "up", keyPoints: [] }] };
+let note = { notes: [{ symbol: "BTC/USDT", stance: "bullish", confidence: 0.6, summary: "up", keyPoints: [] }] };
 const ai = (async (req: AiRequest<never>) => {
   calls.push(req.feature);
   if (fail) throw fail;
@@ -63,6 +63,21 @@ describe.skipIf(!run)("decision cycle (Postgres)", () => {
     expect(after).toMatchObject({ cycleCount: 1, tradesCount: 1 });
     expect(after.llmCostUsd).toBeCloseTo(0.03, 10);
     expect(after.nextCycleAt!.getTime()).toBeGreaterThan(Date.now() + 29 * 60_000);
+  });
+
+  it("with nothing open and no directional read, skips the debate and the strategist (no extra AI cost)", async () => {
+    const s = await start({ debate: true });
+    const saved = note;
+    note = { notes: [{ symbol: "BTC/USDT", stance: "neutral", confidence: 0.8, summary: "flat", keyPoints: [] }, { symbol: "ETH/USDT", stance: "bullish", confidence: 0.4, summary: "weak", keyPoints: [] }] };
+    try {
+      const r = await runCycle(s.id, deps);
+      expect(r).toMatchObject({ ran: true, skipped: "no setup", decisions: 0 });
+      expect(calls).toEqual(["session.market", "session.news"]);
+      expect((await listMessages(U, s.id)).some((m) => m.body.startsWith("No setup"))).toBe(true);
+      expect((await prisma.tradingSession.findUniqueOrThrow({ where: { id: s.id } })).cycleCount).toBe(1);
+    } finally {
+      note = saved;
+    }
   });
 
   it("a rejected proposal posts the reasons and places no order", async () => {

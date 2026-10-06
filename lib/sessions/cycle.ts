@@ -25,6 +25,13 @@ export const QUIET_MOVE = 0.002;
 export const MAX_SKIPS = 2;
 export const FAILS_TO_PAUSE = 3;
 export const RETRY_AFTER_FAIL_MS = 2 * 60_000;
+/** With no open position, the debate and strategist run only if a market note is directional at this confidence. */
+export const SETUP_CONFIDENCE = 0.6;
+
+/** Symbols the market analyst reads as directional with enough confidence to be worth a strategist call. */
+export function setupCandidates(market: AnalystNotes): string[] {
+  return market.notes.filter((n) => n.stance !== "neutral" && n.confidence >= SETUP_CONFIDENCE).map((n) => n.symbol);
+}
 
 export interface CycleDeps {
   ai?: AiFn;
@@ -126,10 +133,10 @@ async function buildContext(s: Loaded, m: Mandate, symbols: SymbolContext[], pri
   };
 }
 
-/** What the risk engine reads from a symbol's market context (the 1H ATR). */
+/** What the risk engine reads from a symbol's market context (1H ATR, 4H trend). */
 export function signalsOf(c: SymbolContext | undefined): SymbolSignals {
-  const h1 = c?.timeframes.find((t) => t.timeframe === "1H" && t.available);
-  return { atr1h: h1?.atr ?? null };
+  const tf = (name: string) => c?.timeframes.find((t) => t.timeframe === name && t.available);
+  return { atr1h: tf("1H")?.atr ?? null, trend4h: tf("4H")?.trend ?? null };
 }
 
 /** One decision cycle (spec §4.4): analysts → (debate) → strategist → risk → execution, all posted in the room. */
@@ -214,6 +221,12 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
     await addCost(a.costUsd);
     await post(sessionId, "MARKET", "TEXT", notesBody("Market", a.market), { notes: a.market.notes }, { ...extra, costUsd: a.costUsd / 2 });
     await post(sessionId, "NEWS", "TEXT", notesBody("News", a.news), { notes: a.news.notes }, { ...extra, costUsd: a.costUsd / 2 });
+    if (!ctx.positions.length && !setupCandidates(a.market).length) {
+      await post(sessionId, "SYSTEM", "TEXT", `No setup: no symbol has a directional technical read at ${Math.round(SETUP_CONFIDENCE * 100)}% confidence or more, and nothing is open — skipped the debate and the strategist this cycle.`, { noSetup: true }, extra);
+      await schedule({ skipStreak: 0, agentFailStreak: 0 });
+      await budgetCheck(sessionId, m, deps.telegram);
+      return { ran: true, skipped: "no setup", decisions: 0, executed: 0 };
+    }
     let debate = null;
     if (m.debate) {
       const d = await runDebate(agentDeps, ctx, a.market, a.news);

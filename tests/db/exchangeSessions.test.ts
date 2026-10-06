@@ -18,7 +18,7 @@ const run = !!process.env.TEST_DATABASE_URL;
 process.env.EXCHANGE_KEY_SECRET = randomBytes(32).toString("base64");
 
 const plan = { commentary: "go", decisions: [{ action: "OPEN_LONG", symbol: "BTC/USDT", positionId: null, conviction: 0.7, thesis: "t", stopLoss: 95_000, takeProfit: 120_000, invalidation: "i", horizonMin: 60 }] };
-const note = { notes: [] };
+const note = { notes: [{ symbol: "BTC/USDT", stance: "bullish", confidence: 0.7, summary: "up", keyPoints: [] }] };
 const lesson = { outcome: "LOSS", rootCause: "r", mistakes: [], strengths: [], lesson: "l", tags: [] };
 const ai = (async (req: AiRequest<never>) => ({
   data: (req.schema as unknown as { parse(v: unknown): unknown }).parse(req.feature === "session.strategist" ? plan : req.feature === "session.journal" ? lesson : req.feature === "session.report" ? { summary: "s", lessons: [] } : note),

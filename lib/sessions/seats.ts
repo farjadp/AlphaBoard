@@ -90,7 +90,9 @@ export function deriveSeats(messages: SessionMessageDto[], opts: { debate: boole
   // The furthest stage this cycle has reached, so a stage that failed or was skipped does not
   // strand the seats behind it: a proposal on the table means the gatekeeper is up, notes or not.
   const pending = new Set<SeatRole>();
-  if (cycle != null) {
+  // A cycle the code cut short on purpose (no setup → no debate or strategist) leaves nobody waiting.
+  const cutShort = inCycle.some((m) => m.role === "SYSTEM" && (m.data as { noSetup?: boolean } | null)?.noSetup === true);
+  if (cycle != null && !cutShort) {
     let reached = -1;
     for (const r of posted) reached = Math.max(reached, SEAT_STAGE[r]);
     const want = (stage: number) => {
