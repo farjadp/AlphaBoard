@@ -182,4 +182,14 @@ describe("risk engine — desk discipline (P10)", () => {
     expect(reasons(evaluateProposal(tighten(1.1025), fx, fxState({ openPositions: [pos] }), fxRules({ price: 1.103 }), sig(0.001)))).toMatch(/ATR/);
     expect(evaluateProposal(tighten(1.102), fx, fxState({ openPositions: [pos] }), fxRules({ price: 1.103 }), sig(0.001))).toMatchObject({ kind: "tighten", stopLoss: 1.102 });
   });
+
+  it("needs conviction of at least 0.7 to open (the live losers were 0.60–0.68)", () => {
+    const weak = { ...eurLong(1.098), conviction: 0.62 };
+    expect(reasons(evaluateProposal(weak, fx, fxState(), fxRules(), sig(0.001)))).toMatch(/conviction 62%/);
+  });
+
+  it("does not open against the 4H trend", () => {
+    expect(reasons(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), { atr1h: 0.001, trend4h: "Bearish" }))).toMatch(/4H trend is bearish/);
+    expect(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), { atr1h: 0.001, trend4h: "Neutral" }).kind).not.toBe("rejected");
+  });
 });

@@ -45,6 +45,8 @@ export interface RiskPosition {
  */
 export interface SymbolSignals {
   atr1h: number | null;
+  /** "Bullish" | "Bearish" | "Neutral"; null/absent when unavailable. */
+  trend4h?: string | null;
 }
 
 export interface RiskState {
@@ -93,6 +95,8 @@ export const TIGHTEN_AFTER_R = 1;
 export const TIGHTEN_MIN_ATR = 1;
 /** No new entries on weekday-only markets this close to the Friday close. */
 export const NO_ENTRY_BEFORE_CLOSE_MIN = 60;
+/** Entries below this conviction are refused: "the best of the allowed symbols" is not a setup. */
+export const MIN_ENTRY_CONVICTION = 0.7;
 /** Float tolerance for price-distance comparisons (1.103 − 1.102 is 0.000999…). */
 const EPS = 1e-9;
 
@@ -157,6 +161,10 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
   const side = p.action === "OPEN_LONG" ? "LONG" : "SHORT";
   const long = side === "LONG";
   if (!long && m.marketType === "spot") return reject("shorts are not possible on a spot session");
+  if (!(p.conviction >= MIN_ENTRY_CONVICTION))
+    return reject(`conviction ${Math.round(p.conviction * 100)}% is below the ${Math.round(MIN_ENTRY_CONVICTION * 100)}% needed to open — no trade is the default`);
+  const t4 = sig?.trend4h?.toLowerCase();
+  if (t4 === (long ? "bearish" : "bullish")) return reject(`the 4H trend is ${t4} — no ${side.toLowerCase()} against the higher timeframe`);
   if (s.sessionLoss >= m.lossLimit) return reject(`session loss limit reached (${money(s.sessionLoss)} of ${money(m.lossLimit)})`);
   if (s.dailyLossLimit != null && s.dailyLossUsed >= s.dailyLossLimit)
     return reject(`daily loss limit reached (${money(s.dailyLossUsed)} of ${money(s.dailyLossLimit)})`);
