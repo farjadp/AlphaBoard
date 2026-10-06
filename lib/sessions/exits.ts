@@ -6,6 +6,7 @@ import { livePrice, type PriceOf } from "@/lib/paper/account";
 import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
 import { fmt, money } from "@/lib/risk/limits";
+import { tradesWeekdaysOnly, weekendClosed } from "@/lib/market/hours";
 import { paperVenue } from "@/lib/venues/paper";
 import { VenueError, type CloseResult, type Venue } from "@/lib/venues/types";
 import { venueForConnection } from "@/lib/venues/registry";
@@ -58,7 +59,28 @@ const REASON_TEXT: Record<SessionCloseReason, string> = {
   MARKET_CLOSE: "closed before the weekly market close",
 };
 
-export interface ExitDeps { priceOf?: PriceOf; telegram?: Telegram | null; venue?: Venue }
+export interface ExitDeps { priceOf?: PriceOf; telegram?: Telegram | null; venue?: Venue; now?: Date }
+
+/** After the broker refuses a close (market halted, …), wait this long before sending a new one. */
+export const CLOSE_RETRY_MS = 5 * 60_000;
+
+/**
+ * Tag for a full close. A refused attempt (CANCELED / REJECTED) is final for its client order id, and the
+ * venues treat a known id as "already sent" — so the next attempt needs a new id, or nothing is ever retried
+ * (USD/CAD, 2026-10-02: refused at the Friday close, then silently never resent after the Sunday reopen).
+ */
+async function closeTag(sessionId: string, positionId: string, now: Date, symbol: string) {
+  const base = `x-${positionId.slice(-8)}`;
+  const refused = await prisma.sessionOrder.findMany({
+    where: { positionId, clientOrderId: { startsWith: orderId(sessionId, base) }, status: { in: ["CANCELED", "REJECTED"] } },
+    orderBy: { updatedAt: "desc" }, select: { updatedAt: true, error: true },
+  });
+  if (!refused.length) return base;
+  if (tradesWeekdaysOnly(symbol) && weekendClosed(now)) throw new VenueError(`${symbol}: market closed for the weekend — closing at the Sunday reopen`, "BAD_ORDER");
+  const wait = refused[0].updatedAt.getTime() + CLOSE_RETRY_MS - now.getTime();
+  if (wait > 0) throw new VenueError(`${symbol}: last close was refused (${refused[0].error ?? "no fill"}) — next attempt in ${Math.ceil(wait / 60_000)} min`, "BAD_ORDER");
+  return `${base}-${refused.length}`;
+}
 
 /**
  * Close (all or part of) a session position, post the fill in the room and notify the owner.
@@ -72,7 +94,7 @@ export async function exitPosition(
 ) {
   const venue = opts.venue ?? (await venueFor(session, opts.priceOf));
   const partial = opts.fraction != null && opts.fraction < 1;
-  const tag = opts.tag ?? (partial ? uniqueTag("p") : `x-${pos.id.slice(-8)}`);
+  const tag = opts.tag ?? (partial ? uniqueTag("p") : await closeTag(session.id, pos.id, opts.now ?? new Date(), pos.symbol));
   let r;
   try {
     r = await venue.closePosition({ sessionId: session.id, clientOrderId: orderId(session.id, tag), positionId: pos.id, reason, fraction: opts.fraction, price: opts.price });
@@ -113,6 +135,6 @@ export async function flatten(session: Pick<TradingSession, "id" | "userId" | "n
       failed.push(`${p.symbol}: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
-  if (failed.length) await post(session.id, "SYSTEM", "ALERT", `Could not close ${failed.join("; ")} — retrying every 15 s.`);
+  if (failed.length) await post(session.id, "SYSTEM", "ALERT", `Could not close ${failed.join("; ")} — the monitor keeps retrying.`);
   return { closed: open.length - failed.length, failed };
 }

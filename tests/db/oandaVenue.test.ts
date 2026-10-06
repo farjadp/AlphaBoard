@@ -1,5 +1,6 @@
 /** OANDA venue (P9) against Postgres with an in-memory OANDA v20 server. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { exitPosition } from "@/lib/sessions/exits";
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { encryptSecret } from "@/lib/secrets/crypto";
@@ -119,6 +120,29 @@ describe.skipIf(!run)("OANDA venue (Postgres, fake v20 server)", () => {
     expect(rest?.closed).toBe(true);
     const pb = await prisma.sessionPosition.findUniqueOrThrow({ where: { id: b.positionId } });
     expect(pb.realizedPnl).toBeCloseTo((2610 - 2600.6) * 4, 6);
+  });
+
+  it("a close refused at the weekly close is retried with a new order id once the market reopens", async () => {
+    const a = await open();
+    const s = await prisma.tradingSession.findUniqueOrThrow({ where: { id: sessionId } });
+    const fri = new Date("2026-10-02T20:59:00Z"); // 16:59 New York
+    fake.state.tradeable = false;
+    await expect(exitPosition(s, { id: a.positionId, symbol: "XAU/USD", side: "LONG" }, "SESSION_END", { venue: venue(), now: fri })).rejects.toThrow(/market closed/);
+    // The refusal happened on Friday (the test clock), not at the wall-clock time the row was written.
+    await prisma.$executeRaw`UPDATE "SessionOrder" SET "updatedAt" = ${fri} WHERE "positionId" = ${a.positionId} AND purpose = 'EXIT'`;
+    // Over the weekend nothing is sent at all.
+    const sat = new Date("2026-10-03T12:00:00Z");
+    await expect(exitPosition(s, { id: a.positionId, symbol: "XAU/USD", side: "LONG" }, "SESSION_END", { venue: venue(), now: sat })).rejects.toThrow(/Sunday reopen/);
+    expect(fake.state.requests.filter((q) => q.path.endsWith("/close"))).toHaveLength(1);
+    // Sunday 17:00 New York: a fresh attempt goes out under a new client order id and closes the trade.
+    fake.state.tradeable = true;
+    const sun = new Date("2026-10-04T21:01:00Z");
+    const r = await exitPosition(s, { id: a.positionId, symbol: "XAU/USD", side: "LONG" }, "SESSION_END", { venue: venue(), now: sun });
+    expect(r?.closed).toBe(true);
+    const ids = (await prisma.sessionOrder.findMany({ where: { positionId: a.positionId, purpose: "EXIT" }, orderBy: { createdAt: "asc" } })).map((o) => [o.clientOrderId, o.status]);
+    expect(ids).toHaveLength(2);
+    expect(ids[0][1]).toBe("CANCELED");
+    expect(ids[1][0]).toBe(`${ids[0][0]}-1`);
   });
 
   it("reconciler: a trade closed behind our back or resized halts the session", async () => {

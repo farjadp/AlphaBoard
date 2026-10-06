@@ -77,7 +77,7 @@ export async function monitorSessions(deps: MonitorDeps = {}): Promise<MonitorRe
   const priceFor = async (s: { venue: string; connectionId: string | null }) =>
     (deps.priceOf || s.venue !== "exchange" ? priceOf : cachedPrices(await sessionPriceOf(s, priceOf)));
   const telegram = deps.telegram === undefined ? telegramFromEnv() : deps.telegram;
-  const exitDeps = { priceOf, telegram };
+  const exitDeps = { priceOf, telegram, now };
   const result: MonitorResult = { sessions: 0, exits: [], halted: [], prompted: [], ended: [], errors: [] };
   const background: Array<Promise<unknown>> = [];
   const bg = (label: string, p: Promise<unknown>) => background.push(p.catch((e) => {
@@ -133,7 +133,7 @@ export async function monitorSessions(deps: MonitorDeps = {}): Promise<MonitorRe
 
 type Loaded = TradingSession & { positions: SessionPosition[] };
 
-async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, exitDeps: { priceOf: PriceOf; telegram: Telegram | null }, result: MonitorResult) {
+async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, exitDeps: { priceOf: PriceOf; telegram: Telegram | null; now: Date }, result: MonitorResult) {
   const m = mandateOf(s);
 
   // 0. Exchange stops that fired since the last pass (native-stop venues).
@@ -216,7 +216,7 @@ async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, exitDeps: { pr
  * positions (then warn once), and end an active session whose every symbol is weekday-only.
  * Returns true when the session was ended here.
  */
-async function weeklyClose(s: Loaded, m: ReturnType<typeof mandateOf>, now: Date, exitDeps: { priceOf: PriceOf; telegram: Telegram | null }, result: MonitorResult) {
+async function weeklyClose(s: Loaded, m: ReturnType<typeof mandateOf>, now: Date, exitDeps: { priceOf: PriceOf; telegram: Telegram | null; now: Date }, result: MonitorResult) {
   const left = minutesToWeeklyClose(now);
   if (left <= 0 || left > FLATTEN_BEFORE_CLOSE_MIN) return false;
   const open = await prisma.sessionPosition.findMany({ where: { sessionId: s.id, closedAt: null } });
