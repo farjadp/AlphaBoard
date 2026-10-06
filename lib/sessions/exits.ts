@@ -55,6 +55,7 @@ export const uniqueTag = (prefix: string) => `${prefix}${randomBytes(4).toString
 const REASON_TEXT: Record<SessionCloseReason, string> = {
   MANUAL: "closed by you", STRATEGIST: "closed by the strategist", STOP_LOSS: "stop-loss hit", TAKE_PROFIT: "take-profit hit",
   LIQUIDATION: "liquidated", LOSS_LIMIT: "session loss limit", KILL: "kill switch", SESSION_END: "session ended",
+  MARKET_CLOSE: "closed before the weekly market close",
 };
 
 export interface ExitDeps { priceOf?: PriceOf; telegram?: Telegram | null; venue?: Venue }

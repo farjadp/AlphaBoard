@@ -10,6 +10,8 @@ import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { resolveExtensionPrompt } from "@/lib/notify/sessionTelegram";
 import { formatMandate } from "@/lib/agents/context";
+import { minutesToWeeklyClose, tradesWeekdaysOnly } from "@/lib/market/hours";
+import { NO_ENTRY_BEFORE_CLOSE_MIN } from "@/lib/risk/verdict";
 import { fmt, money } from "@/lib/risk/limits";
 import type { SessionSummaryDto } from "@/lib/types/sessions";
 import { canTransition, isActive } from "./lifecycle";
@@ -77,6 +79,12 @@ export async function startSession(userId: string, input: StartInput, deps: Serv
   } catch (e) {
     if (e instanceof MandateError) throw badRequest(e.issues.join(" · "), "BAD_MANDATE");
     throw e;
+  }
+  const weekday = mandate.symbols.filter(tradesWeekdaysOnly);
+  if (weekday.length) {
+    const left = minutesToWeeklyClose(now);
+    if (left < NO_ENTRY_BEFORE_CLOSE_MIN)
+      throw badRequest(`${weekday.join(", ")} ${left <= 0 ? "are closed for the weekend" : `close for the weekend in ${left} min`} — start after Sunday 17:00 New York, or use crypto symbols only`, "MARKET_CLOSED");
   }
   const active = await prisma.tradingSession.count({ where: { userId, status: { in: ["RUNNING", "PAUSED", "AWAITING_EXTENSION", "ENDING"] } } });
   if (active >= MAX_ACTIVE_SESSIONS) throw badRequest(`At most ${MAX_ACTIVE_SESSIONS} sessions can run at once`, "TOO_MANY_SESSIONS");
@@ -171,13 +179,14 @@ export async function finishSession(
   const halted = reason === "KILL" || reason === "LOSS_LIMIT" || reason === "RECONCILE_MISMATCH" || reason === "ERROR";
   const keepOpen = mode === "KEEP_WITH_STOPS" && !halted;
   await setStatus(s, halted ? "HALTED" : "ENDED", { endReason: reason, endedAt: now, extensionPromptAt: null, nextCycleAt: null, keepOpen });
-  const closeReason = reason === "KILL" ? "KILL" : reason === "LOSS_LIMIT" ? "LOSS_LIMIT" : "SESSION_END";
+  const closeReason = reason === "KILL" ? "KILL" : reason === "LOSS_LIMIT" ? "LOSS_LIMIT" : reason === "MARKET_CLOSE" ? "MARKET_CLOSE" : "SESSION_END";
   const r = keepOpen ? { closed: 0, failed: [] } : await flatten(s, closeReason, deps);
   const open = await prisma.sessionPosition.count({ where: { sessionId: s.id, closedAt: null } });
   const text = {
     COMPLETED: "Session completed.", USER_ENDED: "Session ended by you.", EXTENSION_TIMEOUT: "No answer to the extension prompt — session ended.",
     KILL: "Kill switch: all orders cancelled and positions closed.", LOSS_LIMIT: "Session loss limit reached — trading halted and positions closed.",
     LLM_BUDGET: "AI budget used up — session ended.", RECONCILE_MISMATCH: "Venue state did not match — trading halted.", ERROR: "Session halted after repeated errors.",
+    MARKET_CLOSE: "The market closes for the weekend — session ended so nothing is held over the gap.",
   }[reason];
   const tail = open ? ` ${open} position(s) remain open${keepOpen ? " with their stops (still enforced)" : " — retrying the close"}.` : r.closed ? ` Closed ${r.closed} position(s).` : "";
   await post(s.id, "SYSTEM", "ALERT", `${text}${tail} The report follows once every position is closed.`);

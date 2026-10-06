@@ -22,6 +22,7 @@ export function StatusPill({ status }: { status: SessionStatus }) {
 export const END_REASON: Record<string, string> = {
   COMPLETED: "Completed", USER_ENDED: "Ended by you", LOSS_LIMIT: "Loss limit hit", KILL: "Kill switch", RECONCILE_MISMATCH: "Venue mismatch",
   LLM_BUDGET: "AI budget used", ERROR: "Errors", EXTENSION_TIMEOUT: "No answer at the end",
+  MARKET_CLOSE: "Weekly market close",
 };
 
 export function durationText(min: number) {

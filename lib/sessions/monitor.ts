@@ -9,6 +9,7 @@ import { promptExtension, resolveExtensionPrompt } from "@/lib/notify/sessionTel
 import { notify } from "@/lib/notify/notifications";
 import type { AiFn } from "@/lib/agents/run";
 import { money } from "@/lib/risk/limits";
+import { minutesToWeeklyClose, tradesWeekdaysOnly } from "@/lib/market/hours";
 import { runCycle } from "./cycle";
 import { announceExit, exitPosition, flatten, sessionPriceOf, venueFor } from "./exits";
 import { reconcileSession, RECONCILE_EVERY_MS } from "@/lib/exec/reconciler";
@@ -40,6 +41,8 @@ export interface MonitorResult {
 
 /** How far past an exchange-held stop the software fallback waits before closing at market itself. */
 export const NATIVE_STOP_SLACK = 0.003;
+/** Weekday-only positions are closed (CLOSE_ALL) this long before the Friday close; all-FX sessions end then too. */
+export const FLATTEN_BEFORE_CLOSE_MIN = 20;
 
 /** Which exit, if any, the live price triggers. Liquidation first, then the stop, then the target. */
 export function exitFor(p: Pick<SessionPosition, "side" | "leverage" | "entryPrice" | "stopLoss" | "takeProfit">, price: number): SessionCloseReason | null {
@@ -159,9 +162,13 @@ async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, exitDeps: { pr
     if (r) result.exits.push({ positionId: p.id, reason });
   }
 
+  // 1b. Weekly market close: nothing on a weekday-only market is held into the weekend gap.
+  if (await weeklyClose(s, m, now, exitDeps, result)) return;
+
   // 2. Pending closes after a halt / close-all end.
   if (!isActive(s.status) && !s.keepOpen && (await prisma.sessionPosition.count({ where: { sessionId: s.id, closedAt: null } }))) {
-    await flatten(s, s.endReason === "KILL" ? "KILL" : s.endReason === "LOSS_LIMIT" ? "LOSS_LIMIT" : "SESSION_END", exitDeps);
+    const e = s.endReason;
+    await flatten(s, e === "KILL" ? "KILL" : e === "LOSS_LIMIT" ? "LOSS_LIMIT" : e === "MARKET_CLOSE" ? "MARKET_CLOSE" : "SESSION_END", exitDeps);
     return;
   }
   if (!isActive(s.status)) return;
@@ -199,4 +206,47 @@ async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, exitDeps: { pr
     await resolveExtensionPrompt(latest, `no answer in ${m.extensionTimeoutMin} min — session ended${m.onEnd === "CLOSE_ALL" ? ", positions closed" : ", positions kept with stops"}.`, exitDeps.telegram);
     result.ended.push(s.id);
   }
+}
+
+/**
+ * Before the Friday close (FLATTEN_BEFORE_CLOSE_MIN): close weekday-only positions unless the mandate keeps
+ * positions (then warn once), and end an active session whose every symbol is weekday-only.
+ * Returns true when the session was ended here.
+ */
+async function weeklyClose(s: Loaded, m: ReturnType<typeof mandateOf>, now: Date, exitDeps: { priceOf: PriceOf; telegram: Telegram | null }, result: MonitorResult) {
+  const left = minutesToWeeklyClose(now);
+  if (left <= 0 || left > FLATTEN_BEFORE_CLOSE_MIN) return false;
+  const open = await prisma.sessionPosition.findMany({ where: { sessionId: s.id, closedAt: null } });
+  const exposed = open.filter((p) => tradesWeekdaysOnly(p.symbol));
+  const keep = m.onEnd === "KEEP_WITH_STOPS" && (isActive(s.status) || s.keepOpen);
+  if (exposed.length && keep) {
+    const body = `Weekly close in ${left} min: ${exposed.map((p) => p.symbol).join(", ")} stay open over the weekend with their stops (mandate: keep positions). A weekend gap can fill a stop at a worse price.`;
+    if (await alertOnce(s.id, "Weekly close", body, now)) {
+      await notify(s.userId, { type: "session", title: `${s.name}: weekly close`, body, data: { sessionId: s.id, href: `/sessions/${s.id}` } }, exitDeps.telegram).catch(() => undefined);
+    }
+  } else {
+    for (const p of exposed) {
+      try {
+        const r = await exitPosition(s, p, "MARKET_CLOSE", exitDeps);
+        if (r) result.exits.push({ positionId: p.id, reason: "MARKET_CLOSE" });
+      } catch (e) {
+        await alertOnce(s.id, `Could not close ${p.symbol} before the weekly close`, `Could not close ${p.symbol} before the weekly close: ${e instanceof Error ? e.message : String(e)} — retrying every 15 s.`, now);
+      }
+    }
+  }
+  if (isActive(s.status) && m.symbols.every(tradesWeekdaysOnly)) {
+    const current = await prisma.tradingSession.findUniqueOrThrow({ where: { id: s.id } });
+    await finishSession(current, "MARKET_CLOSE", m.onEnd, exitDeps);
+    result.ended.push(s.id);
+    return true;
+  }
+  return false;
+}
+
+/** Post an alert unless one starting with `prefix` was posted in the last hour (the monitor runs every 15 s). */
+async function alertOnce(sessionId: string, prefix: string, body: string, now: Date) {
+  const recent = await prisma.sessionMessage.count({ where: { sessionId, kind: "ALERT", body: { startsWith: prefix }, createdAt: { gte: new Date(now.getTime() - 60 * 60_000) } } });
+  if (recent) return false;
+  await post(sessionId, "SYSTEM", "ALERT", body);
+  return true;
 }

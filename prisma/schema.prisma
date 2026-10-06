@@ -498,6 +498,8 @@ enum SessionEndReason {
   LLM_BUDGET
   ERROR
   EXTENSION_TIMEOUT
+  /// FX / metals session ended before the Friday close (P10).
+  MARKET_CLOSE
 }
 
 enum SessionRole {
@@ -549,6 +551,8 @@ enum SessionCloseReason {
   LOSS_LIMIT
   KILL
   SESSION_END
+  /// Closed before the weekly market close so nothing is held over the weekend (P10).
+  MARKET_CLOSE
 }
 
 /// A time-boxed run of the agent team under a frozen mandate (spec P8 §3).
