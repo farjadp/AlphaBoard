@@ -191,11 +191,13 @@ function ReportPanel({ id }: { id: string }) {
       <h2 id="report-heading" className="font-display text-lg font-bold text-ink">Session report</h2>
       <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {stat("Net P&L", `${usd(m.netPnl, true)} (${m.returnPct.toFixed(2)}%)`, pnlTone(m.netPnl))}
-        {stat("After AI cost", usd(m.netAfterLlm, true), pnlTone(m.netAfterLlm))}
+        {m.netAfterLlm == null
+          ? stat(`After AI cost`, `— (${m.accountCurrency ?? "account"} vs USD)`)
+          : stat("After AI cost", usd(m.netAfterLlm, true), pnlTone(m.netAfterLlm))}
         {stat("Trades · win rate", `${m.trades} · ${m.winRate == null ? "—" : `${Math.round(m.winRate * 100)}%`}`)}
         {stat("Buy and hold", m.buyAndHold ? `${m.buyAndHold.returnPct >= 0 ? "+" : "−"}${Math.abs(m.buyAndHold.returnPct).toFixed(2)}% ${m.buyAndHold.symbol}` : "Unavailable")}
         {stat("Fees", usd(m.fees))}
-        {stat("AI cost", usd(m.llmCostUsd))}
+        {stat("AI cost (USD)", usd(m.llmCostUsd))}
         {stat("Expectancy", m.expectancyR == null ? "—" : `${m.expectancyR.toFixed(2)}R`)}
         {stat("Max drawdown", usd(m.maxDrawdown))}
       </dl>

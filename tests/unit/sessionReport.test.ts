@@ -32,6 +32,20 @@ describe("session metrics", () => {
     const e = computeMetrics({ capital: 100, grossPnl: 0, fees: 0, llmCostUsd: 0, trades: [], rejectionReasons: [], buyAndHold: { symbol: "X", startPrice: null, endPrice: 1 }, startedAt: 0, endedAt: 0, cycles: 0 });
     expect(e).toMatchObject({ winRate: null, expectancyR: null, buyAndHold: null, maxDrawdown: 0 });
   });
+  it("expectancy R values the stop risk in the account currency (USD/JPY on a CAD account)", () => {
+    // 9/30 live trade: short 536 USD/JPY @ 156.845, initial stop 157.18, lost C$1.3451 at 0.009136 CAD per JPY.
+    const jpy = computeMetrics({
+      capital: 80, grossPnl: -1.3451, fees: 0, llmCostUsd: 0.84, accountCurrency: "CAD",
+      trades: [t(-1.3451, 1, { symbol: "USD/JPY", side: "SHORT", entryPrice: 156.845, openedQty: 536, initialStop: 157.18, quoteToAccount: 0.009136 })],
+      rejectionReasons: [], buyAndHold: null, startedAt: 0, endedAt: 1, cycles: 9,
+    });
+    expect(jpy.expectancyR).toBeCloseTo(-0.82, 2);
+  });
+  it("does not subtract US$ AI cost from a non-USD account", () => {
+    const cad = computeMetrics({ capital: 80, grossPnl: -1, fees: 0, llmCostUsd: 2, accountCurrency: "CAD", trades: [], rejectionReasons: [], buyAndHold: null, startedAt: 0, endedAt: 0, cycles: 0 });
+    expect(cad).toMatchObject({ accountCurrency: "CAD", netAfterLlm: null });
+    expect(computeMetrics({ capital: 80, grossPnl: -1, fees: 0, llmCostUsd: 2, accountCurrency: "USDT", trades: [], rejectionReasons: [], buyAndHold: null, startedAt: 0, endedAt: 0, cycles: 0 }).netAfterLlm).toBe(-3);
+  });
   it("text block carries the numbers for the writer", () => {
     const text = metricsText("S", m, [{ ...t(10, 3), reason: "TAKE_PROFIT" }]);
     expect(text).toMatch(/net P&L \$10\.00/);
