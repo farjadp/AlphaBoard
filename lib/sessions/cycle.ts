@@ -10,7 +10,7 @@ import { gatherSymbol, type ContextData, type PositionContext, type SymbolContex
 import { runAnalysts, runDebate, runStrategist, type AiFn } from "@/lib/agents/run";
 import type { AnalystNotes } from "@/lib/agents/schemas";
 import { fmt, money } from "@/lib/risk/limits";
-import { evaluateProposal, type Proposal, type RiskState, type Verdict } from "@/lib/risk/verdict";
+import { evaluateProposal, type Proposal, type RiskState, type SymbolSignals, type Verdict } from "@/lib/risk/verdict";
 import { sessionFreeCapital } from "@/lib/venues/paper";
 import { VenueError, type Venue } from "@/lib/venues/types";
 import { dailyUsage } from "./limits";
@@ -83,7 +83,10 @@ async function riskState(s: Loaded, priceOf: PriceOf, now: Date): Promise<RiskSt
   return {
     equity: money.equity ?? fresh.capital + money.realizedNet + knownUnrealized,
     freeCapital: await sessionFreeCapital(s.id),
-    openPositions: open.map((p) => ({ id: p.id, symbol: p.symbol, side: p.side, qty: p.qty, entryPrice: p.entryPrice, stopLoss: p.stopLoss, margin: p.margin })),
+    openPositions: open.map((p) => ({
+      id: p.id, symbol: p.symbol, side: p.side, qty: p.qty, entryPrice: p.entryPrice, stopLoss: p.stopLoss, margin: p.margin,
+      initialStop: (p.exitPlan as { initialStop?: number } | null)?.initialStop ?? null,
+    })),
     tradesCount: fresh.tradesCount,
     lastStopOutAt: stopOuts,
     now: now.getTime(),
@@ -121,6 +124,12 @@ async function buildContext(s: Loaded, m: Mandate, symbols: SymbolContext[], pri
     positions,
     lessons: lessons.map((l) => `[${l.outcome} ${l.symbol}] ${l.lesson}`),
   };
+}
+
+/** What the risk engine reads from a symbol's market context (the 1H ATR). */
+export function signalsOf(c: SymbolContext | undefined): SymbolSignals {
+  const h1 = c?.timeframes.find((t) => t.timeframe === "1H" && t.available);
+  return { atr1h: h1?.atr ?? null };
 }
 
 /** One decision cycle (spec §4.4): analysts → (debate) → strategist → risk → execution, all posted in the room. */
@@ -245,7 +254,7 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
     let v: Verdict;
     if (opening && current.status !== "RUNNING") v = { kind: "rejected", reasons: [`session is ${current.status.toLowerCase().replace("_", " ")} — no new entries`] };
     else if (opening && current.endsAt.getTime() - now.getTime() < noEntryWindowMin(m) * 60_000) v = { kind: "rejected", reasons: [`less than ${noEntryWindowMin(m)} min left in the session — no new entries`] };
-    else v = evaluateProposal(p, m, await riskState(s, priceOf, now), await venue.marketRules(p.symbol));
+    else v = evaluateProposal(p, m, await riskState(s, priceOf, now), await venue.marketRules(p.symbol), signalsOf(symbols.find((x) => x.symbol === p.symbol)));
     if (v.kind === "hold") continue;
     await post(sessionId, "RISK", "VERDICT", verdictBody(p, v), { kind: v.kind, reasons: v.reasons, symbol: p.symbol, action: p.action }, extra);
     try {
@@ -253,7 +262,10 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
         const r = await venue.openPosition({
           sessionId, clientOrderId: orderId(sessionId, `c${cycleNo}-${i}`), symbol: p.symbol, side: v.side, qty: v.qty, leverage: v.leverage,
           stopLoss: v.stopLoss, takeProfit: v.takeProfit,
-          exitPlan: { thesis: p.thesis, invalidation: p.exitPlan.invalidation, horizonMin: p.exitPlan.horizonMin, conviction: p.conviction, initialStop: v.stopLoss, takeProfit: v.takeProfit },
+          exitPlan: {
+            thesis: p.thesis, invalidation: p.exitPlan.invalidation, horizonMin: p.exitPlan.horizonMin, conviction: p.conviction, initialStop: v.stopLoss, takeProfit: v.takeProfit,
+            atr1hAtEntry: signalsOf(symbols.find((x) => x.symbol === p.symbol)).atr1h,
+          },
         });
         if (!r.replayed) {
           executed++;

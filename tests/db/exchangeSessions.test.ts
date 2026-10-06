@@ -24,7 +24,7 @@ const ai = (async (req: AiRequest<never>) => ({
   data: (req.schema as unknown as { parse(v: unknown): unknown }).parse(req.feature === "session.strategist" ? plan : req.feature === "session.journal" ? lesson : req.feature === "session.report" ? { summary: "s", lessons: [] } : note),
   meta: { provider: "openai", model: "m", inputTokens: 1, outputTokens: 1, costUsd: 0.001, visionFallback: false },
 })) as unknown as AiFn;
-const gather = async (symbol: string): Promise<SymbolContext> => ({ symbol, price: 100_000, changePct24h: 0, timeframes: [], consensus: null, funding: null, news: [] });
+const gather = async (symbol: string): Promise<SymbolContext> => ({ symbol, price: 100_000, changePct24h: 0, timeframes: [{ timeframe: "1H", available: true, trend: "Bullish", stretch: "Neutral", rsi: 55, atr: 1_000, macd: "Bullish", ema: "Above" }], consensus: null, funding: null, news: [] });
 
 describe.skipIf(!run)("exchange sessions (Postgres, fake exchange)", () => {
   let admin: string, user: string, connId: string;

@@ -126,7 +126,7 @@ describe.skipIf(!run)("decision cycle (Postgres)", () => {
     plan = { commentary: "go", decisions: [decision({})] };
     await runCycle(s.id, deps);
     const pos = await prisma.sessionPosition.findFirstOrThrow({ where: { sessionId: s.id } });
-    prices["BTC/USDT"] = 104;
+    prices["BTC/USDT"] = 106; // > 1R (entry ≈ 100, initial stop 95) — tightening is allowed only after 1R
     plan = { commentary: "protect", decisions: [decision({ action: "TIGHTEN_STOP", positionId: pos.id, stopLoss: 101 })] };
     await runCycle(s.id, { ...deps, force: true });
     expect((await prisma.sessionPosition.findUniqueOrThrow({ where: { id: pos.id } })).stopLoss).toBe(101);

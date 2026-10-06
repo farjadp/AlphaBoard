@@ -133,3 +133,53 @@ describe("risk engine — managing open positions", () => {
     expect(evaluateProposal(long({ action: "CLOSE", positionId: "p1" }), spot, state({ openPositions: [pos], sessionLoss: 500, tradesCount: 99 }), rules()).kind).toBe("close");
   });
 });
+
+describe("risk engine — desk discipline (P10)", () => {
+  const fx = parseMandate({ symbols: ["EUR/USD", "GBP/USD", "USD/JPY", "XAU/USD"], capital: 1_000, marketType: "swap", maxLeverage: 20 });
+  // Tuesday 2026-10-06 14:00 UTC — FX open, days from the Friday close.
+  const TUE = Date.parse("2026-10-06T14:00:00Z");
+  const fxState = (o: Partial<RiskState> = {}) => state({ now: TUE, ...o });
+  const fxRules = (o: Partial<MarketRules> = {}) => rules({ price: 1.1, minQty: 1, minCost: 0, qtyStep: 1, feeRate: 0, slippage: 0.00005, ...o });
+  const eurLong = (stopLoss: number, takeProfit = 1.12) => long({ symbol: "EUR/USD", exitPlan: { stopLoss, takeProfit, invalidation: "", horizonMin: 180 } });
+  const sig = (atr1h: number | null) => ({ atr1h });
+
+  it("rejects a stop inside 1.5× the 1H ATR and says what the floor is", () => {
+    // ATR 0.001 → floor 0.0015; a 12-pip stop (0.0012) is inside it.
+    const v = evaluateProposal(eurLong(1.0988), fx, fxState(), fxRules(), sig(0.001));
+    expect(v.kind).toBe("rejected");
+    expect(reasons(v)).toMatch(/1\.5× the 1H ATR/);
+    expect(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), sig(0.001)).kind).not.toBe("rejected");
+  });
+
+  it("rejects an entry when the ATR is unavailable", () => {
+    expect(reasons(evaluateProposal(eurLong(1.098), fx, fxState(), fxRules(), sig(null)))).toMatch(/ATR unavailable/);
+  });
+
+  it("blocks entries in the last hour before the Friday close and while the market is closed", () => {
+    const fri = Date.parse("2026-10-02T20:10:00Z"); // 16:10 New York → 50 min to the close
+    expect(reasons(evaluateProposal(eurLong(1.098), fx, fxState({ now: fri }), fxRules(), sig(0.001)))).toMatch(/weekly close/);
+    const sat = Date.parse("2026-10-03T12:00:00Z");
+    expect(reasons(evaluateProposal(eurLong(1.098), fx, fxState({ now: sat }), fxRules(), sig(0.001)))).toMatch(/closed for the weekend/);
+  });
+
+  it("refuses to hold the same currency long and short at once", () => {
+    const gbpShort = { id: "g", symbol: "GBP/USD", side: "SHORT" as const, qty: 10, entryPrice: 1.32, stopLoss: 1.33, margin: 1 }; // long USD
+    const jpyShort = long({ action: "OPEN_SHORT", symbol: "USD/JPY", exitPlan: { stopLoss: 158.5, takeProfit: 155, invalidation: "", horizonMin: 180 } }); // short USD
+    const v = evaluateProposal(jpyShort, fx, fxState({ openPositions: [gbpShort] }), fxRules({ price: 157.7, slippage: 0 }), sig(0.2));
+    expect(v.kind).toBe("rejected");
+    expect(reasons(v)).toMatch(/USD/);
+    // Same direction on the dollar (long USD twice) is allowed.
+    const jpyLong = long({ symbol: "USD/JPY", exitPlan: { stopLoss: 157, takeProfit: 160, invalidation: "", horizonMin: 180 } });
+    expect(evaluateProposal(jpyLong, fx, fxState({ openPositions: [gbpShort] }), fxRules({ price: 157.7, slippage: 0 }), sig(0.2)).kind).not.toBe("rejected");
+  });
+
+  it("only tightens a stop after the trade has moved 1R and keeps it 1 ATR from the price", () => {
+    const pos = { id: "e", symbol: "EUR/USD", side: "LONG" as const, qty: 100, entryPrice: 1.1, stopLoss: 1.098, initialStop: 1.098, margin: 5 };
+    const tighten = (stopLoss: number) => long({ action: "TIGHTEN_STOP", symbol: "EUR/USD", positionId: "e", exitPlan: { stopLoss, takeProfit: null, invalidation: "", horizonMin: 60 } });
+    // +0.0005 is 0.25R — too early (this is the breakeven move that cost 9/29).
+    expect(reasons(evaluateProposal(tighten(1.1), fx, fxState({ openPositions: [pos] }), fxRules({ price: 1.1005 }), sig(0.001)))).toMatch(/1R/);
+    // +0.003 is 1.5R; a stop 0.5 ATR from the price is too tight, 1 ATR is fine.
+    expect(reasons(evaluateProposal(tighten(1.1025), fx, fxState({ openPositions: [pos] }), fxRules({ price: 1.103 }), sig(0.001)))).toMatch(/ATR/);
+    expect(evaluateProposal(tighten(1.102), fx, fxState({ openPositions: [pos] }), fxRules({ price: 1.103 }), sig(0.001))).toMatchObject({ kind: "tighten", stopLoss: 1.102 });
+  });
+});
