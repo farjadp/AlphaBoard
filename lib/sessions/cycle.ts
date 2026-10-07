@@ -173,6 +173,10 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
   const moves = m.symbols.map((x) => (prices[x] != null && last[x] ? Math.abs(prices[x]! - last[x]!) / last[x]! : 0));
   const maxMove = Math.max(0, ...moves);
   const closedSince = s.positions.some((p) => p.closedAt && (!s.lastCycleAt || p.closedAt > s.lastCycleAt));
+  // The monitor passes the time its pass started; a close it booked a moment later is still seen by this
+  // cycle, so remember the later of the two — or that same close triggers a second cycle 30 s later.
+  const lastClose = Math.max(0, ...s.positions.map((p) => p.closedAt?.getTime() ?? 0));
+  const seenUntil = new Date(Math.max(now.getTime(), lastClose));
   const due = deps.force || !s.nextCycleAt || s.nextCycleAt <= now;
   const event = s.cycleCount > 0 && (closedSince || maxMove >= EVENT_MOVE);
   if (!due && !event) return none("not due");
@@ -197,7 +201,7 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
   };
   const schedule = (data: Prisma.TradingSessionUpdateInput = {}) => prisma.tradingSession.update({
     where: { id: sessionId },
-    data: { cycleCount: cycleNo, lastCycleAt: now, nextCycleAt: new Date(now.getTime() + interval), lastPrices: prices as Prisma.InputJsonValue, ...data },
+    data: { cycleCount: cycleNo, lastCycleAt: seenUntil, nextCycleAt: new Date(now.getTime() + interval), lastPrices: prices as Prisma.InputJsonValue, ...data },
   });
 
   const symbols = await Promise.all(m.symbols.map((x) => gather(x, m.marketType).catch((): SymbolContext => ({ symbol: x, price: null, changePct24h: null, timeframes: [], consensus: null, funding: null, news: [] }))));

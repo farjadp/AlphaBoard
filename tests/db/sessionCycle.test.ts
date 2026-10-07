@@ -80,6 +80,18 @@ describe.skipIf(!run)("decision cycle (Postgres)", () => {
     }
   });
 
+  it("a close booked just after the monitor's pass time triggers one cycle, not two", async () => {
+    const s = await start();
+    plan = { commentary: "go", decisions: [decision({})] };
+    await runCycle(s.id, deps);
+    const pos = await prisma.sessionPosition.findFirstOrThrow({ where: { sessionId: s.id } });
+    const pass = new Date(Date.now() + 60 * 60_000);
+    await prisma.sessionPosition.update({ where: { id: pos.id }, data: { closedAt: new Date(pass.getTime() + 200), closePrice: 95, realizedPnl: -10, closeReason: "STOP_LOSS" } });
+    plan = { commentary: "flat", decisions: [] };
+    expect((await runCycle(s.id, { ...deps, now: pass })).ran).toBe(true);
+    expect(await runCycle(s.id, { ...deps, now: new Date(pass.getTime() + 30_000) })).toMatchObject({ ran: false, skipped: "not due" });
+  });
+
   it("a rejected proposal posts the reasons and places no order", async () => {
     const s = await start();
     plan = { commentary: "short it", decisions: [decision({ action: "OPEN_SHORT", stopLoss: 105, takeProfit: 90 })] };
