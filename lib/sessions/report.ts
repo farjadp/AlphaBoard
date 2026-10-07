@@ -8,7 +8,9 @@ export interface ClosedTrade {
   /** Quantity at open (partial closes shrink the position's qty). */
   openedQty: number;
   initialStop: number | null;
-  /** Net of fees. */
+  /** Quote → account currency at entry (USD/JPY on a CAD account ≈ 0.0091); 1 when they match. */
+  quoteToAccount?: number;
+  /** Net of fees, in the account currency. */
   realizedPnl: number;
   closedAt: number;
 }
@@ -18,6 +20,8 @@ export interface MetricsInput {
   grossPnl: number;
   fees: number;
   llmCostUsd: number;
+  /** Currency the P&L is booked in (paper = USD). AI cost is always USD. */
+  accountCurrency?: string;
   trades: ClosedTrade[];
   rejectionReasons: string[];
   buyAndHold: { symbol: string; startPrice: number | null; endPrice: number | null } | null;
@@ -37,6 +41,9 @@ export function reasonKey(reason: string): string {
     .slice(0, 90);
 }
 
+/** Currencies treated as US dollars when netting the (USD) AI cost against P&L. */
+const USD_LIKE = new Set(["USD", "USDT", "USDC"]);
+
 export function computeMetrics(i: MetricsInput): SessionMetrics {
   const netPnl = i.grossPnl - i.fees;
   const sorted = [...i.trades].sort((a, b) => a.closedAt - b.closedAt);
@@ -44,7 +51,7 @@ export function computeMetrics(i: MetricsInput): SessionMetrics {
   const losses = sorted.filter((t) => t.realizedPnl < 0).length;
   const rs = sorted.flatMap((t) => {
     if (t.initialStop == null) return [];
-    const risk = Math.abs(t.entryPrice - t.initialStop) * t.openedQty;
+    const risk = Math.abs(t.entryPrice - t.initialStop) * t.openedQty * (t.quoteToAccount ?? 1);
     return risk > 0 ? [t.realizedPnl / risk] : [];
   });
   let peak = 0;
@@ -61,13 +68,16 @@ export function computeMetrics(i: MetricsInput): SessionMetrics {
     if (k) buckets.set(k, (buckets.get(k) ?? 0) + 1);
   }
   const bh = i.buyAndHold;
+  const currency = (i.accountCurrency ?? "USD").toUpperCase();
   return {
     capital: i.capital,
     netPnl,
     grossPnl: i.grossPnl,
     fees: i.fees,
     llmCostUsd: i.llmCostUsd,
-    netAfterLlm: netPnl - i.llmCostUsd,
+    accountCurrency: currency,
+    // AI is billed in USD; subtracting it from a CAD (or other) P&L would mix currencies.
+    netAfterLlm: USD_LIKE.has(currency) ? netPnl - i.llmCostUsd : null,
     returnPct: i.capital > 0 ? (netPnl / i.capital) * 100 : 0,
     trades: sorted.length,
     wins,
@@ -90,7 +100,7 @@ const usd = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n).toFixed(2)}`;
 export function metricsText(name: string, m: SessionMetrics, trades: Array<ClosedTrade & { reason: string | null }>): string {
   return [
     `Session: ${name} · ${m.durationMin} min · ${m.cycles} decision cycles`,
-    `Capital ${usd(m.capital)} · net P&L ${usd(m.netPnl)} (${m.returnPct.toFixed(2)}%) · gross ${usd(m.grossPnl)} · fees ${usd(m.fees)} · AI cost ${usd(m.llmCostUsd)} · net after AI ${usd(m.netAfterLlm)}`,
+    `Capital ${usd(m.capital)} · net P&L ${usd(m.netPnl)} (${m.returnPct.toFixed(2)}%) · gross ${usd(m.grossPnl)} · fees ${usd(m.fees)} · AI cost US${usd(m.llmCostUsd)} · ${m.netAfterLlm == null ? `net after AI: not computed (P&L is in ${m.accountCurrency ?? "the account currency"}, AI cost in USD)` : `net after AI ${usd(m.netAfterLlm)}`}`,
     `Trades ${m.trades} · wins ${m.wins} · losses ${m.losses} · win rate ${m.winRate == null ? "n/a" : `${Math.round(m.winRate * 100)}%`} · expectancy ${m.expectancyR == null ? "n/a" : `${m.expectancyR.toFixed(2)}R`} · max drawdown ${usd(m.maxDrawdown)}`,
     m.buyAndHold ? `Buy-and-hold ${m.buyAndHold.symbol} over the same window: ${m.buyAndHold.returnPct.toFixed(2)}%` : "Buy-and-hold: unavailable",
     "Trades:",

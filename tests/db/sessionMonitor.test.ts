@@ -12,7 +12,9 @@ import type { Telegram } from "@/lib/notify/telegram";
 const run = !!process.env.TEST_DATABASE_URL;
 const prices: Record<string, number | null> = { "BTC/USDT": 100 };
 const priceOf = async (s: string) => prices[s] ?? null;
+const journalInputs: string[] = [];
 const ai = (async (req: AiRequest<never>) => {
+  if (req.feature === "session.journal") journalInputs.push(String(req.user));
   const raw = req.feature === "session.journal"
     ? { outcome: "LOSS", rootCause: "stopped", mistakes: ["late"], strengths: [], lesson: "wait for the retest", tags: ["stop"] }
     : { summary: "one losing trade", lessons: ["be patient"] };
@@ -60,6 +62,21 @@ describe.skipIf(!run)("session monitor (Postgres)", () => {
   const start = (o: Record<string, unknown> = {}) => startSession(U, { mandate: { symbols: ["BTC/USDT"], capital: 1_000, durationMin: 60, ...o } }, { priceOf, telegram: null });
   const open = (sessionId: string, qty = 2, stopLoss = 95) =>
     paperVenue(priceOf).openPosition({ sessionId, clientOrderId: `o-${Math.random()}`, symbol: "BTC/USDT", side: "LONG", qty, leverage: 1, stopLoss, takeProfit: 120, exitPlan: { thesis: "t", invalidation: "i", horizonMin: 60, initialStop: stopLoss } });
+
+  it("records the best and worst price while open and hands them to the journal in R", async () => {
+    const s = await start();
+    const { positionId } = await open(s.id); // entry ≈ 100, stop 95 → R ≈ 5
+    prices["BTC/USDT"] = 103;
+    await monitorSessions(deps());
+    prices["BTC/USDT"] = 98;
+    await monitorSessions(deps());
+    const mid = await prisma.sessionPosition.findUniqueOrThrow({ where: { id: positionId } });
+    expect(mid).toMatchObject({ bestPrice: 103, worstPrice: 98 });
+    journalInputs.length = 0;
+    prices["BTC/USDT"] = 94;
+    await monitorSessions(deps());
+    expect(journalInputs.join("\n")).toMatch(/Best move in favour 0\.\d\dR, worst move against 1\.\d\dR/);
+  });
 
   it("closes on the stop, journals the trade with a lesson", async () => {
     const s = await start();

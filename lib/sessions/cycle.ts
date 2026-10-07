@@ -10,7 +10,7 @@ import { gatherSymbol, type ContextData, type PositionContext, type SymbolContex
 import { runAnalysts, runDebate, runStrategist, type AiFn } from "@/lib/agents/run";
 import type { AnalystNotes } from "@/lib/agents/schemas";
 import { fmt, money } from "@/lib/risk/limits";
-import { evaluateProposal, type Proposal, type RiskState, type Verdict } from "@/lib/risk/verdict";
+import { evaluateProposal, MIN_ANALYST_CONFIDENCE, type Proposal, type RiskState, type SymbolSignals, type Verdict } from "@/lib/risk/verdict";
 import { sessionFreeCapital } from "@/lib/venues/paper";
 import { VenueError, type Venue } from "@/lib/venues/types";
 import { dailyUsage } from "./limits";
@@ -25,6 +25,13 @@ export const QUIET_MOVE = 0.002;
 export const MAX_SKIPS = 2;
 export const FAILS_TO_PAUSE = 3;
 export const RETRY_AFTER_FAIL_MS = 2 * 60_000;
+/** With no open position, the debate and strategist run only if a market note is directional at this confidence. */
+export const SETUP_CONFIDENCE = MIN_ANALYST_CONFIDENCE;
+
+/** Symbols the market analyst reads as directional with enough confidence to be worth a strategist call. */
+export function setupCandidates(market: AnalystNotes): string[] {
+  return market.notes.filter((n) => n.stance !== "neutral" && n.confidence >= SETUP_CONFIDENCE).map((n) => n.symbol);
+}
 
 export interface CycleDeps {
   ai?: AiFn;
@@ -83,7 +90,10 @@ async function riskState(s: Loaded, priceOf: PriceOf, now: Date): Promise<RiskSt
   return {
     equity: money.equity ?? fresh.capital + money.realizedNet + knownUnrealized,
     freeCapital: await sessionFreeCapital(s.id),
-    openPositions: open.map((p) => ({ id: p.id, symbol: p.symbol, side: p.side, qty: p.qty, entryPrice: p.entryPrice, stopLoss: p.stopLoss, margin: p.margin })),
+    openPositions: open.map((p) => ({
+      id: p.id, symbol: p.symbol, side: p.side, qty: p.qty, entryPrice: p.entryPrice, stopLoss: p.stopLoss, margin: p.margin,
+      initialStop: (p.exitPlan as { initialStop?: number } | null)?.initialStop ?? null,
+    })),
     tradesCount: fresh.tradesCount,
     lastStopOutAt: stopOuts,
     now: now.getTime(),
@@ -120,6 +130,16 @@ async function buildContext(s: Loaded, m: Mandate, symbols: SymbolContext[], pri
     symbols,
     positions,
     lessons: lessons.map((l) => `[${l.outcome} ${l.symbol}] ${l.lesson}`),
+  };
+}
+
+/** What the risk engine reads from a symbol's market context (1H ATR, 4H trend) and the market analyst's note. */
+export function signalsOf(c: SymbolContext | undefined, market?: AnalystNotes): SymbolSignals {
+  const tf = (name: string) => c?.timeframes.find((t) => t.timeframe === name && t.available);
+  const note = market && c ? market.notes.find((n) => n.symbol === c.symbol) : undefined;
+  return {
+    atr1h: tf("1H")?.atr ?? null, trend4h: tf("4H")?.trend ?? null,
+    ...(market ? { analyst: note ? { stance: note.stance, confidence: note.confidence } : null } : {}),
   };
 }
 
@@ -200,11 +220,19 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
   const ctx = await buildContext(s, m, symbols, priceOf, now);
   const agentDeps = { ai, userId: s.userId, mandate: m };
   let proposals: Proposal[];
+  let marketNotes: AnalystNotes | undefined;
   try {
     const a = await runAnalysts(agentDeps, ctx);
+    marketNotes = a.market;
     await addCost(a.costUsd);
     await post(sessionId, "MARKET", "TEXT", notesBody("Market", a.market), { notes: a.market.notes }, { ...extra, costUsd: a.costUsd / 2 });
     await post(sessionId, "NEWS", "TEXT", notesBody("News", a.news), { notes: a.news.notes }, { ...extra, costUsd: a.costUsd / 2 });
+    if (!ctx.positions.length && !setupCandidates(a.market).length) {
+      await post(sessionId, "SYSTEM", "TEXT", `No setup: no symbol has a directional technical read at ${Math.round(SETUP_CONFIDENCE * 100)}% confidence or more, and nothing is open — skipped the debate and the strategist this cycle.`, { noSetup: true }, extra);
+      await schedule({ skipStreak: 0, agentFailStreak: 0 });
+      await budgetCheck(sessionId, m, deps.telegram);
+      return { ran: true, skipped: "no setup", decisions: 0, executed: 0 };
+    }
     let debate = null;
     if (m.debate) {
       const d = await runDebate(agentDeps, ctx, a.market, a.news);
@@ -245,7 +273,7 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
     let v: Verdict;
     if (opening && current.status !== "RUNNING") v = { kind: "rejected", reasons: [`session is ${current.status.toLowerCase().replace("_", " ")} — no new entries`] };
     else if (opening && current.endsAt.getTime() - now.getTime() < noEntryWindowMin(m) * 60_000) v = { kind: "rejected", reasons: [`less than ${noEntryWindowMin(m)} min left in the session — no new entries`] };
-    else v = evaluateProposal(p, m, await riskState(s, priceOf, now), await venue.marketRules(p.symbol));
+    else v = evaluateProposal(p, m, await riskState(s, priceOf, now), await venue.marketRules(p.symbol), signalsOf(symbols.find((x) => x.symbol === p.symbol), marketNotes));
     if (v.kind === "hold") continue;
     await post(sessionId, "RISK", "VERDICT", verdictBody(p, v), { kind: v.kind, reasons: v.reasons, symbol: p.symbol, action: p.action }, extra);
     try {
@@ -253,7 +281,10 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
         const r = await venue.openPosition({
           sessionId, clientOrderId: orderId(sessionId, `c${cycleNo}-${i}`), symbol: p.symbol, side: v.side, qty: v.qty, leverage: v.leverage,
           stopLoss: v.stopLoss, takeProfit: v.takeProfit,
-          exitPlan: { thesis: p.thesis, invalidation: p.exitPlan.invalidation, horizonMin: p.exitPlan.horizonMin, conviction: p.conviction, initialStop: v.stopLoss, takeProfit: v.takeProfit },
+          exitPlan: {
+            thesis: p.thesis, invalidation: p.exitPlan.invalidation, horizonMin: p.exitPlan.horizonMin, conviction: p.conviction, initialStop: v.stopLoss, takeProfit: v.takeProfit,
+            atr1hAtEntry: signalsOf(symbols.find((x) => x.symbol === p.symbol)).atr1h,
+          },
         });
         if (!r.replayed) {
           executed++;

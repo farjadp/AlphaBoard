@@ -169,4 +169,14 @@ describe("speakOrder", () => {
     ];
     expect(speakOrder(rows, 1)).toEqual(["MARKET"]);
   });
+
+  it("a no-setup cycle leaves the debate and strategist idle, not thinking", () => {
+    const rows = deriveSeats([
+      msg("MARKET", "TEXT", "m", { data: notes("neutral", 0.5) }),
+      msg("NEWS", "TEXT", "n", { data: notes("neutral", 0.3) }),
+      msg("SYSTEM", "TEXT", "No setup: …", { data: { noSetup: true } }),
+    ], { debate: true, now: T0 + 5_000 });
+    expect(states(rows)).toMatchObject({ BULL: "idle", BEAR: "idle", STRATEGIST: "idle", MARKET: "done", NEWS: "speaking" });
+  });
 });
+

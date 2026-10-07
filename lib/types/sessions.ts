@@ -98,7 +98,10 @@ export interface SessionMetrics {
   grossPnl: number;
   fees: number;
   llmCostUsd: number;
-  netAfterLlm: number;
+  /** Currency of the P&L figures (absent on reports written before P10). */
+  accountCurrency?: string | null;
+  /** Net P&L minus AI cost — null when the account is not in USD (AI is billed in USD). */
+  netAfterLlm: number | null;
   returnPct: number;
   trades: number;
   wins: number;
