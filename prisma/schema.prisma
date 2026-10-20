@@ -48,6 +48,7 @@ model User {
   telegramActions     TelegramAction[]
   exchangeConnections ExchangeConnection[]
   labDatasets         LabDataset[]
+  labJobs             LabJob[]
 }
 
 model Invite {
@@ -895,5 +896,25 @@ model LabDataset {
   blob      Bytes
   createdAt DateTime @default(now())
 
+  @@index([userId, createdAt])
+}
+
+/// Strategy Lab job (P11b): a data download or a study, run one at a time by the worker.
+model LabJob {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// "FETCH" | "STUDY"
+  kind       String
+  /// "QUEUED" | "RUNNING" | "DONE" | "FAILED"
+  status     String    @default("QUEUED")
+  spec       Json
+  result     Json?
+  error      String?
+  createdAt  DateTime  @default(now())
+  startedAt  DateTime?
+  finishedAt DateTime?
+
+  @@index([status, createdAt])
   @@index([userId, createdAt])
 }

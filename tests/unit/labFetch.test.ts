@@ -47,9 +47,11 @@ describe("lab data — OANDA history", () => {
     const u = new URL(url);
     const from = Number(u.searchParams.get("from")) * 1000;
     const count = Number(u.searchParams.get("count"));
+    // Like OANDA: `count` candles starting at `from`; with includeFirst=false the first is dropped (count − 1 come back).
+    const skipFirst = u.searchParams.get("includeFirst") === "false";
     const candles = [];
-    for (let k = 1; k <= count; k++) {
-      const t = from + k * MIN; // includeFirst=false
+    for (let k = skipFirst ? 1 : 0; k < count; k++) {
+      const t = from + k * MIN;
       if (t >= total * MIN) break;
       candles.push({ time: unix(t), complete: t < (total - 1) * MIN, bid: { o: "1.0", h: "1.2", l: "0.9", c: "1.1" }, ask: { o: "1.2", h: "1.4", l: "1.1", c: "1.3" } });
     }
@@ -63,8 +65,10 @@ describe("lab data — OANDA history", () => {
     expect(calls[0].url).toMatch(/price=BA/);
     expect(calls[0].auth).toBe("Bearer tok");
     expect(calls[0].fmt).toBe("UNIX");
-    expect(r.bars.t.length).toBe(11_998); // minutes 1 … 11 998 complete; minute 11 999 is still forming
+    expect(r.bars.t.length).toBe(11_999); // minutes 0 … 11 998 complete; minute 11 999 is still forming
+    for (let i = 1; i < r.bars.t.length; i++) expect(r.bars.t[i] - r.bars.t[i - 1]).toBe(MIN);
     expect(r.bars.o[0]).toBeCloseTo(1.1, 12);
+    expect(calls.length).toBeGreaterThanOrEqual(3);
     expect(r.bars.c[0]).toBeCloseTo(1.2, 12);
     expect(r.spread[0]).toBeCloseTo(0.2, 12);
   });

@@ -54,7 +54,9 @@ export async function fetchOandaHistory(
       spread.push(Number(c.ask.c) - Number(c.bid.c));
     }
     first = false;
-    if (reachedNow || body.candles.length < 5000) break;
+    // With includeFirst=false OANDA returns count − 1 candles, so a short page is not the end; stop on an
+    // empty page, on reaching the range end or a still-forming candle, or if time did not move forward.
+    if (reachedNow || body.candles.length === 0 || lastT <= from) break;
     from = lastT;
     await sleep(100);
   }
