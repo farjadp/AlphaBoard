@@ -47,6 +47,7 @@ model User {
   tradingLimits       UserTradingLimits?
   telegramActions     TelegramAction[]
   exchangeConnections ExchangeConnection[]
+  labDatasets         LabDataset[]
 }
 
 model Invite {
@@ -873,4 +874,26 @@ model PublisherWeightChange {
 
   @@index([publisherKey, createdAt])
   @@index([createdAt])
+}
+
+/// Strategy Lab (P11b): one stored bar series — gzip of Float64 columns t,o,h,l,c[,spread] (lib/lab/data/encode.ts).
+model LabDataset {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Display symbol, e.g. "XAU/USD", "BTC/USDT", or the broker's own ("XAUUSD.ec").
+  symbol    String
+  /// "binance" | "oanda" | "mt5csv"
+  source    String
+  /// "1m" | "15m" | "1h"
+  timeframe String
+  fromAt    DateTime
+  toAt      DateTime
+  bars      Int
+  hasSpread Boolean  @default(false)
+  sizeBytes Int
+  blob      Bytes
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
 }
