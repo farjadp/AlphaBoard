@@ -92,6 +92,34 @@ describe.skipIf(!run)("decision cycle (Postgres)", () => {
     expect(await runCycle(s.id, { ...deps, now: new Date(pass.getTime() + 30_000) })).toMatchObject({ ran: false, skipped: "not due" });
   });
 
+  const closedLoss = (sessionId: string, minutesAgo: number) => prisma.sessionPosition.create({
+    data: {
+      sessionId, symbol: "BTC/USDT", side: "LONG", qty: 1, entryPrice: 100, leverage: 1, margin: 100, exitPlan: {},
+      closedAt: new Date(Date.now() - minutesAgo * 60_000), closePrice: 95, realizedPnl: -5, closeReason: "STOP_LOSS",
+    },
+  });
+
+  it("after two losing closes in a row today, the risk engine refuses new entries (P11a)", async () => {
+    const s = await start({ lossCooldownMin: 0, cooldownMin: 0 });
+    await closedLoss(s.id, 90);
+    await closedLoss(s.id, 60);
+    plan = { commentary: "go", decisions: [decision({})] };
+    await runCycle(s.id, { ...deps, force: true });
+    expect(await prisma.sessionOrder.count({ where: { sessionId: s.id } })).toBe(0);
+    const verdict = (await listMessages(U, s.id)).find((m) => m.kind === "VERDICT");
+    expect(verdict?.body).toMatch(/2 losing trades in a row today/);
+  });
+
+  it("a losing close starts a cooldown even when the per-symbol stop-out cooldown is off (P11a)", async () => {
+    const s = await start({ cooldownMin: 0 });
+    await closedLoss(s.id, 5);
+    plan = { commentary: "go", decisions: [decision({})] };
+    await runCycle(s.id, { ...deps, force: true });
+    expect(await prisma.sessionOrder.count({ where: { sessionId: s.id } })).toBe(0);
+    const verdict = (await listMessages(U, s.id)).find((m) => m.kind === "VERDICT");
+    expect(verdict?.body).toMatch(/cooldown after a losing trade \(25 min left\)/);
+  });
+
   it("a rejected proposal posts the reasons and places no order", async () => {
     const s = await start();
     plan = { commentary: "short it", decisions: [decision({ action: "OPEN_SHORT", stopLoss: 105, takeProfit: 90 })] };

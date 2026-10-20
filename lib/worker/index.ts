@@ -20,6 +20,7 @@ const LEASE_MS = 45_000;
 const MONITOR_MS = 15_000;
 const TICK_MS = 60_000;
 const NEWS_MS = 120_000;
+const LAB_MS = 5_000;
 
 const g = globalThis as unknown as { __alphaboardWorker?: { stop: () => Promise<void> } };
 
@@ -97,6 +98,11 @@ export function startWorker() {
       const r = await (await import("@/lib/news/job")).runNewsJob();
       if (r.errors.length) logger.warn({ errors: r.errors.slice(0, 5) }, "news job errors");
     }, isLeader, isStopped));
+  }
+
+  // Strategy Lab: one queued download or study at a time (the loop never overlaps itself).
+  if (process.env.LAB_DISABLED !== "1") {
+    timers.push(loop("lab", LAB_MS, async () => (await import("@/lib/lab/jobs")).processNextLabJob(), isLeader, isStopped));
   }
 
   // Telegram long-poll: one request in flight at a time, only on the leader.

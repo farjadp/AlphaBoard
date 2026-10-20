@@ -10,6 +10,7 @@ import { gatherSymbol, type ContextData, type PositionContext, type SymbolContex
 import { runAnalysts, runDebate, runStrategist, type AiFn } from "@/lib/agents/run";
 import type { AnalystNotes } from "@/lib/agents/schemas";
 import { fmt, money } from "@/lib/risk/limits";
+import { lossStreak } from "@/lib/risk/streak";
 import { evaluateProposal, MIN_ANALYST_CONFIDENCE, type Proposal, type RiskState, type SymbolSignals, type Verdict } from "@/lib/risk/verdict";
 import { sessionFreeCapital } from "@/lib/venues/paper";
 import { VenueError, type Venue } from "@/lib/venues/types";
@@ -75,6 +76,15 @@ function verdictBody(p: Proposal, v: Verdict) {
   return `${head}${size}${v.reasons.length ? `\n• ${v.reasons.join("\n• ")}` : ""}`;
 }
 
+/** Losing streak of the session today and the latest losing close (money-management guards, P11a). */
+function streakOf(positions: Array<{ closedAt: Date | null; realizedPnl: number | null }>, now: Date) {
+  // A position's realizedPnl is net of its fees (lib/venues/paper.ts books gross − entry fee share − exit fee).
+  return lossStreak(
+    positions.flatMap((p) => (p.closedAt && p.realizedPnl != null ? [{ closedAt: p.closedAt.getTime(), pnl: p.realizedPnl }] : [])),
+    now.getTime(),
+  );
+}
+
 async function riskState(s: Loaded, priceOf: PriceOf, now: Date): Promise<RiskState> {
   const fresh = await prisma.tradingSession.findUniqueOrThrow({ where: { id: s.id }, include: { positions: true } });
   const open = fresh.positions.filter((p) => !p.closedAt);
@@ -87,6 +97,7 @@ async function riskState(s: Loaded, priceOf: PriceOf, now: Date): Promise<RiskSt
       stopOuts[p.symbol] = Math.max(stopOuts[p.symbol] ?? 0, p.closedAt.getTime());
   }
   const daily = await dailyUsage(s.userId, now);
+  const { streak, lastLossAt } = streakOf(fresh.positions, now);
   return {
     equity: money.equity ?? fresh.capital + money.realizedNet + knownUnrealized,
     freeCapital: await sessionFreeCapital(s.id),
@@ -100,6 +111,8 @@ async function riskState(s: Loaded, priceOf: PriceOf, now: Date): Promise<RiskSt
     dailyLossUsed: daily.lossToday,
     dailyLossLimit: daily.limits.maxDailyLoss,
     sessionLoss: money.lossUsed ?? Math.max(0, -money.realizedNet),
+    lossStreak: streak,
+    lastLossAt,
   };
 }
 
@@ -107,6 +120,7 @@ async function buildContext(s: Loaded, m: Mandate, symbols: SymbolContext[], pri
   const open = s.positions.filter((p) => !p.closedAt);
   const marks = await markOpen(open, priceOf);
   const money = sessionMoney(s, marks);
+  const guard = streakOf(s.positions, now);
   const lessons = await prisma.tradeLesson.findMany({
     where: { userId: s.userId, journalEntry: { pnlSource: "SESSION" } }, orderBy: { createdAt: "desc" }, take: 5,
     select: { outcome: true, symbol: true, lesson: true },
@@ -126,6 +140,9 @@ async function buildContext(s: Loaded, m: Mandate, symbols: SymbolContext[], pri
       equity: money.equity, freeCapital: await sessionFreeCapital(s.id), lossUsed: money.lossUsed ?? Math.max(0, -money.realizedNet), lossLimit: m.lossLimit,
       tradesUsed: s.tradesCount, maxTrades: m.maxTrades, openPositions: open.length, maxOpenPositions: m.maxOpenPositions,
       timeLeftMin: Math.max(0, Math.round((s.endsAt.getTime() - now.getTime()) / 60_000)), llmCostUsd: s.llmCostUsd, maxLlmCostUsd: m.maxLlmCostUsd,
+      lossStreak: guard.streak, maxConsecLosses: m.maxConsecLosses,
+      lossCooldownLeftMin: guard.lastLossAt != null && m.lossCooldownMin > 0
+        ? Math.max(0, Math.ceil((m.lossCooldownMin * 60_000 - (now.getTime() - guard.lastLossAt)) / 60_000)) : 0,
     },
     symbols,
     positions,

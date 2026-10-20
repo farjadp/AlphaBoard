@@ -65,6 +65,10 @@ export interface RiskState {
   dailyLossLimit: number | null;
   /** Current session loss as a positive amount (0 when in profit). */
   sessionLoss: number;
+  /** Losing closes in a row today (UTC), from lib/risk/streak.ts. Absent = 0. */
+  lossStreak?: number;
+  /** Epoch ms of the latest losing close; absent / null = none. */
+  lastLossAt?: number | null;
 }
 
 export interface MarketRules {
@@ -178,6 +182,13 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
   if (s.sessionLoss >= m.lossLimit) return reject(`session loss limit reached (${money(s.sessionLoss)} of ${money(m.lossLimit)})`);
   if (s.dailyLossLimit != null && s.dailyLossUsed >= s.dailyLossLimit)
     return reject(`daily loss limit reached (${money(s.dailyLossUsed)} of ${money(s.dailyLossLimit)})`);
+  const streak = s.lossStreak ?? 0;
+  if (m.maxConsecLosses > 0 && streak >= m.maxConsecLosses)
+    return reject(`${streak} losing trades in a row today — no new entries until tomorrow (UTC); a losing streak means the market is not doing what the setup expects`);
+  if (m.lossCooldownMin > 0 && s.lastLossAt != null && s.now - s.lastLossAt < m.lossCooldownMin * 60_000) {
+    const left = Math.ceil((m.lossCooldownMin * 60_000 - (s.now - s.lastLossAt)) / 60_000);
+    return reject(`cooldown after a losing trade (${left} min left) — no new entries on any symbol`);
+  }
   if (s.tradesCount >= m.maxTrades) return reject(`max trades for this session reached (${s.tradesCount}/${m.maxTrades})`);
   if (s.openPositions.length >= m.maxOpenPositions) return reject(`max open positions reached (${s.openPositions.length}/${m.maxOpenPositions})`);
   if (s.openPositions.some((x) => x.symbol === p.symbol)) return reject(`a ${p.symbol} position is already open`);

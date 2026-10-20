@@ -28,6 +28,8 @@ export interface MetricsInput {
   startedAt: number;
   endedAt: number;
   cycles: number;
+  /** Monitor's mark-to-market drawdown (TradingSession.maxDrawdownMtm); absent = not recorded. */
+  maxDrawdownMtm?: number;
 }
 
 /** Group rejection reasons by their wording without the numbers ("max trades … reached (6/6)" → one bucket). */
@@ -85,6 +87,8 @@ export function computeMetrics(i: MetricsInput): SessionMetrics {
     winRate: sorted.length ? wins / sorted.length : null,
     expectancyR: rs.length ? rs.reduce((a, b) => a + b, 0) / rs.length : null,
     maxDrawdown,
+    // The monitor samples every 15 s and can miss a low the closed trades saw, so never report less than them.
+    maxDrawdownMtm: i.maxDrawdownMtm == null ? null : Math.max(i.maxDrawdownMtm, maxDrawdown),
     buyAndHold: bh && bh.startPrice && bh.endPrice
       ? { symbol: bh.symbol, startPrice: bh.startPrice, endPrice: bh.endPrice, returnPct: ((bh.endPrice - bh.startPrice) / bh.startPrice) * 100 }
       : null,
@@ -101,7 +105,7 @@ export function metricsText(name: string, m: SessionMetrics, trades: Array<Close
   return [
     `Session: ${name} · ${m.durationMin} min · ${m.cycles} decision cycles`,
     `Capital ${usd(m.capital)} · net P&L ${usd(m.netPnl)} (${m.returnPct.toFixed(2)}%) · gross ${usd(m.grossPnl)} · fees ${usd(m.fees)} · AI cost US${usd(m.llmCostUsd)} · ${m.netAfterLlm == null ? `net after AI: not computed (P&L is in ${m.accountCurrency ?? "the account currency"}, AI cost in USD)` : `net after AI ${usd(m.netAfterLlm)}`}`,
-    `Trades ${m.trades} · wins ${m.wins} · losses ${m.losses} · win rate ${m.winRate == null ? "n/a" : `${Math.round(m.winRate * 100)}%`} · expectancy ${m.expectancyR == null ? "n/a" : `${m.expectancyR.toFixed(2)}R`} · max drawdown ${usd(m.maxDrawdown)}`,
+    `Trades ${m.trades} · wins ${m.wins} · losses ${m.losses} · win rate ${m.winRate == null ? "n/a" : `${Math.round(m.winRate * 100)}%`} · expectancy ${m.expectancyR == null ? "n/a" : `${m.expectancyR.toFixed(2)}R`} · ${m.maxDrawdownMtm == null ? `max drawdown ${usd(m.maxDrawdown)}` : `max drawdown incl. open positions ${usd(m.maxDrawdownMtm)} (closed trades only ${usd(m.maxDrawdown)})`}`,
     m.buyAndHold ? `Buy-and-hold ${m.buyAndHold.symbol} over the same window: ${m.buyAndHold.returnPct.toFixed(2)}%` : "Buy-and-hold: unavailable",
     "Trades:",
     ...(trades.length ? trades.map((t) => `- ${t.side} ${t.symbol} @ ${t.entryPrice} → net ${usd(t.realizedPnl)} (${t.reason ?? "closed"})`) : ["- none"]),

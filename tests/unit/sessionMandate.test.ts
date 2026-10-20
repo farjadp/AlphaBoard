@@ -60,4 +60,15 @@ describe("session mandate", () => {
       expect((e as MandateError).issues[0]).toMatch(/leverage/i);
     }
   });
+  it("defaults the money-management guards", () => {
+    const m = parseMandate(base);
+    expect(m.maxConsecLosses).toBe(2);
+    expect(m.lossCooldownMin).toBe(30);
+  });
+
+  it("accepts 0 to turn the guards off and rejects out-of-range values", () => {
+    expect(parseMandate({ ...base, maxConsecLosses: 0, lossCooldownMin: 0 })).toMatchObject({ maxConsecLosses: 0, lossCooldownMin: 0 });
+    expect(() => parseMandate({ ...base, maxConsecLosses: 11 })).toThrow(/maxConsecLosses/);
+    expect(() => parseMandate({ ...base, lossCooldownMin: -1 })).toThrow(/lossCooldownMin/);
+  });
 });

@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "TradingSession" ADD COLUMN     "equityPeak" DOUBLE PRECISION,
+ADD COLUMN     "maxDrawdownMtm" DOUBLE PRECISION NOT NULL DEFAULT 0;
+

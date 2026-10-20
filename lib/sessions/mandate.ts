@@ -29,6 +29,10 @@ export const MandateSchema = z
     durationMin: z.number().int().min(15).max(1440).default(480),
     decisionIntervalMin: z.number().int().min(5).max(240).default(30),
     cooldownMin: z.number().int().min(0).max(1440).default(30),
+    /** Stop new entries for the rest of the UTC day after this many losing closes in a row (0 = off). */
+    maxConsecLosses: z.number().int().min(0).max(10).default(2),
+    /** No new entry on any symbol for this many minutes after a losing close (0 = off). */
+    lossCooldownMin: z.number().int().min(0).max(1440).default(30),
     onEnd: z.enum(["CLOSE_ALL", "KEEP_WITH_STOPS"]).default("CLOSE_ALL"),
     extensionTimeoutMin: z.number().int().min(1).max(60).default(5),
     orderStyle: z.enum(["market", "limit_post_only"]).default("market"),

@@ -28,6 +28,17 @@ describe("session metrics", () => {
     expect(m.rejections[0]).toEqual({ reason: "max trades for this session reached", count: 2 });
     expect(reasonKey("size clamped 0.5 → 0.3: position cap $500 margin × 1x")).toBe("size clamped");
   });
+  it("reports the drawdown with open positions included next to the closed-trades one (P11a)", () => {
+    const base = { capital: 1_000, grossPnl: 0, fees: 0, llmCostUsd: 0, trades: [t(-5, 1), t(5, 2)], rejectionReasons: [], buyAndHold: null, startedAt: 0, endedAt: 1, cycles: 1 };
+    const x = computeMetrics({ ...base, maxDrawdownMtm: 42 });
+    expect(x).toMatchObject({ maxDrawdown: 5, maxDrawdownMtm: 42 });
+    const text = metricsText("S", x, []);
+    expect(text).toMatch(/max drawdown incl\. open positions \$42\.00/);
+    expect(text).toMatch(/closed trades only \$5\.00/);
+    // Never below the closed-trades figure (sampling can miss an intrabar low); absent → null (old reports).
+    expect(computeMetrics({ ...base, maxDrawdownMtm: 1 }).maxDrawdownMtm).toBe(5);
+    expect(computeMetrics(base).maxDrawdownMtm).toBeNull();
+  });
   it("no trades → nulls, not zeros", () => {
     const e = computeMetrics({ capital: 100, grossPnl: 0, fees: 0, llmCostUsd: 0, trades: [], rejectionReasons: [], buyAndHold: { symbol: "X", startPrice: null, endPrice: 1 }, startedAt: 0, endedAt: 0, cycles: 0 });
     expect(e).toMatchObject({ winRate: null, expectancyR: null, buyAndHold: null, maxDrawdown: 0 });

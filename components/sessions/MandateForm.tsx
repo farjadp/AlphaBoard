@@ -61,6 +61,8 @@ export default function MandateForm() {
   const [duration, setDuration] = useState(480);
   const [interval, setIntervalMin] = useState(30);
   const [cooldown, setCooldown] = useState("30");
+  const [maxConsecLosses, setMaxConsecLosses] = useState("2");
+  const [lossCooldown, setLossCooldown] = useState("30");
   const [onEnd, setOnEnd] = useState<"CLOSE_ALL" | "KEEP_WITH_STOPS">("CLOSE_ALL");
   const [extensionTimeout, setExtensionTimeout] = useState("5");
   const [debate, setDebate] = useState(false);
@@ -86,7 +88,7 @@ export default function MandateForm() {
       venue: conn ? "exchange" : "paper", connectionId: conn?.id ?? null,
       symbols, marketType: effectiveMarket, capital: Number(capital), maxLeverage: effectiveMarket === "spot" ? 1 : Number(maxLeverage),
       riskPerTradePct: Number(riskPct), maxPositionPct: Number(maxPositionPct), maxOpenPositions: Number(maxOpen), maxTrades: Number(maxTrades),
-      lossLimit: Number(lossLimit), durationMin: duration, decisionIntervalMin: interval, cooldownMin: Number(cooldown), onEnd,
+      lossLimit: Number(lossLimit), durationMin: duration, decisionIntervalMin: interval, cooldownMin: Number(cooldown), maxConsecLosses: Number(maxConsecLosses), lossCooldownMin: Number(lossCooldown), onEnd,
       extensionTimeoutMin: Number(extensionTimeout), debate, maxLlmCostUsd: Number(maxCost),
       models: { analyst: ref(models.analyst), strategist: ref(models.strategist), journal: ref(models.journal) },
     };
@@ -198,6 +200,8 @@ export default function MandateForm() {
             <Num id="maxopen" text="Max open positions" value={maxOpen} onChange={setMaxOpen} step="1" />
             <Num id="maxtrades" text="Max trades" value={maxTrades} onChange={setMaxTrades} step="1" help="New entries for the whole session." />
             <Num id="cooldown" text="Cooldown after a stop (min)" value={cooldown} onChange={setCooldown} step="1" help="No re-entry on that symbol meanwhile." />
+            <Num id="maxConsecLosses" text="Stop after losses in a row" value={maxConsecLosses} onChange={setMaxConsecLosses} step="1" help="No new entries for the rest of the day (UTC) after this many losing trades in a row. 0 = off." />
+            <Num id="lossCooldown" text="Pause after any loss (min)" value={lossCooldown} onChange={setLossCooldown} step="1" help="No new entry on any symbol for this long after a losing trade. 0 = off." />
           </Section>
 
           <Section title="Time" sub="At the end you get a prompt (web and Telegram). No answer in time → the end action runs.">

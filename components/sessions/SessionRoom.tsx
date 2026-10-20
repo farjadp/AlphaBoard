@@ -199,8 +199,14 @@ function ReportPanel({ id }: { id: string }) {
         {stat("Fees", usd(m.fees))}
         {stat("AI cost (USD)", usd(m.llmCostUsd))}
         {stat("Expectancy", m.expectancyR == null ? "—" : `${m.expectancyR.toFixed(2)}R`)}
-        {stat("Max drawdown", usd(m.maxDrawdown))}
+        {m.maxDrawdownMtm == null
+          ? stat("Max drawdown", usd(m.maxDrawdown))
+          : stat("Max drawdown (open positions included)", usd(m.maxDrawdownMtm), m.maxDrawdownMtm > 0 ? "text-down" : "text-ink")}
+        {m.maxDrawdownMtm != null && stat("Max drawdown (closed trades only)", usd(m.maxDrawdown))}
       </dl>
+      {m.maxDrawdownMtm != null && m.maxDrawdownMtm > 0 && m.maxDrawdownMtm > 2 * m.maxDrawdown && (
+        <p className="mt-3 text-sm text-ink-2">Most of the drawdown happened in positions that were still open, so the closed trades alone make this session look calmer than it was.</p>
+      )}
       <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-ink-2">{r.summary}</p>
       {r.lessons.length > 0 && (
         <>
@@ -344,6 +350,8 @@ export default function SessionRoom({ id }: { id: string }) {
               <dt className="text-ink-3">Loss limit</dt><dd>{usd(v.mandate.lossLimit)}</dd>
               <dt className="text-ink-3">Open / trades</dt><dd>{v.mandate.maxOpenPositions} / {v.mandate.maxTrades}</dd>
               <dt className="text-ink-3">Cooldown</dt><dd>{v.mandate.cooldownMin} min</dd>
+              <dt className="text-ink-3">Stop after</dt><dd>{v.mandate.maxConsecLosses > 0 ? `${v.mandate.maxConsecLosses} losses in a row` : "off"}</dd>
+              <dt className="text-ink-3">After a loss</dt><dd>{v.mandate.lossCooldownMin > 0 ? `pause ${v.mandate.lossCooldownMin} min` : "off"}</dd>
               <dt className="text-ink-3">At the end</dt><dd>{v.mandate.onEnd === "CLOSE_ALL" ? "Close all" : "Keep with stops"}</dd>
               <dt className="text-ink-3">Debate</dt><dd>{v.mandate.debate ? "On" : "Off"}</dd>
             </dl>

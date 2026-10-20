@@ -143,6 +143,8 @@ export async function writeReport(sessionId: string, deps: JournalDeps = {}) {
   const metrics = computeMetrics({
     capital: s.capital, grossPnl: s.realizedPnl, fees: s.fees, llmCostUsd: s.llmCostUsd, accountCurrency: await accountCurrencyOf(s), trades, rejectionReasons,
     buyAndHold: { symbol: first, startPrice, endPrice }, startedAt: s.startedAt.getTime(), endedAt: (s.endedAt ?? deps.now ?? new Date()).getTime(), cycles: s.cycleCount,
+    // Only when the monitor recorded it (sessions from before P11a have no peak).
+    maxDrawdownMtm: s.equityPeak == null ? undefined : s.maxDrawdownMtm,
   });
 
   let summary = "AI summary unavailable.";
