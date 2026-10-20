@@ -98,3 +98,11 @@ export function holeAfter(b: Bars): Int32Array {
   }
   return out;
 }
+
+/**
+ * No holes at all: for a continuous broker export, where gaps are market closures (holidays, the daily
+ * break) that a real position lives through, not missing data.
+ */
+export function noHoles(b: Bars): Int32Array {
+  return new Int32Array(b.t.length).fill(b.t.length - 1);
+}

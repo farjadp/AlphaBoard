@@ -26,8 +26,10 @@ export interface LadderParams {
   closePct: number;
   /** Round-trip cost per position (spread + commission), price units. */
   cost: number;
-  /** A set still open after this long is closed at the last close. */
-  maxHoldMs: number;
+  /** A set still open after this many bars is closed at the last close (bars, so a closed market does not use it up). */
+  maxHoldBars: number;
+  /** Optional wall-clock limit as well (ms); the earlier of the two applies. */
+  maxHoldMs?: number;
 }
 
 export type SetKind = "A" | "B_LOSS" | "B_BACK_TP" | "B_BACK_BE" | "STOP" | "OPEN";
@@ -50,7 +52,7 @@ export interface SetResult {
 export function ladderParams(
   unit: number,
   cost: number,
-  o: Partial<{ p2: number | null; s2: number; sl1: number; ta: number; tb: number; buf: number; closePct: number; maxHoldMs: number }> = {},
+  o: Partial<{ p2: number | null; s2: number; sl1: number; ta: number; tb: number; buf: number; closePct: number; maxHoldBars: number; maxHoldMs: number }> = {},
 ): LadderParams {
   const p2 = o.p2 === undefined ? 1 : o.p2;
   const s2 = o.s2 ?? 0.625;
@@ -63,7 +65,8 @@ export function ladderParams(
     buf: (o.buf ?? 0.0375) * unit,
     closePct: o.closePct ?? 0.75,
     cost,
-    maxHoldMs: o.maxHoldMs ?? 3 * 86_400_000,
+    maxHoldBars: o.maxHoldBars ?? 3 * 1440,
+    maxHoldMs: o.maxHoldMs,
   };
 }
 
@@ -78,9 +81,13 @@ export function runLadderSet(b: Bars, holes: Int32Array, i0: number, dir: 1 | -1
   const breached = (px: number, level: number) => (px - level) * d <= 0; // adverse side
 
   // end = first bar past the holding limit or past the next hole; reaching it unresolved after a hole → drop.
-  const limitT = b.t[i0] + p.maxHoldMs;
-  let end = i0;
-  while (end < n && b.t[end] < limitT) end++;
+  let end = Math.min(n, i0 + p.maxHoldBars);
+  if (p.maxHoldMs != null) {
+    const limitT = b.t[i0] + p.maxHoldMs;
+    let j = i0;
+    while (j < end && b.t[j] < limitT) j++;
+    end = j;
+  }
   const holeEnd = holes[i0] + 1;
   const hole = holeEnd <= end;
   if (hole) end = holeEnd;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bucketStarts, holeAfter, makeBars, medianRange, trendH4 } from "@/lib/lab/bars";
+import { bucketStarts, holeAfter, makeBars, medianRange, noHoles, trendH4 } from "@/lib/lab/bars";
 
 const MIN = 60_000;
 const H = 60 * MIN;
@@ -65,5 +65,10 @@ describe("lab bars", () => {
     expect(holes[2]).toBe(2);
     // the weekend gap after index 3 is not a hole; nothing after → last index
     expect(holes[3]).toBe(5);
+  });
+
+  it("noHoles: every bar may run to the end of the data", () => {
+    const b = makeBars([[0, 1, 1, 1, 1], [10 * 3_600_000, 1, 1, 1, 1], [11 * 3_600_000, 1, 1, 1, 1]]);
+    expect(Array.from(noHoles(b))).toEqual([2, 2, 2]);
   });
 });
