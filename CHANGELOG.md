@@ -11,6 +11,12 @@ All notable changes to AlphaBoard are documented here.
 - **Drawdown with open positions included:** the monitor records the equity peak and the deepest fall from it every pass (`TradingSession.equityPeak`, `maxDrawdownMtm`). The report leads with that figure, keeps the closed-trades-only figure next to it, and says so when most of the fall happened in positions that were still open. Until now the report counted closed trades only, which hides losses a strategy never closes.
 - Background: the 2026-10-20 research (plan `docs/superpowers/plans/2026-10-20-p11-honest-numbers-and-strategy-lab.md`).
 
+### P11b · Strategy Lab (admin)
+- **Admin → Lab:** test a trading rule and its money management on real past prices before real money touches it. Every figure counts open positions, includes costs, and shows how much of the result is luck (random re-runs on half the entries).
+- **Data:** one-minute bars from OANDA (bid and ask, so the spread is the broker's real one; read-only use of your connection), from Binance, or a broker's own MT5 export (`ExportM1.mq5` script, up to ~60 MB).
+- **Study:** the gold expert's set (one position with a stop, or two positions with the second one candle against), entries at every allowed 15-minute candle, direction with the 4-hour trend / both / long / short, and money rules (risk %, trades open at once with the risk split, daily loss lock, stop after losses in a row, pause after a loss, martingale as the warning case). The result leads with plain sentences, then the numbers, the re-run range, the balance curve and returns by year.
+- **Engine (`lib/lab`)** is pure TypeScript and reproduces the 2026-10-20 research: gold return-to-entry 37.4 %, the money-management run +24.9 % on 523 trades, and the "Robi" DCA replay on 129 Binance symbols (10,381 episodes, 94.5 % drawdown marked to market vs 3.3 % realized). The DCA engine has no page yet.
+
 ## [2.1.0] — 2026-09-29
 
 Agent trading sessions: a mandate-driven AI desk that trades on paper, on crypto exchanges through ccxt (with stop orders resting on the exchange), or on OANDA for forex, gold and silver — with a rule-based risk engine, a live room, Telegram controls, journal lessons and session reports. Also: the news hub.
