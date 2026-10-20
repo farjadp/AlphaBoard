@@ -50,6 +50,11 @@ export interface SessionUsage {
   timeLeftMin: number;
   llmCostUsd: number;
   maxLlmCostUsd: number;
+  /** Money-management guards (P11a); absent in older callers = not shown. */
+  lossStreak?: number;
+  maxConsecLosses?: number;
+  /** Minutes left in the after-loss cooldown (0 = none). */
+  lossCooldownLeftMin?: number;
 }
 
 export interface ContextData {
@@ -111,11 +116,21 @@ export function formatPositions(ps: PositionContext[]): string {
   ].join("\n")).join("\n");
 }
 
+function guardLines(u: SessionUsage): string[] {
+  if (u.lossStreak == null || u.maxConsecLosses == null) return [];
+  const streakHit = u.maxConsecLosses > 0 && u.lossStreak >= u.maxConsecLosses;
+  const cooling = (u.lossCooldownLeftMin ?? 0) > 0;
+  const lines = [`Losing trades in a row today ${u.lossStreak}${u.maxConsecLosses > 0 ? ` (limit ${u.maxConsecLosses})` : ""}${cooling ? ` · after-loss cooldown ${u.lossCooldownLeftMin} min left` : ""}`];
+  if (streakHit || cooling) lines.push("NEW ENTRIES ARE CLOSED by the risk engine — only manage or close open positions; propose HOLD otherwise.");
+  return lines;
+}
+
 export function formatUsage(u: SessionUsage): string {
   return [
     `Equity ${usd(u.equity)} · free capital ${usd(u.freeCapital)}`,
     `Loss used ${usd(u.lossUsed)} of ${usd(u.lossLimit)} · trades ${u.tradesUsed}/${u.maxTrades} · open ${u.openPositions}/${u.maxOpenPositions}`,
     `Time left ${u.timeLeftMin} min · AI cost ${usd(u.llmCostUsd)} of ${usd(u.maxLlmCostUsd)}`,
+    ...guardLines(u),
   ].join("\n");
 }
 
