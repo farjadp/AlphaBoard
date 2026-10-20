@@ -9,6 +9,7 @@ import { runAccount } from "@/lib/lab/account";
 import { bucketStarts, holeAfter, makeBars, medianRange, noHoles, trendH4, type Bars } from "@/lib/lab/bars";
 import { ladderParams, runLadderSet } from "@/lib/lab/ladder";
 import { halfSubset, spread } from "@/lib/lab/robust";
+import { runDca, type Cube } from "@/lib/lab/dca";
 
 const DIR = process.env.LAB_GOLDEN_DIR ?? "";
 const goldCsv = join(DIR, "M1_XAUUSD.csv");
@@ -88,4 +89,36 @@ describe.skipIf(!hasGold)("lab golden — gold, broker data Oct 2025 – Oct 202
     expect(dd).toBeGreaterThan(5);
     expect(dd).toBeLessThan(15);
   }, 120_000);
+});
+
+const cubeBin = join(DIR, "binance_1h.bin");
+const hasCube = !!DIR && existsSync(cubeBin);
+
+/** Hourly Binance USD-M klines of 129 USDT symbols listed by Jan 2022 (delisted ones included), 2021-01 → 2026-09. */
+function loadCube(): Cube {
+  const meta = JSON.parse(readFileSync(join(DIR, "binance_1h.json"), "utf8")) as { n: number; t0: number; syms: string[] };
+  const buf = readFileSync(cubeBin);
+  const all = new Float64Array(buf.buffer, buf.byteOffset, buf.byteLength / 8);
+  const { n, syms } = meta;
+  const m = syms.length;
+  const field = (f: number) => syms.map((_, j) => all.subarray((f * m + j) * n, (f * m + j + 1) * n));
+  return { t: Float64Array.from({ length: n }, (_, k) => meta.t0 + k * 3_600_000), syms, o: field(0), h: field(1), l: field(2), c: field(3) };
+}
+
+describe.skipIf(!hasCube)("lab golden — 'Robi' DCA ladder on Binance futures 2021 → 2026", () => {
+  it("reproduces the bot's own depth statistics and the drawdown its realized curve hides", () => {
+    const cube = loadCube();
+    const r = runDca(cube, {
+      slots: 15, deepSlots: 10, drop: 0.03, d1: 0.09, d2: 0.195, sizes: [1, 1.8, 4.7], tp0: 0.015, tp1: 0.01, fee: 0.0005,
+      btcLock: 0.05, btcIndex: cube.syms.indexOf("BTCUSDT"), stopLoss: null,
+    }, Date.UTC(2021, 0, 1));
+    // his backtest: 87.4 / 9.95 / 2.67 %; the research replay: 86.3 / 11.1 / 2.6 %
+    expect(r.depthShare[0]).toBeGreaterThan(0.84);
+    expect(r.depthShare[0]).toBeLessThan(0.89);
+    expect(r.depthShare[2]).toBeLessThan(0.045);
+    expect(r.maxDdMtmPct).toBeGreaterThan(80);
+    expect(r.maxDdRealizedPct).toBeLessThan(15);
+    expect(r.perYear["2022"]).toBeLessThan(-50);
+    expect(r.perYear["2021"]).toBeGreaterThan(100);
+  }, 300_000);
 });
