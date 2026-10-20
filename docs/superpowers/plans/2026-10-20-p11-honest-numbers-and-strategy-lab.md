@@ -288,7 +288,7 @@ export function nextDrawdown(prev: { peak: number | null; maxDd: number }, equit
 1. Two losing closes in a row today → every new entry is rejected with a plain reason; exits still work.
 2. A losing close → no entry on any symbol for `lossCooldownMin`.
 3. A session whose open position fell and recovered shows a non-zero "max drawdown (open positions included)" even with zero closed losses.
-4. Old sessions without the new mandate fields keep working (defaults apply on parse).
+4. Sessions started before P11a keep working unchanged: their stored mandate has no guard fields, `mandateOf` only casts it, so both guards stay off for them (tested).
 
 ---
 

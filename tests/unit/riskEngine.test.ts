@@ -226,6 +226,12 @@ describe("risk engine — money-management guards", () => {
     expect(evaluateProposal(long(), off, state({ lastLossAt: NOW - 60_000 }), rules()).kind).toBe("approved");
   });
 
+  it("leaves sessions started before P11a unchanged (stored mandate without the fields = guards off)", () => {
+    const { maxConsecLosses: _a, lossCooldownMin: _b, ...stored } = spot;
+    const old = stored as unknown as typeof spot;
+    expect(evaluateProposal(long(), old, state({ lossStreak: 5, lastLossAt: NOW - 60_000 }), rules()).kind).toBe("approved");
+  });
+
   it("never blocks exits", () => {
     const pos = { id: "p1", symbol: "BTC/USDT", side: "LONG" as const, qty: 1, entryPrice: 100, stopLoss: 95, margin: 100 };
     const v = evaluateProposal({ ...long(), action: "CLOSE", positionId: "p1" }, spot, state({ lossStreak: 9, lastLossAt: NOW, openPositions: [pos] }), rules());

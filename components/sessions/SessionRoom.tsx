@@ -350,6 +350,8 @@ export default function SessionRoom({ id }: { id: string }) {
               <dt className="text-ink-3">Loss limit</dt><dd>{usd(v.mandate.lossLimit)}</dd>
               <dt className="text-ink-3">Open / trades</dt><dd>{v.mandate.maxOpenPositions} / {v.mandate.maxTrades}</dd>
               <dt className="text-ink-3">Cooldown</dt><dd>{v.mandate.cooldownMin} min</dd>
+              <dt className="text-ink-3">Stop after</dt><dd>{v.mandate.maxConsecLosses > 0 ? `${v.mandate.maxConsecLosses} losses in a row` : "off"}</dd>
+              <dt className="text-ink-3">After a loss</dt><dd>{v.mandate.lossCooldownMin > 0 ? `pause ${v.mandate.lossCooldownMin} min` : "off"}</dd>
               <dt className="text-ink-3">At the end</dt><dd>{v.mandate.onEnd === "CLOSE_ALL" ? "Close all" : "Keep with stops"}</dd>
               <dt className="text-ink-3">Debate</dt><dd>{v.mandate.debate ? "On" : "Off"}</dd>
             </dl>
