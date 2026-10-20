@@ -2,6 +2,15 @@
 
 All notable changes to AlphaBoard are documented here.
 
+## [Unreleased]
+
+### P11a · Money-management guards and an honest drawdown
+- **Stop after losses in a row:** a session refuses new entries for the rest of the UTC day after `maxConsecLosses` losing trades in a row (default 2, 0 = off). A winning or breakeven close resets the count.
+- **Pause after any loss:** no new entry on any symbol for `lossCooldownMin` minutes after a losing close (default 30, 0 = off). The existing per-symbol cooldown after a stop-out stays.
+- Exits are never blocked. The strategist sees the streak and is told when entries are closed, so it holds instead of proposing trades the risk engine will refuse. Both settings are in the mandate form and in the room's mandate box. Sessions started before this change keep both guards off.
+- **Drawdown with open positions included:** the monitor records the equity peak and the deepest fall from it every pass (`TradingSession.equityPeak`, `maxDrawdownMtm`). The report leads with that figure, keeps the closed-trades-only figure next to it, and says so when most of the fall happened in positions that were still open. Until now the report counted closed trades only, which hides losses a strategy never closes.
+- Background: the 2026-10-20 research (plan `docs/superpowers/plans/2026-10-20-p11-honest-numbers-and-strategy-lab.md`).
+
 ## [2.1.0] — 2026-09-29
 
 Agent trading sessions: a mandate-driven AI desk that trades on paper, on crypto exchanges through ccxt (with stop orders resting on the exchange), or on OANDA for forex, gold and silver — with a rule-based risk engine, a live room, Telegram controls, journal lessons and session reports. Also: the news hub.
