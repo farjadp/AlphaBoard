@@ -199,8 +199,14 @@ function ReportPanel({ id }: { id: string }) {
         {stat("Fees", usd(m.fees))}
         {stat("AI cost (USD)", usd(m.llmCostUsd))}
         {stat("Expectancy", m.expectancyR == null ? "—" : `${m.expectancyR.toFixed(2)}R`)}
-        {stat("Max drawdown", usd(m.maxDrawdown))}
+        {m.maxDrawdownMtm == null
+          ? stat("Max drawdown", usd(m.maxDrawdown))
+          : stat("Max drawdown (open positions included)", usd(m.maxDrawdownMtm), m.maxDrawdownMtm > 0 ? "text-down" : "text-ink")}
+        {m.maxDrawdownMtm != null && stat("Max drawdown (closed trades only)", usd(m.maxDrawdown))}
       </dl>
+      {m.maxDrawdownMtm != null && m.maxDrawdownMtm > 0 && m.maxDrawdownMtm > 2 * m.maxDrawdown && (
+        <p className="mt-3 text-sm text-ink-2">Most of the drawdown happened in positions that were still open, so the closed trades alone make this session look calmer than it was.</p>
+      )}
       <p className="mt-5 whitespace-pre-line text-sm leading-relaxed text-ink-2">{r.summary}</p>
       {r.lessons.length > 0 && (
         <>

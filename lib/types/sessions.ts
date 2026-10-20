@@ -108,7 +108,10 @@ export interface SessionMetrics {
   losses: number;
   winRate: number | null;
   expectancyR: number | null;
+  /** Peak-to-trough of the closed-trade curve only. */
   maxDrawdown: number;
+  /** Peak-to-trough of equity with open positions marked (P11a); null on reports written before it. */
+  maxDrawdownMtm?: number | null;
   buyAndHold: { symbol: string; startPrice: number; endPrice: number; returnPct: number } | null;
   rejections: Array<{ reason: string; count: number }>;
   durationMin: number;
