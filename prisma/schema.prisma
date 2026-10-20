@@ -591,6 +591,10 @@ model TradingSession {
   extensionPromptAt  DateTime?
   extensionChatId    String?
   extensionMessageId Int?
+  /// Highest mark-to-market equity the monitor has seen (capital + realized − fees + unrealized).
+  equityPeak         Float?
+  /// Deepest fall from equityPeak in the account currency — counts open positions, unlike a realized-only curve (P11a).
+  maxDrawdownMtm     Float               @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 

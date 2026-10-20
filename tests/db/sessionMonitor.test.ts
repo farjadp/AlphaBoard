@@ -78,6 +78,22 @@ describe.skipIf(!run)("session monitor (Postgres)", () => {
     expect(journalInputs.join("\n")).toMatch(/Best move in favour 0\.\d\dR, worst move against 1\.\d\dR/);
   });
 
+  it("records the mark-to-market drawdown of an open position that fell and recovered (P11a)", async () => {
+    const s = await start();
+    await open(s.id, 2, 90); // 2 BTC ≈ 100, stop 90
+    prices["BTC/USDT"] = 104;
+    await monitorSessions(deps());
+    prices["BTC/USDT"] = 93;
+    await monitorSessions(deps());
+    prices["BTC/USDT"] = 101;
+    await monitorSessions(deps());
+    const after = await prisma.tradingSession.findUniqueOrThrow({ where: { id: s.id } });
+    // Peak at 104, low at 93: 11 × 2 BTC = 22 below the peak, with no closed trade at all.
+    expect(after.maxDrawdownMtm).toBeCloseTo(22, 6);
+    expect(after.equityPeak! - 1_000).toBeGreaterThan(7);
+    expect(await prisma.sessionPosition.count({ where: { sessionId: s.id, closedAt: { not: null } } })).toBe(0);
+  });
+
   it("closes on the stop, journals the trade with a lesson", async () => {
     const s = await start();
     const { positionId } = await open(s.id);

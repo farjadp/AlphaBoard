@@ -18,6 +18,7 @@ import { journalClosedPosition, writeReport } from "./journal";
 import { isActive, timerTransition } from "./lifecycle";
 import { post } from "./room";
 import { finishSession } from "./service";
+import { nextDrawdown } from "./drawdown";
 import { mandateOf, markOpen, sessionMoney } from "./view";
 
 export interface MonitorDeps {
@@ -180,6 +181,11 @@ async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, exitDeps: { pr
   const current = await prisma.tradingSession.findUniqueOrThrow({ where: { id: s.id }, include: { positions: true } });
   const marks = await markOpen(current.positions.filter((p) => !p.closedAt), priceOf);
   const money$ = sessionMoney(current, marks);
+  // Mark-to-market drawdown (P11a): recorded before the loss-limit check so a halt keeps its deepest point.
+  if (money$.equity != null) {
+    const d = nextDrawdown({ peak: current.equityPeak, maxDd: current.maxDrawdownMtm }, money$.equity);
+    if (d.changed) await prisma.tradingSession.update({ where: { id: s.id }, data: { equityPeak: d.peak, maxDrawdownMtm: d.maxDd } });
+  }
   const loss = money$.lossUsed ?? Math.max(0, -money$.realizedNet);
   if (loss >= m.lossLimit) {
     await post(s.id, "RISK", "ALERT", `Loss limit hit: ${money(loss)} of ${money(m.lossLimit)}.`);
