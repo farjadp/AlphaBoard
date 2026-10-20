@@ -49,6 +49,7 @@ model User {
   exchangeConnections ExchangeConnection[]
   labDatasets         LabDataset[]
   labJobs             LabJob[]
+  mt5Trades           Mt5Trade[]
 }
 
 model Invite {
@@ -917,4 +918,31 @@ model LabJob {
 
   @@index([status, createdAt])
   @@index([userId, createdAt])
+}
+
+/// A closed MetaTrader 5 position imported from the ExportDeals.mq5 CSV (P11c). The journal gets a row too;
+/// this table keeps the facts the edge check needs (stop, times, side) exactly as the broker booked them.
+model Mt5Trade {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  login       String
+  positionId  String
+  symbol      String
+  side        String
+  volume      Float
+  entryPrice  Float
+  exitPrice   Float
+  stop        Float?
+  openedAt    DateTime
+  closedAt    DateTime
+  /// profit + swap + commission + fee, account currency.
+  net         Float
+  currency    String
+  magic       Int
+  manual      Boolean
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, login, positionId])
+  @@index([userId, symbol, openedAt])
 }

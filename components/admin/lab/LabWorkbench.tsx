@@ -5,8 +5,11 @@ import { createResource, jsonRequest, useResource } from "@/lib/client/resource"
 import type { DatasetDto } from "@/lib/lab/data/store";
 import type { LabJobDto } from "@/lib/lab/jobs";
 import type { LadderStudyResult } from "@/lib/lab/study";
+import type { EdgeResult } from "@/lib/lab/edge";
+import type { Mt5TradeDto } from "@/lib/mt5/import";
 
 const datasetsRes = createResource<DatasetDto[]>("/api/admin/lab/datasets", { fallback: [], select: (j) => (j as { datasets: DatasetDto[] }).datasets });
+const tradesRes = createResource<Mt5TradeDto[]>("/api/admin/lab/trades", { fallback: [], select: (j) => (j as { trades: Mt5TradeDto[] }).trades });
 const jobsRes = createResource<LabJobDto[]>("/api/admin/lab/jobs", { fallback: [], select: (j) => (j as { jobs: LabJobDto[] }).jobs });
 
 const field = "w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none";
@@ -36,6 +39,7 @@ export default function LabWorkbench(props: LabProps) {
       <DataPanel {...props} />
       <StudyForm />
       <Results jobs={jobs.data} error={jobs.error} />
+      <YourTrades />
     </div>
   );
 }
@@ -363,5 +367,113 @@ function Curve({ curve }: { curve: Array<[number, number]> }) {
       </svg>
       <figcaption className="label-caps">Balance after each trade (start $1,000)</figcaption>
     </figure>
+  );
+}
+
+/* ───────────────────────────── your trades (MT5) ───────────────────────────── */
+
+function YourTrades() {
+  const { data: trades, error } = useResource(tradesRes);
+  const { data: datasets } = useResource(datasetsRes);
+  const symbols = [...new Set(trades.map((t) => t.symbol))];
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [symbol, setSymbol] = useState("");
+  const [datasetId, setDatasetId] = useState("");
+  const [who, setWho] = useState("manual");
+  const [edge, setEdge] = useState<EdgeResult | null>(null);
+  const sym = symbol || symbols[0] || "";
+  const ds = datasetId || datasets.find((d) => d.timeframe === "1m")?.id || "";
+
+  async function upload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!file) return;
+    setBusy(true); setMsg(null);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const r = await tradesRes.mutate<{ imported: number; alreadyThere: number; stillOpen: number }>({ request: () => fetch("/api/admin/lab/trades", { method: "POST", body: fd, credentials: "same-origin" }) });
+      await tradesRes.load(true);
+      setMsg(`Imported ${r.imported} closed trades${r.alreadyThere ? ` (${r.alreadyThere} were already here)` : ""}${r.stillOpen ? `; ${r.stillOpen} still open, skipped` : ""}. They are in the journal too.`);
+      setFile(null);
+    } catch (err) { setMsg(err instanceof Error ? err.message : "Failed"); } finally { setBusy(false); }
+  }
+
+  async function check(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true); setMsg(null); setEdge(null);
+    try {
+      const res = await fetch("/api/admin/lab/edge", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ symbol: sym, datasetId: ds, who }) });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Failed");
+      setEdge(body.result as EdgeResult);
+    } catch (err) { setMsg(err instanceof Error ? err.message : "Failed"); } finally { setBusy(false); }
+  }
+
+  const bySymbol = symbols.map((s) => {
+    const list = trades.filter((t) => t.symbol === s);
+    return { s, n: list.length, manual: list.filter((t) => t.manual).length, net: list.reduce((a, t) => a + t.net, 0), ccy: list[0]?.currency ?? "" };
+  });
+
+  return (
+    <section aria-labelledby="lab-trades" className="panel space-y-5 p-5">
+      <div>
+        <h2 id="lab-trades" className="font-display text-lg font-bold text-ink">Your trades</h2>
+        <p className="mt-1 text-sm text-ink-2">Import your MetaTrader history and check whether your entries beat random entries — same market, side, stop and holding time.</p>
+      </div>
+      {error && <p role="alert" className="text-sm text-down">{error}</p>}
+      <form onSubmit={upload} className="flex flex-wrap items-end gap-3">
+        <div>
+          <label htmlFor="lab-deals" className={label}>ExportDeals CSV</label>
+          <input id="lab-deals" type="file" accept=".csv,text/csv" className="block text-sm text-ink-2 file:mr-3 file:rounded-lg file:border-0 file:bg-wash file:px-3 file:py-2 file:text-sm file:font-semibold file:text-ink" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          <p className={hint}>From MetaTrader: Scripts → ExportDeals. Only closed trades are imported; importing again adds only new ones.</p>
+        </div>
+        <button type="submit" disabled={busy || !file} className={btn}>Import</button>
+      </form>
+      {bySymbol.length > 0 && (
+        <table className="text-sm">
+          <thead className="text-left text-xs text-ink-3"><tr><th className="p-2 font-medium">Symbol</th><th className="p-2 text-right font-medium">Trades</th><th className="p-2 text-right font-medium">By hand</th><th className="p-2 text-right font-medium">Net</th></tr></thead>
+          <tbody>{bySymbol.map((r) => (
+            <tr key={r.s} className="border-t border-line"><td className="p-2 font-semibold text-ink">{r.s}</td><td className="num p-2 text-right">{r.n}</td><td className="num p-2 text-right">{r.manual}</td><td className={`num p-2 text-right ${r.net >= 0 ? "text-up" : "text-down"}`}>{r.net >= 0 ? "+" : "−"}{Math.abs(r.net).toFixed(2)} {r.ccy}</td></tr>
+          ))}</tbody>
+        </table>
+      )}
+      {symbols.length > 0 && (
+        <form onSubmit={check} className="grid gap-3 sm:grid-cols-4">
+          <div>
+            <label htmlFor="edge-sym" className={label}>Trades on</label>
+            <select id="edge-sym" className={field} value={sym} onChange={(e) => setSymbol(e.target.value)}>{symbols.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+          </div>
+          <div>
+            <label htmlFor="edge-ds" className={label}>Compare on data</label>
+            <select id="edge-ds" className={field} value={ds} onChange={(e) => setDatasetId(e.target.value)}>
+              {datasets.filter((d) => d.timeframe === "1m").map((d) => <option key={d.id} value={d.id}>{d.symbol} · {day(d.fromAt)} → {day(d.toAt)}</option>)}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="edge-who" className={label}>Which trades</label>
+            <select id="edge-who" className={field} value={who} onChange={(e) => setWho(e.target.value)}>
+              <option value="manual">By hand</option>
+              <option value="expert">By an expert</option>
+              <option value="all">All</option>
+            </select>
+          </div>
+          <div className="flex items-end"><button type="submit" disabled={busy || !ds} className={btn}>{busy ? "Checking…" : "Check my edge"}</button></div>
+        </form>
+      )}
+      {msg && <p role="status" className="text-sm text-ink-2">{msg}</p>}
+      {edge && (
+        <div className="space-y-3 rounded-lg border border-line p-4">
+          <div className="space-y-1.5 text-sm leading-relaxed text-ink">{edge.verdict.map((v) => <p key={v}>{v}</p>)}</div>
+          <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <div><dt className="label-caps">Your average</dt><dd className="num mt-1 font-semibold">{edge.avgR == null ? "—" : `${edge.avgR.toFixed(2)}R`}</dd></div>
+            <div><dt className="label-caps">Random entries</dt><dd className="num mt-1 font-semibold">{edge.baselineAvgR == null ? "—" : `${edge.baselineAvgR.toFixed(2)}R`}</dd></div>
+            <div><dt className="label-caps">Your win rate</dt><dd className="num mt-1 font-semibold">{edge.winRate == null ? "—" : `${Math.round(edge.winRate * 100)}%`}</dd></div>
+            <div><dt className="label-caps">Trades compared</dt><dd className="num mt-1 font-semibold">{edge.used} of {edge.trades}</dd></div>
+          </dl>
+        </div>
+      )}
+    </section>
   );
 }
