@@ -203,3 +203,32 @@ describe("risk engine — desk discipline (P10)", () => {
   });
 });
 
+
+describe("risk engine — money-management guards", () => {
+  it("refuses entries after maxConsecLosses losses in a row", () => {
+    const v = evaluateProposal(long(), spot, state({ lossStreak: 2 }), rules());
+    expect(v.kind).toBe("rejected");
+    expect(reasons(v)).toMatch(/2 losing trades in a row/);
+  });
+
+  it("allows entries below the streak limit and when the guard is off", () => {
+    expect(evaluateProposal(long(), spot, state({ lossStreak: 1 }), rules()).kind).toBe("approved");
+    const off = parseMandate({ symbols: ["BTC/USDT"], capital: 1_000, maxConsecLosses: 0 });
+    expect(evaluateProposal(long(), off, state({ lossStreak: 5 }), rules()).kind).toBe("approved");
+  });
+
+  it("refuses entries on every symbol inside the loss cooldown", () => {
+    const v = evaluateProposal(long({ symbol: "ETH/USDT" }), spot, state({ lastLossAt: NOW - 10 * 60_000 }), rules());
+    expect(v.kind).toBe("rejected");
+    expect(reasons(v)).toMatch(/after a losing trade \(20 min left\)/);
+    expect(evaluateProposal(long(), spot, state({ lastLossAt: NOW - 31 * 60_000 }), rules()).kind).toBe("approved");
+    const off = parseMandate({ symbols: ["BTC/USDT"], capital: 1_000, lossCooldownMin: 0 });
+    expect(evaluateProposal(long(), off, state({ lastLossAt: NOW - 60_000 }), rules()).kind).toBe("approved");
+  });
+
+  it("never blocks exits", () => {
+    const pos = { id: "p1", symbol: "BTC/USDT", side: "LONG" as const, qty: 1, entryPrice: 100, stopLoss: 95, margin: 100 };
+    const v = evaluateProposal({ ...long(), action: "CLOSE", positionId: "p1" }, spot, state({ lossStreak: 9, lastLossAt: NOW, openPositions: [pos] }), rules());
+    expect(v.kind).toBe("close");
+  });
+});
