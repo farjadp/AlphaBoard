@@ -19,9 +19,12 @@
 //|  after a loss, max lot. Backtest: no P2 + trend = best variant.   |
 //|  1.21: stop after 2 losses in a row, daily lock 2%, cooldown 30m, |
 //|  no daily trade cap (best money-management mix in the backtest).  |
+//|  1.23: daily loss counts only today's trades (closed today + open  |
+//|  positions opened today); older open positions no longer lock it. |
+//|  The lock is re-checked live instead of sticking all day.         |
 //+------------------------------------------------------------------+
 #property copyright "Custom build"
-#property version   "1.22"
+#property version   "1.23"
 #property description "Manual-trade companion: optional second entry, trend filter, risk guards, stats panel"
 
 #include <Trade/Trade.mqh>
@@ -238,16 +241,12 @@ datetime DayStart()
    return StructToTime(d);
   }
 
-string LockKey()
-  {
-   MqlDateTime d; TimeToStruct(TimeCurrent(), d);
-   return StringFormat("GHE_LOCK_%I64d_%04d%02d%02d", AccountInfoInteger(ACCOUNT_LOGIN), d.year, d.mon, d.day);
-  }
+datetime g_lockAlerted = 0;   // day the lock alert was shown (one alert per day)
 
 struct DayInfo
   {
    double   closedNet;    // closed P/L today incl. commission and swap, all symbols
-   double   floating;     // open P/L now, all symbols
+   double   floating;     // open P/L now of positions opened today, all symbols
    double   startBal;     // balance at the start of the day
    int      trades;       // new trades opened today (all symbols, P2 orders not counted)
    datetime lastLoss;     // time of the last losing close today
@@ -287,6 +286,7 @@ void GetDay(DayInfo &di)
    for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
       if(PositionGetTicket(i) == 0) continue;
+      if((datetime)PositionGetInteger(POSITION_TIME) < from) continue;   // older positions are not today's loss
       di.floating += PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
      }
    di.startBal = AccountInfoDouble(ACCOUNT_BALANCE) - di.closedNet;
@@ -295,14 +295,15 @@ void GetDay(DayInfo &di)
 bool DayLocked(const DayInfo &di)
   {
    if(InpDailyLossPct <= 0) return false;
-   if(GlobalVariableCheck(LockKey())) return true;                // stays locked for the rest of the day
-   if(di.startBal > 0 && di.closedNet + di.floating <= -di.startBal * InpDailyLossPct / 100.0)
+   double limit = di.startBal * InpDailyLossPct / 100.0;
+   if(di.startBal <= 0 || di.closedNet + di.floating > -limit) return false;
+   if(g_lockAlerted != DayStart())
      {
-      GlobalVariableSet(LockKey(), 1);
-      Alert(StringFormat("Daily loss limit %.1f%% reached. No new trades today.", InpDailyLossPct));
-      return true;
+      g_lockAlerted = DayStart();
+      Alert(StringFormat("Daily loss limit %.1f%% reached: today %.2f$ (limit -%.2f$). No new trades today.",
+                         InpDailyLossPct, di.closedNet + di.floating, limit));
      }
-   return false;
+   return true;
   }
 
 // can a trade in direction dir with this lot be opened (or kept, when opened=true)?
@@ -317,7 +318,8 @@ bool Allowed(int dir, double lot, bool opened, datetime when, string &why)
       if(tr != dir) { why = StringFormat("against the H4 trend (%s)", tr > 0 ? "UP" : "DOWN"); return false; }
      }
    DayInfo di; GetDay(di);
-   if(DayLocked(di)) { why = "daily loss limit reached"; return false; }
+   if(DayLocked(di))
+     { why = StringFormat("daily loss %.2f$ (limit -%.0f$)", di.closedNet + di.floating, di.startBal * InpDailyLossPct / 100.0); return false; }
    if(InpMaxConsecLoss > 0 && di.streak >= InpMaxConsecLoss)
      { why = StringFormat("%d losses in a row - done for today", di.streak); return false; }
    if(InpMaxTradesDay > 0 && (opened ? di.trades > InpMaxTradesDay : di.trades >= InpMaxTradesDay))
