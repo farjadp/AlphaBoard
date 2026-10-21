@@ -101,8 +101,10 @@ describe.skipIf(!run)("decision cycle (Postgres)", () => {
 
   it("after two losing closes in a row today, the risk engine refuses new entries (P11a)", async () => {
     const s = await start({ lossCooldownMin: 0, cooldownMin: 0 });
-    await closedLoss(s.id, 90);
-    await closedLoss(s.id, 60);
+    // The streak counts UTC days: keep both losses a minute or two back so a run just after midnight
+    // does not split them across two days.
+    await closedLoss(s.id, 2);
+    await closedLoss(s.id, 1);
     plan = { commentary: "go", decisions: [decision({})] };
     await runCycle(s.id, { ...deps, force: true });
     expect(await prisma.sessionOrder.count({ where: { sessionId: s.id } })).toBe(0);
