@@ -50,6 +50,7 @@ model User {
   labDatasets         LabDataset[]
   labJobs             LabJob[]
   mt5Trades           Mt5Trade[]
+  labBaskets          LabBasket[]
 }
 
 model Invite {
@@ -945,4 +946,36 @@ model Mt5Trade {
 
   @@unique([userId, login, positionId])
   @@index([userId, symbol, openedAt])
+}
+
+/// Strategy Lab (P11b-4): a coin basket of hourly bars for DCA-ladder studies (survivorship-free universe).
+model LabBasket {
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  /// The universe = every USDT-M symbol with a kline file in this month ("YYYY-MM").
+  listedBy  String
+  fromAt    DateTime
+  toAt      DateTime
+  symbols   Int
+  sizeBytes Int
+  createdAt DateTime          @default(now())
+  series    LabBasketSymbol[]
+
+  @@index([userId, createdAt])
+}
+
+/// One symbol of a basket: gzip of Float32 columns o,h,l,c over every hour from startHour (NaN = no bar).
+model LabBasketSymbol {
+  id        String    @id @default(cuid())
+  basketId  String
+  basket    LabBasket @relation(fields: [basketId], references: [id], onDelete: Cascade)
+  symbol    String
+  /// Hours since the Unix epoch of the first bar.
+  startHour Int
+  length    Int
+  blob      Bytes
+
+  @@index([basketId])
 }

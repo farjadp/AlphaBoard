@@ -11,15 +11,18 @@
  */
 import { maxDrawdownPct, perYearPct } from "./metrics";
 
+/** A price column; Float32 halves the memory of a large basket (7 significant digits is plenty here). */
+export type Col = Float64Array | Float32Array;
+
 export interface Cube {
   /** Hour timestamps (ms), shared by every symbol. */
   t: Float64Array;
   syms: string[];
   /** Per symbol; NaN where the symbol has no bar. */
-  o: Float64Array[];
-  h: Float64Array[];
-  l: Float64Array[];
-  c: Float64Array[];
+  o: Col[];
+  h: Col[];
+  l: Col[];
+  c: Col[];
 }
 
 export interface DcaParams {
@@ -51,6 +54,8 @@ export interface DcaRun {
   /** Share of closed episodes that ended at depth 0 / 1 / 2. */
   depthShare: [number, number, number];
   avgSlots: number;
+  /** Daily samples [time ms, equity]: marked to market, and realized only (open positions at cost). */
+  curves: { mtm: Array<[number, number]>; realized: Array<[number, number]> };
 }
 
 interface Pos { e0: number; avg: number; qty: number; cost: number; unit: number; depth: number; maxd: number; budget: number; mark: number }
@@ -77,6 +82,8 @@ export function runDca(cube: Cube, p: DcaParams, startMs: number, start = 1000):
   const mtm: number[] = [];
   const real: number[] = [];
   const curve: Array<[number, number]> = [];
+  const daily: Array<[number, number]> = [];
+  const dailyReal: Array<[number, number]> = [];
   const depths = [0, 0, 0];
   let slotSum = 0;
   let steps = 0;
@@ -154,6 +161,7 @@ export function runDca(cube: Cube, p: DcaParams, startMs: number, start = 1000):
     mtm.push(cash + val);
     real.push(cash + cost);
     curve.push([cube.t[k], cash + val]);
+    if (steps % 24 === 0) { daily.push([cube.t[k], cash + val]); dailyReal.push([cube.t[k], cash + cost]); }
     slotSum += pos.size;
     steps++;
   }
@@ -169,5 +177,6 @@ export function runDca(cube: Cube, p: DcaParams, startMs: number, start = 1000):
     episodes: closed,
     depthShare: closed ? [depths[0] / closed, depths[1] / closed, depths[2] / closed] : [0, 0, 0],
     avgSlots: steps ? slotSum / steps : 0,
+    curves: { mtm: daily, realized: dailyReal },
   };
 }

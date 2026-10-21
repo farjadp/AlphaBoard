@@ -7,8 +7,11 @@ import type { LabJobDto } from "@/lib/lab/jobs";
 import type { LadderStudyResult } from "@/lib/lab/study";
 import type { EdgeResult } from "@/lib/lab/edge";
 import type { Mt5TradeDto } from "@/lib/mt5/import";
+import type { BasketDto } from "@/lib/lab/data/basket";
+import type { DcaStudyResult } from "@/lib/lab/dcaStudy";
 
 const datasetsRes = createResource<DatasetDto[]>("/api/admin/lab/datasets", { fallback: [], select: (j) => (j as { datasets: DatasetDto[] }).datasets });
+const basketsRes = createResource<BasketDto[]>("/api/admin/lab/baskets", { fallback: [], select: (j) => (j as { baskets: BasketDto[] }).baskets });
 const tradesRes = createResource<Mt5TradeDto[]>("/api/admin/lab/trades", { fallback: [], select: (j) => (j as { trades: Mt5TradeDto[] }).trades });
 const jobsRes = createResource<LabJobDto[]>("/api/admin/lab/jobs", { fallback: [], select: (j) => (j as { jobs: LabJobDto[] }).jobs });
 
@@ -30,7 +33,7 @@ export default function LabWorkbench(props: LabProps) {
   const active = jobs.data.some((j) => j.status === "QUEUED" || j.status === "RUNNING");
   useEffect(() => {
     if (!active) return;
-    const t = setInterval(() => { void jobsRes.load(true); void datasetsRes.load(true); }, 3_000);
+    const t = setInterval(() => { void jobsRes.load(true); void datasetsRes.load(true); void basketsRes.load(true); }, 3_000);
     return () => clearInterval(t);
   }, [active]);
 
@@ -38,6 +41,7 @@ export default function LabWorkbench(props: LabProps) {
     <div className="space-y-8">
       <DataPanel {...props} />
       <StudyForm />
+      <BasketPanel />
       <Results jobs={jobs.data} error={jobs.error} />
       <YourTrades />
     </div>
@@ -278,9 +282,14 @@ function Results({ jobs, error }: { jobs: LabJobDto[]; error: string | null }) {
 
 function JobCard({ job }: { job: LabJobDto }) {
   const spec = job.spec as { kind: string; symbol?: string; days?: number; secondPosition?: boolean; direction?: string; money?: { riskPct: number; slots: number } };
+  const dca = job.spec as { slots?: number; dropPct?: number; stopLossPct?: number | null; listedBy?: string; from?: string };
   const title = job.kind === "FETCH"
     ? `Download ${spec.symbol} · ${spec.days} days`
-    : `${spec.secondPosition ? "Two positions" : "One position"} · ${spec.direction} · risk ${spec.money?.riskPct}%${(spec.money?.slots ?? 1) > 1 ? ` in ${spec.money?.slots} slots` : ""}`;
+    : job.kind === "BASKET"
+      ? `Build a coin basket · listed by ${dca.listedBy} · from ${dca.from}`
+      : job.kind === "DCA"
+        ? `DCA ladder · ${dca.slots} slots · buy after −${dca.dropPct}%${dca.stopLossPct ? ` · stop ${dca.stopLossPct}%` : " · no stop"}`
+        : `${spec.secondPosition ? "Two positions" : "One position"} · ${spec.direction} · risk ${spec.money?.riskPct}%${(spec.money?.slots ?? 1) > 1 ? ` in ${spec.money?.slots} slots` : ""}`;
   return (
     <article className="panel p-5">
       <header className="flex flex-wrap items-baseline justify-between gap-2">
@@ -292,6 +301,8 @@ function JobCard({ job }: { job: LabJobDto }) {
       {job.status === "FAILED" && <p className="mt-2 text-sm text-down">{job.error}</p>}
       {job.status === "DONE" && job.kind === "FETCH" && <p className="mt-2 text-sm text-ink-2">Stored {((job.result as { bars: number }).bars).toLocaleString("en-US")} bars.</p>}
       {job.status === "DONE" && job.kind === "STUDY" && <StudyView r={job.result as StudyResult} />}
+      {job.status === "DONE" && job.kind === "BASKET" && <p className="mt-2 text-sm text-ink-2">Stored {(job.result as { symbols: number }).symbols} coins{(job.result as { missing: string[] }).missing.length ? ` (${(job.result as { missing: string[] }).missing.length} had no data in range)` : ""}.</p>}
+      {job.status === "DONE" && job.kind === "DCA" && <DcaView r={job.result as DcaStudyResult} />}
     </article>
   );
 }
@@ -475,5 +486,164 @@ function YourTrades() {
         </div>
       )}
     </section>
+  );
+}
+
+/* ───────────────────────────── crypto basket (DCA ladder) ───────────────────────────── */
+
+function BasketPanel() {
+  const { data: baskets } = useResource(basketsRes);
+  const [listedBy, setListedBy] = useState("2022-01");
+  const [from, setFrom] = useState("2021-01");
+  const [basketId, setBasketId] = useState("");
+  const chosen = basketId || baskets[0]?.id || "";
+  const [start, setStart] = useState("2021-01-01");
+  const [slots, setSlots] = useState("15");
+  const [deep, setDeep] = useState("10");
+  const [drop, setDrop] = useState("3");
+  const [d1, setD1] = useState("9");
+  const [d2, setD2] = useState("19.5");
+  const [tp0, setTp0] = useState("1.5");
+  const [tp1, setTp1] = useState("1");
+  const [stop, setStop] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function build(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true); setMsg(null);
+    try {
+      await jobsRes.mutate({ request: jsonRequest("/api/admin/lab/jobs", "POST", { kind: "basket", listedBy, from }) });
+      await jobsRes.load(true);
+      setMsg("Building — a few minutes for 100+ coins. It appears in the results when done.");
+    } catch (err) { setMsg(err instanceof Error ? err.message : "Failed"); } finally { setBusy(false); }
+  }
+
+  async function run(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true); setMsg(null);
+    try {
+      await jobsRes.mutate({
+        request: jsonRequest("/api/admin/lab/jobs", "POST", {
+          kind: "dca", basketId: chosen, start, slots: Number(slots), deepSlots: Number(deep), dropPct: Number(drop), d1Pct: Number(d1), d2Pct: Number(d2),
+          tp0Pct: Number(tp0), tp1Pct: Number(tp1), stopLossPct: stop.trim() ? Number(stop) : null,
+        }),
+      });
+      await jobsRes.load(true);
+    } catch (err) { setMsg(err instanceof Error ? err.message : "Failed"); } finally { setBusy(false); }
+  }
+
+  async function remove(id: string) {
+    if (!window.confirm("Delete this basket?")) return;
+    await basketsRes.mutate({ optimistic: (d) => d.filter((x) => x.id !== id), request: jsonRequest(`/api/admin/lab/baskets/${id}`, "DELETE") }).catch(() => undefined);
+  }
+
+  return (
+    <section aria-labelledby="lab-basket" className="panel space-y-5 p-5">
+      <div>
+        <h2 id="lab-basket" className="font-display text-lg font-bold text-ink">Crypto basket · DCA ladder</h2>
+        <p className="mt-1 text-sm text-ink-2">Long-only buying after a drop, adding lower, selling a little above the average — the bot family that shows a green profit calendar. Tested on every Binance USD-M coin that was listed at a chosen month, including the ones later delisted, so the result is not flattered by survivors.</p>
+      </div>
+      {baskets.length > 0 && (
+        <ul className="space-y-1 text-sm">
+          {baskets.map((b) => (
+            <li key={b.id} className="flex flex-wrap items-baseline justify-between gap-2 border-t border-line pt-1">
+              <span className="text-ink">{b.name} · <span className="num">{b.symbols}</span> coins · {day(b.fromAt)} → {day(b.toAt)}</span>
+              <button type="button" onClick={() => void remove(b.id)} className="text-xs font-semibold text-ink-3 hover:text-down">Delete</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form onSubmit={build} className="flex flex-wrap items-end gap-3">
+        <div>
+          <label htmlFor="bk-listed" className={label}>Coins listed by</label>
+          <input id="bk-listed" type="month" className={field} value={listedBy} onChange={(e) => setListedBy(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="bk-from" className={label}>Prices from</label>
+          <input id="bk-from" type="month" className={field} value={from} onChange={(e) => setFrom(e.target.value)} />
+        </div>
+        <button type="submit" disabled={busy} className={btn}>Build basket</button>
+      </form>
+      {baskets.length > 0 && (
+        <form onSubmit={run} className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <label htmlFor="dca-b" className={label}>Basket</label>
+              <select id="dca-b" className={field} value={chosen} onChange={(e) => setBasketId(e.target.value)}>
+                {baskets.map((b) => <option key={b.id} value={b.id}>{b.symbols} coins · {day(b.fromAt)} → {day(b.toAt)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="dca-start" className={label}>Start on</label>
+              <input id="dca-start" type="date" className={field} value={start} onChange={(e) => setStart(e.target.value)} />
+            </div>
+            <Num id="dca-slots" text="Coins held at once" value={slots} onChange={setSlots} step="1" />
+            <Num id="dca-deep" text="…of which may add twice" value={deep} onChange={setDeep} step="1" />
+            <Num id="dca-drop" text="Buy after a drop of (%)" value={drop} onChange={setDrop} help="From the 24-hour high." />
+            <Num id="dca-d1" text="First add at (−%)" value={d1} onChange={setD1} />
+            <Num id="dca-d2" text="Second add at (−%)" value={d2} onChange={setD2} />
+            <Num id="dca-tp0" text="Take profit (%)" value={tp0} onChange={setTp0} help="Over the average buy price." />
+            <Num id="dca-tp1" text="Take profit after an add (%)" value={tp1} onChange={setTp1} />
+            <Num id="dca-stop" text="Stop under the average (%)" value={stop} onChange={setStop} help="Empty = no stop (the original)." />
+          </div>
+          <button type="submit" disabled={busy || !chosen} className={btn}>Run DCA test</button>
+        </form>
+      )}
+      {msg && <p role="status" className="text-sm text-ink-2">{msg}</p>}
+    </section>
+  );
+}
+
+function DcaView({ r }: { r: DcaStudyResult & { basket?: BasketDto } }) {
+  const tone = (x: number) => (x > 0 ? "text-up" : x < 0 ? "text-down" : "text-ink");
+  const stat = (k: string, v: string, t = "text-ink") => <div><dt className="label-caps">{k}</dt><dd className={`num mt-1 text-base font-semibold ${t}`}>{v}</dd></div>;
+  const ret = (r.finalBalance / 1000 - 1) * 100;
+  return (
+    <div className="mt-3 space-y-4">
+      <div className="space-y-1.5 text-sm leading-relaxed text-ink">{r.verdict.map((v) => <p key={v}>{v}</p>)}</div>
+      <dl className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {stat("Return", pct(ret), tone(ret))}
+        {stat("Max fall, open positions", `${r.maxDdMtmPct.toFixed(1)}%`, r.maxDdMtmPct > 30 ? "text-down" : "text-ink")}
+        {stat("Max fall, closed trades only", `${r.maxDdRealizedPct.toFixed(1)}%`)}
+        {stat("Ladders closed", r.episodes.toLocaleString("en-US"))}
+        {stat("Slots in use", `${Math.round((r.avgSlots / r.slots) * 100)}%`)}
+      </dl>
+      <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
+        <TwoCurves mtm={r.curves.mtm} realized={r.curves.realized} />
+        <table className="self-start text-sm">
+          <caption className="label-caps pb-1 text-left">By year</caption>
+          <tbody>{Object.entries(r.perYear).map(([y, v]) => (
+            <tr key={y} className="border-t border-line"><td className="py-1 pr-6 text-ink-2">{y}</td><td className={`num py-1 text-right ${tone(v)}`}>{pct(v)}</td></tr>
+          ))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/** Equity marked to market vs the same account counted on closed trades only (open positions at cost). */
+function TwoCurves({ mtm, realized }: { mtm: Array<[number, number]>; realized: Array<[number, number]> }) {
+  if (mtm.length < 2) return <p className="text-sm text-ink-3">Not enough data for a curve.</p>;
+  const W = 600, H = 180;
+  const all = [...mtm, ...realized];
+  const x0 = mtm[0][0], x1 = mtm[mtm.length - 1][0];
+  const ys = all.map((p) => p[1]);
+  const y0 = Math.min(...ys, 1000), y1 = Math.max(...ys, 1000);
+  const px = (x: number) => ((x - x0) / (x1 - x0 || 1)) * W;
+  const py = (y: number) => H - ((y - y0) / (y1 - y0 || 1)) * H;
+  const path = (c: Array<[number, number]>) => c.map((p, i) => `${i ? "L" : "M"}${px(p[0]).toFixed(1)},${py(p[1]).toFixed(1)}`).join(" ");
+  return (
+    <figure>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-44 w-full" role="img" aria-label="Account value with open positions marked to market, and counted on closed trades only">
+        <line x1={0} x2={W} y1={py(1000)} y2={py(1000)} className="stroke-line-2" strokeDasharray="4 4" />
+        <path d={path(realized)} fill="none" className="stroke-ink-3" strokeWidth={1.5} strokeDasharray="5 3" vectorEffect="non-scaling-stroke" />
+        <path d={path(mtm)} fill="none" className="stroke-down" strokeWidth={1.75} vectorEffect="non-scaling-stroke" />
+      </svg>
+      <figcaption className="flex flex-wrap gap-x-4 text-xs text-ink-3">
+        <span><span className="font-bold text-down">━</span> real value, open positions at market</span>
+        <span><span className="font-bold text-ink-3">┅</span> closed trades only (what a profit calendar shows)</span>
+      </figcaption>
+    </figure>
   );
 }
