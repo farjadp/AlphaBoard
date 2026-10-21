@@ -1,6 +1,6 @@
 # AlphaBoard v2 — Session Handoff
 
-_Last updated: 2026-10-20 · P10 live on `main` · **P11a** on `feat/p11a-money-management` and **P11b Strategy Lab** on `feat/p11b-lab-engine` (stacked, neither pushed) · P11 plan: `docs/superpowers/plans/2026-10-20-p11-honest-numbers-and-strategy-lab.md`_
+_Last updated: 2026-10-21 · P11a/b/c + P11b-4 live on `main` · **P12 Signal Desk** built on `feat/p12-signal-desk` (not pushed; demo-account test pending) · plan `docs/superpowers/plans/2026-10-21-p12-signal-desk.md`_
 
 Read this first in a new session. Source of truth for the plan: `docs/superpowers/specs/2026-09-27-alphaboard-v2-design.md`.
 Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
@@ -26,6 +26,7 @@ Project tracker (Kanban): Notion → AlphaBoard page (links at the bottom).
 | **P10 · Desk discipline** | ✅ Built on `feat/desk-discipline` (not pushed or deployed) | Lessons from the first live OANDA week, which went 0 for 5 trades: C$-2.31 on the trades plus about $5.45 of AI cost. Plan: `docs/superpowers/plans/2026-10-06-p10-desk-discipline.md`. **Data bug fixed:** Yahoo gap bars came through as 0 prices, which poisoned ATR, RSI, EMA and trend for FX and metals (EUR/USD 1H ATR read 93 pips instead of 13). **Close-retry bug fixed:** a close the broker refused was never resent, so USD/CAD was held over the weekend. The risk engine now requires a stop ≥ 1.5× the 1H ATR, conviction ≥ 0.7, no entry against the 4H trend, the market analyst agreeing at ≥ 60%, and no opposite exposure to a currency already held; stops tighten only after 1R and stay ≥ 1 ATR from the price. **Weekly close:** no FX or metals entry or session start in the last hour; positions are closed 20 min before it (`MARKET_CLOSE`) and all-FX sessions end. Cycles with no setup skip the debate and the strategist. The journal gets MFE/MAE in R plus the stop distance in ATR, and writes its lessons as testable rules. The report's R and margin are now in the account currency, and no USD amount is netted against CAD. 2 migrations (enum `MARKET_CLOSE`, `SessionPosition.bestPrice/worstPrice`) |
 | **P11b · Strategy Lab** | ✅ Built on `feat/p11b-lab-engine` (stacked on P11a, not pushed) | `lib/lab` engine (bars, ladder set, account with money rules, robustness, DCA, metrics) golden-checked against the research (`tests/unit/labGolden.test.ts`, opt-in `LAB_GOLDEN_DIR`). Data: OANDA bid/ask candles, Binance klines, MT5 ExportM1 upload → `LabDataset` (gzip Float64 columns, 10 per user, 40 MB). `LabJob` queue run by the worker's `lab` loop (5 s, `LAB_DISABLED=1` turns it off). Page `/admin/lab` (admin only). The upload route is outside the proxy matcher, because the proxy truncates bodies over 10 MB without an error. OANDA paging gotcha: `includeFirst=false` returns count − 1 candles. Plans: `docs/superpowers/plans/2026-10-20-p11b1-lab-engine.md`, `…-p11b2-lab-data.md`. P11c MT5 bridge (ExportDeals → Mt5Trade + journal, edge check vs random) and P11b-4 DCA baskets (`LabBasket`/`LabBasketSymbol` from data.binance.vision, FETCH via a BASKET job) followed. All of P11a/b/c live since 2026-10-20 (`main` e88586c); P11b-4 on `feat/p11b4-dca-lab` |
 | **P11a · Money management + honest drawdown** | ✅ Built on `feat/p11a-money-management` (not pushed) | From the 2026-10-20 research (entries ≈ random on Farjad's broker data; money management decides the outcome; a crypto DCA bot hid a 95% drawdown behind a green realized curve). Risk engine: no entries after `maxConsecLosses` losing trades in a row today (UTC, default 2) and none for `lossCooldownMin` after any losing close (default 30); exits never blocked; strategist told when entries are closed. Monitor records `equityPeak` / `maxDrawdownMtm` (open positions marked); the report shows it first and the closed-trades figure second. 1 migration. Sessions started earlier keep both guards off (`mandateOf` casts, no defaults). Next: P11b Strategy Lab (architecture fixed in the P11 plan) |
+| **P12 · Signal Desk** | ✅ Built on `feat/p12-signal-desk` (not pushed); waits for a demo-account run | Farjad writes a signal in Admin → Signals; AlphaBoard posts it to the Telegram channel (@gheymat_today via `SIGNAL_BOT_TOKEN`) and `mql5/SignalCopier.mq5` executes it in MT5. One position per TP with a broker-side SL/TP, at-most-once claim (`PENDING → SENT`), UNKNOWN after 2 min of silence and no retry, expiry after 10 min, dry run and a real-account refusal by default. Verified: unit + DB tests, the EA routes with curl, the page in the browser with a fake terminal; the EA compiles with 0 errors and 0 warnings. **Not yet run in a real terminal** (Task 8 of the plan). Runbook below |
 
 Quality gates at P11b: **499 tests passing** (`npm run test:db`), `tsc` and ESLint clean, build clean; verified in the running app (one year of OANDA XAU/USD M1 downloaded and studied; 15 MB upload whole). Quality gates at P11a: **436 tests passing** (`npm run test:db`), `tsc` and ESLint clean, build clean; verified in the app (form → mandate JSON, room mandate box, live MTM drawdown on a paper session; test data deleted).
 
@@ -106,3 +107,57 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 2. Users link in Settings → Telegram: they send `/start CODE` (or tap the deep link); the worker links the chat within seconds.
 3. Linked chats get `/sessions`, `/positions`, `/pause`, `/resume`, `/kill` and inline buttons (`TelegramAction` tokens: single use, 24 h, bound to the owner's chat; kill/close ask for confirmation). The end-of-session prompt is edited with the outcome.
 4. Uses `getUpdates` long-polling from the single worker — do not also set a webhook on that bot (Telegram rejects getUpdates while a webhook is set).
+
+## Signal Desk (P12)
+
+**Pieces:**
+- `lib/signals/*`:
+  - `validate` (form rules)
+  - `wire` (EA protocol)
+  - `state` (report → status, leg update, reply)
+  - `format` (channel text)
+  - `channel` (posting)
+  - `service` (DB)
+- `lib/mt5/devices.ts` (terminal tokens).
+- EA routes `/api/mt5/{heartbeat,signals/next,signals/:id/report}`. They are public at the proxy and each one checks the bearer token.
+- Admin routes `/api/signal-desk/*`.
+- Page `/admin/signal-desk`.
+- The tick calls `sweepSignals`.
+- `mql5/SignalCopier.mq5`.
+
+**Env:**
+- `SIGNAL_BOT_TOKEN` and `SIGNAL_CHANNEL_ID`. With both empty, nothing is posted and execution still works.
+- `SIGNAL_CHANNEL_USERNAME` is optional and only builds the "View in channel" links.
+- The channel bot must be an admin of the channel. It is only used for `sendMessage`, so it can share a token with another service. Don't reuse `TELEGRAM_BOT_TOKEN`'s bot unless nothing else polls it.
+
+**Setting up a terminal:**
+1. Admin → Signals → New terminal. Copy the token; it is shown once.
+2. MT5 → Tools → Options → Expert Advisors: allow WebRequest for the app's address.
+3. Attach SignalCopier to one chart, with `InpBaseUrl` set to the app address and `InpToken` set to the token. Keep the defaults `InpDryRun=true` and `InpAllowReal=false`. Algo Trading must be on.
+4. The terminal card shows the account and "online" within 30 s.
+5. Compile with the Wine MetaEditor CLI (see memory / P11c). The source in the repo is the copy of record.
+
+**Status meanings:**
+- PENDING: waiting for a terminal; expires after 10 min.
+- SENT: a terminal took it.
+- OPEN: at least one position is filled.
+- CLOSED: every position is closed, or it was a dry run or channel only.
+- REJECTED: refused by the EA or the broker, with the reason.
+- **UNKNOWN**: a terminal took it but reported nothing within 2 min. Look in MT5 to see whether positions with comment `ab:<id>:<n>` exist. Nothing is retried. A late FILLED report brings the signal back to OPEN.
+
+**Money management in the expert** (1.10; whole account, broker day, like GoldHedgeManager):
+- `InpDailyLossPct` 2: closed P/L today plus the floating P/L of positions opened today.
+- `InpMaxConsecLoss` 2: the legs of one signal count as one trade.
+- `InpCooldownMin` 30.
+- `InpMaxOpenSignals` 2.
+
+A blocked signal is REJECTED, and the guard's reason appears in the list.
+
+**Going live (decided 2026-10-21: no demo; a dry run on the real account instead). Each step that touches real money is Farjad's, never Claude's:**
+1. Merge the PR and set the `SIGNAL_*` vars on Railway.
+2. Attach the expert on the real account with `InpAllowReal=true` and `InpDryRun=true`.
+3. Send 2–3 signals with "Post to channel" unticked. Check the DRY_RUN lines (lots, legs, stop, TPs) against the risk by hand.
+4. Farjad sets `InpDryRun=false`. First signal: gold, 0.5 % risk; Claude watches the reports.
+
+GoldHedgeManager (magic 880801) does not touch copier positions (magic 880900). Its daily loss lock does not stop the copier either; the copier has its own caps.
+

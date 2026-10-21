@@ -4,6 +4,20 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P12 · Signal Desk (admin)
+- **Admin → Signals:** write a trade once (symbol, long/short, entry or market, a mandatory stop, up to four targets, risk % of balance up to 1 %, an optional note). It is posted to your Telegram channel and executed in MetaTrader 5 by the new `SignalCopier` expert. The form checks every rule while you type and shows the exact channel post before you send it.
+- **Channel posts** go out through a separate bot (`SIGNAL_BOT_TOKEN`, `SIGNAL_CHANNEL_ID`; it only sends, never polls). Targets, stops and closes are posted as replies under the signal, with the result in R. Account money never appears. Execution never waits on Telegram: a failed post is shown on the signal.
+- **`mql5/SignalCopier.mq5`** polls AlphaBoard every 3 s with its own terminal token (created and revoked in the page, shown once, stored hashed). It opens one position per target, all with the same stop and their own take-profit at the broker, and sizes them from the risk without ever rounding up to the minimum lot. After TP1 the other positions move to entry. Fills, targets, stops and closes are reported back, and a failed report is retried.
+- **Safety:** each signal is handed to a terminal at most once and never re-sent. A signal that no terminal takes within 10 minutes expires. If the terminal goes silent for 2 minutes after taking a signal, the signal is marked "No word from MT5" and you get one alert to check the terminal. The expert starts in dry run and refuses a real-money account unless allowed. It stops taking signals while Algo Trading is off, and it never opens the same position twice. From the list: Cancel (before the terminal takes it), Stop to entry, Close all.
+- **Money management in the expert** (whole account, broker day, same rules as GoldHedgeManager):
+  - daily loss lock at 2 % of the day's starting balance;
+  - no new signals after 2 losing trades in a row;
+  - a 30-minute pause after any loss;
+  - at most 2 signals open at once.
+
+  All the positions of one signal count as one trade. A blocked signal shows the reason in the list.
+- Plan: `docs/superpowers/plans/2026-10-21-p12-signal-desk.md`. 2 migrations (`Mt5Device`, `TradeSignal`, `TradeSignalLeg`; `TradeSignal.breakevenAt`).
+
 ### P11a · Money-management guards and an honest drawdown
 - **Stop after losses in a row:** a session refuses new entries for the rest of the UTC day after `maxConsecLosses` losing trades in a row (default 2, 0 = off). A winning or breakeven close resets the count.
 - **Pause after any loss:** no new entry on any symbol for `lossCooldownMin` minutes after a losing close (default 30, 0 = off). The existing per-symbol cooldown after a stop-out stays.

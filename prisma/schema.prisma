@@ -51,6 +51,8 @@ model User {
   labJobs             LabJob[]
   mt5Trades           Mt5Trade[]
   labBaskets          LabBasket[]
+  mt5Devices          Mt5Device[]
+  tradeSignals        TradeSignal[]
 }
 
 model Invite {
@@ -924,25 +926,25 @@ model LabJob {
 /// A closed MetaTrader 5 position imported from the ExportDeals.mq5 CSV (P11c). The journal gets a row too;
 /// this table keeps the facts the edge check needs (stop, times, side) exactly as the broker booked them.
 model Mt5Trade {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  login       String
-  positionId  String
-  symbol      String
-  side        String
-  volume      Float
-  entryPrice  Float
-  exitPrice   Float
-  stop        Float?
-  openedAt    DateTime
-  closedAt    DateTime
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  login      String
+  positionId String
+  symbol     String
+  side       String
+  volume     Float
+  entryPrice Float
+  exitPrice  Float
+  stop       Float?
+  openedAt   DateTime
+  closedAt   DateTime
   /// profit + swap + commission + fee, account currency.
-  net         Float
-  currency    String
-  magic       Int
-  manual      Boolean
-  createdAt   DateTime @default(now())
+  net        Float
+  currency   String
+  magic      Int
+  manual     Boolean
+  createdAt  DateTime @default(now())
 
   @@unique([userId, login, positionId])
   @@index([userId, symbol, openedAt])
@@ -978,4 +980,108 @@ model LabBasketSymbol {
   blob      Bytes
 
   @@index([basketId])
+}
+
+// ─── Signal Desk (P12) ───────────────────────────────────────────────────────
+
+enum TradeSignalStatus {
+  PENDING
+  SENT
+  OPEN
+  CLOSED
+  REJECTED
+  EXPIRED
+  CANCELLED
+  UNKNOWN
+}
+
+enum SignalLegStatus {
+  OPEN
+  TP
+  SL
+  CLOSED
+}
+
+/// A terminal running SignalCopier.mq5 (P12). Authenticates with a bearer token stored only as a SHA-256 hash.
+model Mt5Device {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label      String
+  tokenHash  String    @unique
+  last4      String
+  /// Filled by the heartbeat.
+  login      String?
+  server     String?
+  /// "DEMO" | "REAL" | "CONTEST"
+  tradeMode  String?
+  balance    Float?
+  currency   String?
+  symbols    String[]  @default([])
+  lastSeenAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  signals TradeSignal[]
+
+  @@index([userId])
+}
+
+/// A trade signal written in the Signal Desk (P12): posted to the channel and/or executed by SignalCopier.
+model TradeSignal {
+  id               String            @id @default(cuid())
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Broker symbol as listed by the device heartbeat, e.g. "XAUUSD.ec".
+  symbol           String
+  /// "BUY" | "SELL"
+  side             String
+  /// Reference price for the post and the slippage guard; null = market now.
+  entry            Float?
+  stop             Float
+  tps              Float[]
+  riskPct          Float
+  maxDeviation     Float?
+  note             String?
+  execute          Boolean
+  post             Boolean
+  status           TradeSignalStatus @default(PENDING)
+  statusReason     String?
+  deviceId         String?
+  device           Mt5Device?        @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  sentAt           DateTime?
+  expiresAt        DateTime
+  /// "CLOSE_ALL" | "BREAKEVEN" queued for the EA; cleared when it is sent.
+  pendingCommand   String?
+  /// Set on the EA's first BE report, so "stop moved to entry" is posted once.
+  breakevenAt      DateTime?
+  channelMessageId Int?
+  channelError     String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  legs TradeSignalLeg[]
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+}
+
+/// One MT5 position of a signal: one per TP, all sharing the signal's stop.
+model TradeSignalLeg {
+  id         String          @id @default(cuid())
+  signalId   String
+  signal     TradeSignal     @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  /// 1-based; matches the order comment ab:<signalId>:<leg>.
+  leg        Int
+  ticket     String
+  volume     Float
+  openPrice  Float
+  tp         Float?
+  status     SignalLegStatus @default(OPEN)
+  closePrice Float?
+  /// Result in R: (close − open) / |open − stop|, signed for the side.
+  r          Float?
+  closedAt   DateTime?
+
+  @@unique([signalId, leg])
 }

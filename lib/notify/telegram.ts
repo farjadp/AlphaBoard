@@ -35,12 +35,14 @@ export interface TgUpdate {
   callback?: { id: string; data: string; messageId: number | null };
 }
 
+export interface SendOptions { replyTo?: number }
+
 export interface Telegram {
   username(): Promise<string>;
   /** getUpdates; timeoutSec > 0 long-polls. */
   updates(offset: number, timeoutSec?: number): Promise<TgUpdate[]>;
-  /** Returns the sent message id when the API reports it. */
-  send(chatId: string, text: string, keyboard?: Keyboard): Promise<number | void>;
+  /** Returns the sent message id when the API reports it. `replyTo` threads it under an earlier message. */
+  send(chatId: string, text: string, keyboard?: Keyboard, opts?: SendOptions): Promise<number | void>;
   edit?(chatId: string, messageId: number, text: string, keyboard?: Keyboard): Promise<void>;
   answer?(callbackId: string, text?: string): Promise<void>;
 }
@@ -85,8 +87,9 @@ export function createTelegram(token: string, fetcher: Fetch = fetch): Telegram 
         return { updateId: u.update_id, chatId: "", text: "" };
       });
     },
-    async send(chatId: string, text: string, keyboard?: Keyboard): Promise<number> {
-      const r = await call<{ message_id: number }>("sendMessage", { chat_id: chatId, text, disable_web_page_preview: true, ...markup(keyboard) });
+    async send(chatId: string, text: string, keyboard?: Keyboard, opts?: SendOptions): Promise<number> {
+      const reply = opts?.replyTo != null ? { reply_parameters: { message_id: opts.replyTo, allow_sending_without_reply: true } } : {};
+      const r = await call<{ message_id: number }>("sendMessage", { chat_id: chatId, text, disable_web_page_preview: true, ...markup(keyboard), ...reply });
       return r?.message_id;
     },
     async edit(chatId: string, messageId: number, text: string, keyboard?: Keyboard): Promise<void> {
