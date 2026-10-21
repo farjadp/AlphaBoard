@@ -1,4 +1,5 @@
-import { num, type ReportEvent } from "./wire";
+import { num } from "./num";
+import type { ReportEvent } from "./wire";
 
 /**
  * Signal Desk state machine (P12): one EA report → the signal's next status, the leg change and the channel reply.

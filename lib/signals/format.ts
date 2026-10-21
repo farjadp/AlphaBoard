@@ -1,4 +1,4 @@
-import { num } from "./wire";
+import { num } from "./num";
 
 /** Channel text for a Signal Desk signal (P12). Prices and R only; never account money. */
 export interface PostView { symbol: string; side: "BUY" | "SELL"; entry: number | null; stop: number; tps: number[]; riskPct: number; note: string | null }

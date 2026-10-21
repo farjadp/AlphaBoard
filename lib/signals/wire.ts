@@ -1,4 +1,5 @@
 import { badRequest } from "@/lib/http/errors";
+import { num } from "./num";
 
 /**
  * Signal Desk ⇄ SignalCopier.mq5 protocol (P12). MQL5 has no JSON parser, so jobs go out as `|`-separated lines
@@ -14,7 +15,6 @@ export type ReportEvent =
   | { event: "BE"; price: number }
   | { event: "REJECTED" | "DRY_RUN"; reason: string };
 
-export const num = (x: number) => String(Number(x.toPrecision(10)));
 const opt = (x: number | null) => (x == null ? "-" : num(x));
 
 function field(s: string) {

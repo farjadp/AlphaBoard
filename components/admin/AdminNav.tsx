@@ -10,12 +10,13 @@ const LINKS = [
   { href: "/admin/ai", label: "AI" },
   { href: "/admin/news", label: "News" },
   { href: "/admin/lab", label: "Lab" },
+  { href: "/admin/signal-desk", label: "Signals" },
 ];
 
 export default function AdminNav({ pendingRequests }: { pendingRequests: number }) {
   const path = usePathname() ?? "";
   return (
-    <nav aria-label="Admin" className="flex gap-1 text-[13px] font-semibold">
+    <nav aria-label="Admin" className="flex flex-wrap gap-1 text-[13px] font-semibold">
       {LINKS.map((l) => {
         const active = l.exact ? path === l.href : path.startsWith(l.href);
         return (
