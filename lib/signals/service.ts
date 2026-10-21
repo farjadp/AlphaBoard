@@ -2,9 +2,13 @@ import "server-only";
 import type { Mt5Device } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/http/logger";
-import { notFound } from "@/lib/http/errors";
+import { HttpError, badRequest, notFound } from "@/lib/http/errors";
+import { notify } from "@/lib/notify/notifications";
+import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { channelFromEnv, type Channel } from "./channel";
+import { displaySymbol, formatSignalPost } from "./format";
 import { applyReport, type SignalView } from "./state";
+import { checkSignal, signalInput } from "./validate";
 import type { Job, ReportEvent } from "./wire";
 
 /**
@@ -12,6 +16,12 @@ import type { Job, ReportEvent } from "./wire";
  * is never handed out again. Reports are applied under a row lock, so a retried report is a no-op (see state.ts).
  */
 const CLAIM_BATCH = 10;
+const EXPIRE_MS = 10 * 60_000;
+const ONLINE_MS = 60_000;
+/** A claimed signal with no FILLED / REJECTED / DRY_RUN after this is UNKNOWN; it is never re-sent. */
+const SILENT_MS = 120_000;
+
+const conflict = (msg: string) => new HttpError(409, msg, "CONFLICT");
 
 interface Deps { channel?: Channel | null; now?: Date }
 
@@ -82,4 +92,84 @@ export async function recordReport(device: Mt5Device, signalId: string, e: Repor
     logger.warn({ err: msg, signalId }, "signal channel reply failed");
     await prisma.tradeSignal.update({ where: { id: signalId }, data: { channelError: msg.slice(0, 300) } });
   }
+}
+
+export type SignalCommand = "CANCEL" | "CLOSE_ALL" | "BREAKEVEN";
+
+/**
+ * A new signal from the desk form: validated against the owner's most recently seen terminal, stored, then posted.
+ * Execution never waits on Telegram; a failed post is kept in channelError. Returns warnings the form shows.
+ */
+export async function createSignal(userId: string, raw: unknown, deps: Deps = {}) {
+  const now = deps.now ?? new Date();
+  const parsed = signalInput.safeParse(raw);
+  if (!parsed.success) throw badRequest(parsed.error.issues.map((i) => `${i.path.join(".") || "signal"}: ${i.message}`).join("; "));
+  const input = parsed.data;
+  const device = await prisma.mt5Device.findFirst({ where: { userId, revokedAt: null }, orderBy: { lastSeenAt: { sort: "desc", nulls: "last" } } });
+  const errs = checkSignal(input, { symbols: device?.symbols ?? [] });
+  if (errs.length) throw badRequest(errs.join("; "));
+
+  const expiresAt = new Date(now.getTime() + EXPIRE_MS);
+  const warnings: string[] = [];
+  if (input.execute && (!device?.lastSeenAt || now.getTime() - device.lastSeenAt.getTime() > ONLINE_MS)) {
+    warnings.push(`terminal offline; the signal expires at ${expiresAt.toISOString().slice(11, 16)} UTC unless it comes back`);
+  }
+  let signal = await prisma.tradeSignal.create({
+    data: { userId, ...input, expiresAt, ...(input.execute ? {} : { status: "CLOSED", statusReason: "channel only" }) },
+  });
+  if (!input.post) return { signal, warnings };
+
+  const channel = deps.channel === undefined ? channelFromEnv() : deps.channel;
+  let update: { channelMessageId?: number; channelError?: string };
+  if (!channel) {
+    update = { channelError: "channel not configured (SIGNAL_BOT_TOKEN / SIGNAL_CHANNEL_ID)" };
+  } else {
+    try {
+      update = { channelMessageId: await channel.post(formatSignalPost(input)) };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger.warn({ err: msg, signalId: signal.id }, "signal channel post failed");
+      update = { channelError: msg.slice(0, 300) };
+    }
+  }
+  signal = await prisma.tradeSignal.update({ where: { id: signal.id }, data: update });
+  return { signal, warnings };
+}
+
+/** CANCEL a signal no terminal has taken yet, or queue CLOSE_ALL / BREAKEVEN for the terminal holding an open one. */
+export async function queueCommand(userId: string, id: string, command: SignalCommand): Promise<void> {
+  const r = command === "CANCEL"
+    ? await prisma.tradeSignal.updateMany({ where: { id, userId, status: "PENDING" }, data: { status: "CANCELLED", statusReason: "cancelled from the desk" } })
+    : await prisma.tradeSignal.updateMany({ where: { id, userId, status: "OPEN" }, data: { pendingCommand: command } });
+  if (r.count === 1) return;
+  const s = await prisma.tradeSignal.findFirst({ where: { id, userId }, select: { status: true } });
+  if (!s) throw notFound("signal not found");
+  if (command === "CANCEL" && (s.status === "SENT" || s.status === "OPEN")) throw conflict("already sent to the terminal; use Close all");
+  throw conflict(command === "CANCEL" ? `the signal is already ${s.status.toLowerCase()}` : "only an open signal takes this command");
+}
+
+/** Scheduler step: PENDING past expiry → EXPIRED; SENT without a word for 2 min → UNKNOWN plus one alert to the owner. */
+export async function sweepSignals(now = new Date(), deps: { telegram?: Telegram | null } = {}) {
+  const expired = await prisma.tradeSignal.updateMany({
+    where: { status: "PENDING", expiresAt: { lte: now } },
+    data: { status: "EXPIRED", statusReason: "no terminal took it in time" },
+  });
+  const silent = await prisma.tradeSignal.findMany({ where: { status: "SENT", sentAt: { lt: new Date(now.getTime() - SILENT_MS) } } });
+  let unknown = 0;
+  for (const s of silent) {
+    const r = await prisma.tradeSignal.updateMany({
+      where: { id: s.id, status: "SENT" },
+      data: { status: "UNKNOWN", statusReason: "no report from the terminal within 2 min; check MT5" },
+    });
+    if (r.count !== 1) continue;
+    unknown++;
+    const telegram = deps.telegram === undefined ? telegramFromEnv() : deps.telegram;
+    await notify(s.userId, {
+      type: "signal",
+      title: `${s.side} ${displaySymbol(s.symbol)}: no word from MT5`,
+      body: "The terminal took this signal 2 minutes ago and has not reported a fill or a rejection. Check MT5: the trade may or may not be open. AlphaBoard will not send it again.",
+      data: { signalId: s.id },
+    }, telegram).catch((e) => logger.warn({ err: e instanceof Error ? e.message : String(e), signalId: s.id }, "signal alert failed"));
+  }
+  return { expired: expired.count, unknown };
 }

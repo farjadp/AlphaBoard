@@ -11,6 +11,7 @@ import { evaluateAlerts } from "@/lib/alerts/job";
 import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { pruneEvents, recordEvent } from "@/lib/ops/events";
+import { sweepSignals } from "@/lib/signals/service";
 
 export const TICK_KEY = "tick.last";
 export const TICK_HISTORY_KEY = "tick.history";
@@ -37,6 +38,8 @@ export interface TickResult {
   snapshots: number;
   signals: { checked: number; resolved: number };
   alerts: { active: number; fired: number };
+  /** Signal Desk (P12): pending signals expired, silent claims flagged UNKNOWN. */
+  signalDesk?: { expired: number; unknown: number };
   errors: string[];
 }
 
@@ -143,9 +146,16 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
     errors.push(`alerts: ${e instanceof Error ? e.message : e}`);
   }
 
+  let signalDesk = { expired: 0, unknown: 0 };
+  try {
+    signalDesk = await sweepSignals(now(), { telegram });
+  } catch (e) {
+    errors.push(`signal desk: ${e instanceof Error ? e.message : e}`);
+  }
+
   const result: TickResult = {
     at: started.toISOString(), ms: now().getTime() - started.getTime(),
-    positions: open.length, symbols: symbols.length, closed, snapshots, signals, alerts, errors: errors.slice(0, 20),
+    positions: open.length, symbols: symbols.length, closed, snapshots, signals, alerts, signalDesk, errors: errors.slice(0, 20),
   };
   const value = result as unknown as Prisma.InputJsonValue;
   await prisma.appSetting.upsert({ where: { key: TICK_KEY }, create: { key: TICK_KEY, value }, update: { value } });
@@ -158,6 +168,6 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
   if (errors.length) await recordEvent({ level: "warn", source: "tick", message: errors[0], meta: { errors: errors.slice(0, 20) } }, now());
   await pruneEvents(now());
   if (errors.length) logger.warn({ ...result }, "tick finished with errors");
-  else if (closed.length || signals.resolved || alerts.fired) logger.info({ ...result }, "tick settled positions");
+  else if (closed.length || signals.resolved || alerts.fired || signalDesk.expired || signalDesk.unknown) logger.info({ ...result }, "tick settled positions");
   return result;
 }
