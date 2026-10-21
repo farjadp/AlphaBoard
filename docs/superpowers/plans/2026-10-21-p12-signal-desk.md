@@ -104,6 +104,8 @@ model TradeSignal {
   expiresAt         DateTime
   /// "CLOSE_ALL" | "BREAKEVEN" queued for the EA; cleared when it is sent.
   pendingCommand    String?
+  /// Set on the first BE report so "stop moved to entry" is posted once (added in Task 2).
+  breakevenAt       DateTime?
   channelMessageId  Int?
   channelError      String?
   createdAt         DateTime          @default(now())
