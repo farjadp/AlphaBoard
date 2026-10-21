@@ -48,4 +48,14 @@ describe("parseReport", () => {
       expect(() => parseReport(form(bad)), bad).toThrow();
     }
   });
+  it("accepts the bodies SignalCopier.mq5 builds (digits-padded prices, %-encoded reasons)", () => {
+    expect(parseReport(form("event=FILLED&leg=2&ticket=4410293817&volume=0.02&price=2650.40&tp=2662.00")))
+      .toEqual({ event: "FILLED", leg: 2, ticket: "4410293817", volume: 0.02, price: 2650.4, tp: 2662 });
+    expect(parseReport(form("event=FILLED&leg=1&ticket=7&volume=0.010&price=180.215"))).toMatchObject({ volume: 0.01, tp: null });
+    expect(parseReport(form("event=DRY_RUN&reason=lots%3D0.04%20legs%3D2%20price%3D2650.40%20stop%3D2638.00%20tp1%3D2656.00%20tp2%3D2662.00")))
+      .toEqual({ event: "DRY_RUN", reason: "lots=0.04 legs=2 price=2650.40 stop=2638.00 tp1=2656.00 tp2=2662.00" });
+    expect(parseReport(form("event=REJECTED&reason=leg%202%3A%20Invalid%20stops%20%2810016%29"))).toEqual({ event: "REJECTED", reason: "leg 2: Invalid stops (10016)" });
+    expect(parseReport(form("event=BE&price=1"))).toEqual({ event: "BE", price: 1 });
+    expect(parseReport(form("event=SL&leg=3&price=2638.00"))).toEqual({ event: "SL", leg: 3, price: 2638 });
+  });
 });
