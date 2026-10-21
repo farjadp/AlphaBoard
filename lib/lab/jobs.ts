@@ -10,6 +10,9 @@ import { fetchBinanceHistory } from "./data/binance";
 import { fetchOandaHistory } from "./data/oanda";
 import { loadDataset, saveDataset } from "./data/store";
 import { LadderStudySchema, runLadderStudy } from "./study";
+import { DcaStudySchema, runDcaStudy } from "./dcaStudy";
+import { buildBasketSeries, listListedSymbols } from "./data/binanceVision";
+import { loadBasketCube, saveBasket, MAX_BASKET_SYMBOLS } from "./data/basket";
 
 /**
  * Strategy Lab jobs (P11b): a data download (FETCH) or a study (STUDY), queued per user and run one at a
@@ -27,12 +30,22 @@ export const FetchSpecSchema = z.object({
   /** OANDA connection of the user (read-only use of its token). */
   connectionId: z.string().min(1).max(40).optional(),
 }).strict();
-export const JobSpecSchema = z.discriminatedUnion("kind", [FetchSpecSchema, LadderStudySchema]);
+const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/);
+export const BasketSpecSchema = z.object({
+  kind: z.literal("basket"),
+  /** Universe: every USDT-M symbol with a kline file in this month (delisted ones stay in). */
+  listedBy: month.default("2022-01"),
+  from: month.default("2021-01"),
+  /** Last month to download; default = the last complete month. */
+  to: month.optional(),
+  name: z.string().trim().min(1).max(60).optional(),
+}).strict();
+export const JobSpecSchema = z.discriminatedUnion("kind", [FetchSpecSchema, LadderStudySchema, BasketSpecSchema, DcaStudySchema]);
 export type JobSpec = z.output<typeof JobSpecSchema>;
 
 export interface LabJobDto {
   id: string;
-  kind: "FETCH" | "STUDY";
+  kind: "FETCH" | "STUDY" | "BASKET" | "DCA";
   status: "QUEUED" | "RUNNING" | "DONE" | "FAILED";
   spec: JobSpec;
   result: unknown;
@@ -62,12 +75,19 @@ export async function enqueueLabJob(userId: string, input: unknown): Promise<Lab
       const conn = await prisma.exchangeConnection.findFirst({ where: { id: spec.connectionId ?? "", userId, provider: "oanda" } });
       if (!conn) throw badRequest("pick one of your OANDA connections", "LAB_BAD_SPEC");
     }
-  } else if (!(await prisma.labDataset.findFirst({ where: { id: spec.datasetId, userId }, select: { id: true } }))) {
-    throw notFound("dataset not found");
+  } else if (spec.kind === "ladder") {
+    if (!(await prisma.labDataset.findFirst({ where: { id: spec.datasetId, userId }, select: { id: true } }))) throw notFound("dataset not found");
+  } else if (spec.kind === "dca") {
+    if (!(await prisma.labBasket.findFirst({ where: { id: spec.basketId, userId }, select: { id: true } }))) throw notFound("basket not found");
+  } else if (spec.kind === "basket") {
+    const to = spec.to ?? lastCompleteMonth(Date.now());
+    if (spec.from > to) throw badRequest("the first month is after the last one", "LAB_BAD_SPEC");
+    if (to > lastCompleteMonth(Date.now())) throw badRequest(`monthly files exist only up to ${lastCompleteMonth(Date.now())}`, "LAB_BAD_SPEC");
   }
   const active = await prisma.labJob.count({ where: { userId, status: { in: ["QUEUED", "RUNNING"] } } });
   if (active >= MAX_ACTIVE_JOBS) throw badRequest(`at most ${MAX_ACTIVE_JOBS} lab jobs at a time — wait for one to finish`, "LAB_BUSY");
-  const row = await prisma.labJob.create({ data: { userId, kind: spec.kind === "fetch" ? "FETCH" : "STUDY", spec: spec as unknown as Prisma.InputJsonValue } });
+  const kind = { fetch: "FETCH", ladder: "STUDY", basket: "BASKET", dca: "DCA" }[spec.kind];
+  const row = await prisma.labJob.create({ data: { userId, kind, spec: spec as unknown as Prisma.InputJsonValue } });
   return toDto(row);
 }
 
@@ -84,7 +104,17 @@ export async function getLabJob(userId: string, id: string): Promise<LabJobDto> 
 export interface LabJobDeps {
   fetchBinance?: typeof fetchBinanceHistory;
   fetchOanda?: typeof fetchOandaHistory;
+  listSymbols?: typeof listListedSymbols;
+  buildSeries?: typeof buildBasketSeries;
   now?: () => number;
+}
+
+/** "YYYY-MM" of the last calendar month that has ended (UTC). */
+export function lastCompleteMonth(now: number): string {
+  const d = new Date(now);
+  const y = d.getUTCMonth() === 0 ? d.getUTCFullYear() - 1 : d.getUTCFullYear();
+  const m = d.getUTCMonth() === 0 ? 12 : d.getUTCMonth();
+  return `${y}-${String(m).padStart(2, "0")}`;
 }
 
 /** Claim and run the oldest queued job. Returns its id, or null when the queue is empty. */
@@ -101,7 +131,10 @@ export async function processNextLabJob(deps: LabJobDeps = {}): Promise<string |
   if (claimed.count !== 1) return null;
   try {
     const spec = JobSpecSchema.parse(next.spec);
-    const result = spec.kind === "fetch" ? await runFetch(next.userId, spec, deps, now()) : await runStudy(next.userId, spec);
+    const result = spec.kind === "fetch" ? await runFetch(next.userId, spec, deps, now())
+      : spec.kind === "ladder" ? await runStudy(next.userId, spec)
+        : spec.kind === "basket" ? await runBasket(next.userId, spec, deps, now())
+          : await runDcaJob(next.userId, spec);
     await prisma.labJob.update({ where: { id: next.id }, data: { status: "DONE", result: result as Prisma.InputJsonValue, finishedAt: new Date(now()) } });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -131,4 +164,19 @@ async function runStudy(userId: string, spec: z.output<typeof LadderStudySchema>
   const ds = await loadDataset(userId, spec.datasetId);
   if (ds.meta.timeframe !== "1m") throw new Error("the ladder study needs 1-minute bars (stops and targets inside a 15-minute candle)");
   return { dataset: ds.meta, ...runLadderStudy(ds.bars, ds.spread, spec) };
+}
+
+async function runBasket(userId: string, spec: z.output<typeof BasketSpecSchema>, deps: LabJobDeps, now: number) {
+  const to = spec.to ?? lastCompleteMonth(now);
+  const symbols = await (deps.listSymbols ?? listListedSymbols)(spec.listedBy);
+  if (!symbols.length) throw new Error(`no USDT-M symbols had a file in ${spec.listedBy}`);
+  if (symbols.length > MAX_BASKET_SYMBOLS) throw new Error(`${symbols.length} symbols listed by ${spec.listedBy} — more than ${MAX_BASKET_SYMBOLS}; pick an earlier month`);
+  const built = await (deps.buildSeries ?? buildBasketSeries)(symbols, spec.from, to);
+  const b = await saveBasket(userId, { name: spec.name ?? `USDT-M listed by ${spec.listedBy}, ${spec.from} → ${to}`, listedBy: spec.listedBy }, built.series);
+  return { basketId: b.id, symbols: b.symbols, missing: built.missingSymbols, files: built.files };
+}
+
+async function runDcaJob(userId: string, spec: z.output<typeof DcaStudySchema>) {
+  const { meta, cube } = await loadBasketCube(userId, spec.basketId);
+  return { basket: meta, ...runDcaStudy(cube, spec) };
 }

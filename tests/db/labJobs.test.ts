@@ -30,7 +30,7 @@ describe.skipIf(!run)("lab jobs (Postgres)", () => {
     A = (await prisma.user.create({ data: { email: "labj-a@test.local", passwordHash: "x" } })).id;
     B = (await prisma.user.create({ data: { email: "labj-b@test.local", passwordHash: "x" } })).id;
   });
-  beforeEach(async () => { await prisma.labJob.deleteMany({}); await prisma.labDataset.deleteMany({}); });
+  beforeEach(async () => { await prisma.labJob.deleteMany({}); await prisma.labDataset.deleteMany({}); await prisma.labBasket.deleteMany({}); });
   afterAll(async () => { await prisma.$disconnect(); });
 
   it("a fetch job downloads, stores the dataset and records its id", async () => {
@@ -73,5 +73,31 @@ describe.skipIf(!run)("lab jobs (Postgres)", () => {
 
   it("does nothing when the queue is empty", async () => {
     expect(await processNextLabJob({})).toBeNull();
+  });
+
+  it("a basket job builds a basket; a DCA job runs on it and reports both drawdowns", async () => {
+    const H0 = Date.UTC(2021, 0, 1) / 3_600_000;
+    const n = 60 * 24;
+    const mk = (f: (k: number) => number) => { const c = Float32Array.from({ length: n }, (_, k) => f(k)); return { o: c, h: Float32Array.from(c, (x) => x * 1.002), l: Float32Array.from(c, (x) => x * 0.998), c }; };
+    const series = [
+      { symbol: "AUSDT", startHour: H0, ...mk((k) => 100 * (1 - 0.5 * k / n)) },
+      { symbol: "BUSDT", startHour: H0, ...mk((k) => 100 * (1 + 0.05 * Math.sin(k / 9))) },
+      { symbol: "BTCUSDT", startHour: H0, ...mk(() => 30_000) },
+    ];
+    const job = await enqueueLabJob(A, { kind: "basket", listedBy: "2021-01", from: "2021-01", to: "2021-02" });
+    expect(job.kind).toBe("BASKET");
+    await processNextLabJob({ listSymbols: async () => ["AUSDT", "BUSDT", "BTCUSDT"], buildSeries: async () => ({ series, missingSymbols: [], files: 6 }) });
+    const done = await getLabJob(A, job.id);
+    expect(done.status).toBe("DONE");
+    const basketId = (done.result as { basketId: string }).basketId;
+    const dca = await enqueueLabJob(A, { kind: "dca", basketId, slots: 2, deepSlots: 2 });
+    await processNextLabJob({});
+    const r = await getLabJob(A, dca.id);
+    expect(r.status).toBe("DONE");
+    const res = r.result as { maxDdMtmPct: number; maxDdRealizedPct: number; verdict: string[] };
+    expect(res.maxDdMtmPct).toBeGreaterThanOrEqual(res.maxDdRealizedPct);
+    expect(res.verdict.join(" ")).toMatch(/\$1,000 became/);
+    await expect(enqueueLabJob(B, { kind: "dca", basketId })).rejects.toMatchObject({ status: 404 });
+    await expect(enqueueLabJob(A, { kind: "basket", from: "2030-01", to: "2030-02" })).rejects.toMatchObject({ status: 400 });
   });
 });
