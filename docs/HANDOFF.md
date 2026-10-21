@@ -145,10 +145,19 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 - REJECTED: refused by the EA or the broker, with the reason.
 - **UNKNOWN**: a terminal took it but reported nothing within 2 min. Look in MT5 to see whether positions with comment `ab:<id>:<n>` exist. Nothing is retried. A late FILLED report brings the signal back to OPEN.
 
-**Switching to real money is Farjad's step, never Claude's:**
-1. Run the dry run and a demo run first (plan Task 8).
-2. Then, on the real account, set `InpAllowReal=true` and `InpDryRun=false`.
-3. Use risk 0.5 % and gold first.
+**Money management in the expert** (1.10; whole account, broker day, like GoldHedgeManager):
+- `InpDailyLossPct` 2: closed P/L today plus the floating P/L of positions opened today.
+- `InpMaxConsecLoss` 2: the legs of one signal count as one trade.
+- `InpCooldownMin` 30.
+- `InpMaxOpenSignals` 2.
+
+A blocked signal is REJECTED, and the guard's reason appears in the list.
+
+**Going live (decided 2026-10-21: no demo; a dry run on the real account instead). Each step that touches real money is Farjad's, never Claude's:**
+1. Merge the PR and set the `SIGNAL_*` vars on Railway.
+2. Attach the expert on the real account with `InpAllowReal=true` and `InpDryRun=true`.
+3. Send 2–3 signals with "Post to channel" unticked. Check the DRY_RUN lines (lots, legs, stop, TPs) against the risk by hand.
+4. Farjad sets `InpDryRun=false`. First signal: gold, 0.5 % risk; Claude watches the reports.
 
 GoldHedgeManager (magic 880801) does not touch copier positions (magic 880900). Its daily loss lock does not stop the copier either; the copier has its own caps.
 

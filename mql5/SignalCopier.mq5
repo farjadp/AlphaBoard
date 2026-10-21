@@ -10,6 +10,11 @@
 //|  refuses a REAL account unless InpAllowReal; risk capped at       |
 //|  InpRiskCapPct and InpMaxLot; never rounds risk up to the min     |
 //|  lot; never opens the same leg twice (order comment ab:id:leg).   |
+//|  Money management (whole account, broker day, like               |
+//|  GoldHedgeManager): daily loss lock, stop after N losing trades   |
+//|  in a row, cooldown after a loss, max signals open at once. The   |
+//|  legs of one signal count as one trade. A blocked signal is       |
+//|  reported as REJECTED with the reason.                            |
 //|                                                                   |
 //|  Setup: Tools -> Options -> Expert Advisors -> allow WebRequest   |
 //|  for InpBaseUrl. Attach to ONE chart (any symbol). Hedging or     |
@@ -17,7 +22,7 @@
 //|  hedging account.                                                  |
 //+------------------------------------------------------------------+
 #property copyright "AlphaBoard"
-#property version   "1.00"
+#property version   "1.10"
 #property description "Executes AlphaBoard Signal Desk signals: one position per target, broker-side SL/TP, reports back"
 
 #include <Trade/Trade.mqh>
@@ -33,6 +38,12 @@ input bool   InpDryRun      = true;    // Dry run: log and report, open nothing
 input bool   InpAllowReal   = false;   // Allow a REAL-money account
 input double InpRiskCapPct  = 1.0;     // Max risk per signal, % of balance
 input double InpMaxLot      = 0.05;    // Max total lot per signal (all legs)
+
+input group "=== Money management (whole account, broker day) ==="
+input double InpDailyLossPct   = 2.0;  // Daily loss lock, % of balance at day start (0 = off)
+input int    InpMaxConsecLoss  = 2;    // No new signals today after N losing trades in a row (0 = off)
+input int    InpCooldownMin    = 30;   // No new signal for N minutes after a losing trade (0 = off)
+input int    InpMaxOpenSignals = 2;    // Max signals open at once (0 = off)
 
 input group "=== Management ==="
 input bool   InpBEAfterTP1  = true;    // After TP1, move the other legs' stop to entry
@@ -244,6 +255,130 @@ bool Breakeven(const string id, const int skipLeg)
   }
 
 //+------------------------------------------------------------------+
+//| money management                                                  |
+//+------------------------------------------------------------------+
+datetime DayStart()
+  {
+   MqlDateTime d;
+   TimeToStruct(TimeCurrent(), d);
+   d.hour = 0; d.min = 0; d.sec = 0;
+   return StructToTime(d);
+  }
+
+//--- index of key in keys[], appending it when new
+int KeyIndex(string &keys[], double &net[], datetime &last[], const string key)
+  {
+   int n = ArraySize(keys);
+   for(int i = 0; i < n; i++) if(keys[i] == key) return i;
+   ArrayResize(keys, n + 1); ArrayResize(net, n + 1); ArrayResize(last, n + 1);
+   keys[n] = key; net[n] = 0; last[n] = 0;
+   return n;
+  }
+
+//--- today's closed trades (a signal's legs are one trade), closed P/L, floating P/L of today's positions
+void TodayTrades(string &keys[], double &net[], datetime &last[], double &closedNet, double &floating)
+  {
+   ArrayResize(keys, 0); ArrayResize(net, 0); ArrayResize(last, 0);
+   closedNet = 0; floating = 0;
+   datetime from = DayStart();
+   if(HistorySelect(from, TimeCurrent() + 60))
+     {
+      int nd = HistoryDealsTotal();
+      // the signal id of each copier position opened today, from its opening deal's comment
+      ulong  inPos[];
+      string inSig[];
+      for(int i = 0; i < nd; i++)
+        {
+         ulong t = HistoryDealGetTicket(i);
+         if(HistoryDealGetInteger(t, DEAL_ENTRY) != DEAL_ENTRY_IN || HistoryDealGetInteger(t, DEAL_MAGIC) != (long)InpMagic) continue;
+         string id; int leg;
+         if(!ParseComment(HistoryDealGetString(t, DEAL_COMMENT), id, leg)) continue;
+         int k = ArraySize(inPos);
+         ArrayResize(inPos, k + 1); ArrayResize(inSig, k + 1);
+         inPos[k] = (ulong)HistoryDealGetInteger(t, DEAL_POSITION_ID); inSig[k] = id;
+        }
+      for(int i = 0; i < nd; i++)
+        {
+         ulong t = HistoryDealGetTicket(i);
+         long type = HistoryDealGetInteger(t, DEAL_TYPE);
+         if(type != DEAL_TYPE_BUY && type != DEAL_TYPE_SELL) continue;
+         double v = HistoryDealGetDouble(t, DEAL_PROFIT) + HistoryDealGetDouble(t, DEAL_SWAP)
+                  + HistoryDealGetDouble(t, DEAL_COMMISSION) + HistoryDealGetDouble(t, DEAL_FEE);
+         closedNet += v;
+         long entry = HistoryDealGetInteger(t, DEAL_ENTRY);
+         if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_OUT_BY) continue;
+         ulong pos = (ulong)HistoryDealGetInteger(t, DEAL_POSITION_ID);
+         string key = "p" + IntegerToString((long)pos);
+         for(int k = 0; k < ArraySize(inPos); k++) if(inPos[k] == pos) { key = "s" + inSig[k]; break; }
+         int idx = KeyIndex(keys, net, last, key);
+         net[idx] += v;
+         datetime tm = (datetime)HistoryDealGetInteger(t, DEAL_TIME);
+         if(tm > last[idx]) last[idx] = tm;
+        }
+     }
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      if(PositionGetTicket(i) == 0) continue;
+      if((datetime)PositionGetInteger(POSITION_TIME) < from) continue; // older positions are not today's loss
+      floating += PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+     }
+  }
+
+int OpenSignalCount()
+  {
+   string ids[];
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong t = PositionGetTicket(i);
+      string id; int leg;
+      if(!PositionLeg(t, id, leg)) continue;
+      bool seen = false;
+      for(int k = 0; k < ArraySize(ids); k++) if(ids[k] == id) { seen = true; break; }
+      if(!seen) { int n = ArraySize(ids); ArrayResize(ids, n + 1); ids[n] = id; }
+     }
+   return ArraySize(ids);
+  }
+
+//--- "" when a new signal may open, else the reason it may not
+string Blocked()
+  {
+   if(InpMaxOpenSignals > 0)
+     {
+      int open = OpenSignalCount();
+      if(open >= InpMaxOpenSignals) return StringFormat("%d signals already open (max %d)", open, InpMaxOpenSignals);
+     }
+   string keys[]; double net[]; datetime last[]; double closedNet, floating;
+   TodayTrades(keys, net, last, closedNet, floating);
+   string ccy = AccountInfoString(ACCOUNT_CURRENCY);
+   double startBal = AccountInfoDouble(ACCOUNT_BALANCE) - closedNet;
+   if(InpDailyLossPct > 0 && startBal > 0)
+     {
+      double limit = startBal * InpDailyLossPct / 100.0;
+      if(closedNet + floating <= -limit)
+         return StringFormat("daily loss lock: today %.2f %s, limit -%.2f %s (%.1f%%); no new signals until tomorrow", closedNet + floating, ccy, limit, ccy, InpDailyLossPct);
+     }
+   // trades in closing order; the streak is the run of losses at the end
+   int n = ArraySize(keys);
+   int order[];
+   ArrayResize(order, n);
+   for(int i = 0; i < n; i++) order[i] = i;
+   for(int i = 1; i < n; i++) { int v = order[i], j = i - 1; while(j >= 0 && last[order[j]] > last[v]) { order[j + 1] = order[j]; j--; } order[j + 1] = v; }
+   int streak = 0;
+   datetime lastLoss = 0;
+   for(int i = 0; i < n; i++)
+     {
+      int k = order[i];
+      if(net[k] < 0) { streak++; if(last[k] > lastLoss) lastLoss = last[k]; }
+      else streak = 0;
+     }
+   if(InpMaxConsecLoss > 0 && streak >= InpMaxConsecLoss)
+      return StringFormat("%d losing trades in a row today; no new signals until tomorrow", streak);
+   if(InpCooldownMin > 0 && lastLoss > 0 && TimeCurrent() - lastLoss < InpCooldownMin * 60)
+      return StringFormat("cooldown after a loss: %d min left", (int)((lastLoss + InpCooldownMin * 60 - TimeCurrent()) / 60) + 1);
+   return "";
+  }
+
+//+------------------------------------------------------------------+
 //| jobs                                                              |
 //+------------------------------------------------------------------+
 void Reject(const string id, const string reason)
@@ -272,6 +407,8 @@ void OpenSignal(string &f[])
       for(int i = 0; i < n; i++) tps[i] = StringToDouble(t[i]);
      }
 
+   string why = Blocked();
+   if(why != "") { Reject(id, why); return; }
    if(!SymbolSelect(sym, true)) { Reject(id, sym + " is not available in this terminal"); return; }
    MqlTick tick;
    if(!SymbolInfoTick(sym, tick) || tick.ask <= 0 || tick.bid <= 0) { Reject(id, "no price for " + sym); return; }
@@ -396,8 +533,9 @@ int OnInit()
    ArrayResize(g_qPath, 0);
    ArrayResize(g_qBody, 0);
    EventSetTimer(MathMax(1, InpPollSec));
-   Print("SignalCopier 1.00 started: ", g_base, InpDryRun ? " [DRY RUN - opens nothing]" : " [LIVE]",
-         " account ", AccountInfoInteger(ACCOUNT_LOGIN), " risk cap ", DoubleToString(InpRiskCapPct, 2), "% max lot ", DoubleToString(InpMaxLot, 2));
+   Print("SignalCopier 1.10 started: ", g_base, InpDryRun ? " [DRY RUN - opens nothing]" : " [LIVE]",
+         " account ", AccountInfoInteger(ACCOUNT_LOGIN), " risk cap ", DoubleToString(InpRiskCapPct, 2), "% max lot ", DoubleToString(InpMaxLot, 2),
+         " | daily lock ", DoubleToString(InpDailyLossPct, 1), "% stop after ", InpMaxConsecLoss, " losses cooldown ", InpCooldownMin, "m max open ", InpMaxOpenSignals);
    Heartbeat();
    return INIT_SUCCEEDED;
   }
