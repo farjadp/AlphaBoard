@@ -11,7 +11,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // Standalone is for the Docker image (worker on Fly, self-hosting); Vercel builds its own output.
+  output: process.env.VERCEL ? undefined : "standalone",
   // ccxt is large and dynamic; load it from node_modules at runtime instead of bundling it.
   serverExternalPackages: ["ccxt"],
   poweredByHeader: false,
