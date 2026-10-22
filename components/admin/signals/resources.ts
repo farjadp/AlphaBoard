@@ -25,6 +25,7 @@ export interface SignalDto {
   tps: number[];
   riskPct: number;
   note: string | null;
+  source: string | null;
   execute: boolean;
   post: boolean;
   status: "PENDING" | "SENT" | "OPEN" | "CLOSED" | "REJECTED" | "EXPIRED" | "CANCELLED" | "UNKNOWN";

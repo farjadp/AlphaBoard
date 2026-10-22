@@ -67,6 +67,7 @@ export function SignalList({ signals, error, loaded, channelUsername }: { signal
                 {r != null && <span className={`num text-sm font-bold ${r > 0 ? "text-up" : r < 0 ? "text-down" : "text-ink-2"}`}>{fmtR(r)}</span>}
                 <span className="text-xs text-ink-3">{time(s.createdAt)}</span>
                 {!s.execute && <span className="text-xs text-ink-3">channel only</span>}
+                {s.source && <span className="text-xs text-ink-3">from {s.source}</span>}
               </div>
               <p className="num text-sm text-ink-2">
                 Entry {s.entry == null ? "market" : num(s.entry)} · Stop {num(s.stop)}

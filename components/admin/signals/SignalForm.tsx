@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { checkSignal, signalInput } from "@/lib/signals/validate";
 import { formatSignalPost } from "@/lib/signals/format";
+import { num } from "@/lib/signals/num";
+import type { SignalDraft } from "@/lib/signals/importDraft";
+import { PasteBox } from "./PasteBox";
 import { btn, field, hint, isOnline, label, signalsRes, type DeviceDto } from "./resources";
 
 const TP_SLOTS = 4;
@@ -24,6 +27,10 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
   const [tps, setTps] = useState<string[]>(Array(TP_SLOTS).fill(""));
   const [risk, setRisk] = useState("0.5");
   const [note, setNote] = useState("");
+  const [source, setSource] = useState("");
+  /** Set by "Paste a signal" from an entry zone; cleared when the entry is edited by hand. */
+  const [maxDev, setMaxDev] = useState<number | null>(null);
+  const [imported, setImported] = useState<string[] | null>(null);
   const [execute, setExecute] = useState(true);
   const [post, setPost] = useState(channelOn);
   const [busy, setBusy] = useState(false);
@@ -34,7 +41,7 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
   const stopN = price(stop, "Stop", errs);
   const tpN = tps.map((t, i) => price(t, `TP${i + 1}`, errs)).filter((x): x is number => x != null);
   const riskN = price(risk, "Risk", errs);
-  const raw = { symbol, side, entry: entryN, stop: stopN ?? undefined, tps: tpN, riskPct: riskN ?? undefined, note: note.trim() || null, execute, post };
+  const raw = { symbol, side, entry: entryN, stop: stopN ?? undefined, tps: tpN, riskPct: riskN ?? undefined, note: note.trim() || null, source: source.trim() || null, maxDeviation: entryN == null ? null : maxDev, execute, post };
   const parsed = signalInput.safeParse(raw);
   if (!symbol.trim()) errs.push("Pick a symbol");
   else if (stopN == null) errs.push("A stop is required");
@@ -45,6 +52,18 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
   const typing = !!(entry || stop || tps.some(Boolean));
 
   const online = terminal ? isOnline(terminal) : false;
+
+  function applyDraft(d: SignalDraft, warnings: string[]) {
+    setSymbol(d.symbol);
+    if (d.side) setSide(d.side);
+    setEntry(d.entry == null ? "" : num(d.entry));
+    setStop(d.stop == null ? "" : num(d.stop));
+    setTps(Array.from({ length: TP_SLOTS }, (_, i) => (d.tps[i] == null ? "" : num(d.tps[i]))));
+    setMaxDev(d.maxDeviation);
+    setSource(d.source ?? "");
+    setImported(warnings);
+    setResult(null);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,7 +78,7 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
       if (s.channelError) lines.push(`Channel: ${s.channelError}`);
       lines.push(...(body.warnings as string[]));
       setResult({ ok: true, lines });
-      setEntry(""); setStop(""); setTps(Array(TP_SLOTS).fill("")); setNote("");
+      setEntry(""); setStop(""); setTps(Array(TP_SLOTS).fill("")); setNote(""); setSource(""); setMaxDev(null); setImported(null);
       await signalsRes.load(true);
     } catch (err) {
       setResult({ ok: false, lines: [err instanceof Error ? err.message : "Failed"] });
@@ -71,6 +90,13 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
   return (
     <section aria-labelledby="sd-new" className="panel space-y-5 p-5">
       <h2 id="sd-new" className="font-display text-lg font-bold text-ink">New signal</h2>
+      <PasteBox onDraft={applyDraft} />
+      {imported && (
+        <div role="status" className="space-y-1 rounded-lg border border-amber bg-amber-soft p-3 text-sm text-ink">
+          <p className="font-bold">Filled from the pasted signal. Check every field before sending.</p>
+          {imported.map((w) => <p key={w} className="text-ink-2">{w}</p>)}
+        </div>
+      )}
       <form onSubmit={submit} className="space-y-4" noValidate>
         <div className="grid gap-4 sm:grid-cols-[1fr_auto]">
           <div>
@@ -95,7 +121,7 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <label htmlFor="sd-entry" className={label}>Entry</label>
-            <input id="sd-entry" className={`${field} num`} inputMode="decimal" value={entry} onChange={(e) => setEntry(e.target.value)} placeholder="market" />
+            <input id="sd-entry" className={`${field} num`} inputMode="decimal" value={entry} onChange={(e) => { setEntry(e.target.value); setMaxDev(null); }} placeholder="market" />
             <p className={hint}>Blank = market now</p>
           </div>
           <div>
@@ -120,9 +146,16 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
           <p className={hint}>One position per target, each with its own take-profit at the broker. After TP1 the rest move to entry.</p>
         </fieldset>
 
-        <div>
-          <label htmlFor="sd-note" className={label}>Note for the channel</label>
-          <input id="sd-note" className={field} maxLength={280} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional, one line" />
+        <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
+          <div>
+            <label htmlFor="sd-note" className={label}>Note for the channel</label>
+            <input id="sd-note" className={field} maxLength={280} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional, one line" />
+          </div>
+          <div>
+            <label htmlFor="sd-source" className={label}>Source</label>
+            <input id="sd-source" className={field} maxLength={80} value={source} onChange={(e) => setSource(e.target.value)} placeholder="Optional" />
+            <p className={hint}>Not posted. Lets you compare results by source.</p>
+          </div>
         </div>
 
         <div className="space-y-2 text-sm text-ink">
