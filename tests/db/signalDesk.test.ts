@@ -197,6 +197,22 @@ describe.skipIf(!run)("Signal Desk (Postgres)", () => {
       await createSignal(A, { ...input, post: false }, { channel: ch, now: NOW });
       expect(out).toHaveLength(1);
     });
+    it("a channel-only market signal takes the live price as its entry", async () => {
+      const priceOf = async (sym: string) => (sym === "OP" ? { price: 0.11973, futures: false } : null);
+      const { signal } = await createSignal(A, { symbol: "OP", side: "BUY", entry: null, stop: 0.1173, tps: [0.129], execute: false, post: true }, { channel: null, now: NOW, priceOf });
+      expect(signal).toMatchObject({ entry: 0.11973, status: "CLOSED", statusReason: "channel only" });
+    });
+    it("refuses a market entry it cannot price honestly", async () => {
+      const base = { side: "BUY", entry: null, stop: 50, tps: [60], execute: false, post: true };
+      const priceOf = async (sym: string) => (sym === "XAGUSD" ? { price: 55, futures: true } : null);
+      await expect(createSignal(A, { ...base, symbol: "XAGUSD" }, { channel: null, now: NOW, priceOf })).rejects.toMatchObject({ status: 400, message: expect.stringMatching(/futures.*type your broker's price/) });
+      await expect(createSignal(A, { ...base, symbol: "ZZZ" }, { channel: null, now: NOW, priceOf })).rejects.toMatchObject({ status: 400, message: expect.stringMatching(/No live price for ZZZ/) });
+    });
+    it("checks the stop against the live price it filled in", async () => {
+      const priceOf = async () => ({ price: 0.1197, futures: false });
+      await expect(createSignal(A, { symbol: "OP", side: "BUY", entry: null, stop: 0.125, tps: [0.13], execute: false, post: true }, { channel: null, now: NOW, priceOf }))
+        .rejects.toMatchObject({ status: 400, message: expect.stringMatching(/stop must be below entry/) });
+    });
     it("warns when the terminal has not been seen for a minute", async () => {
       const d = await online();
       await prisma.mt5Device.update({ where: { id: d.id }, data: { lastSeenAt: new Date(NOW.getTime() - 61_000) } });

@@ -49,7 +49,7 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
   if (!symbol.trim()) errs.push("Pick a symbol");
   else if (stopN == null) errs.push("A stop is required");
   else if (!parsed.success) errs.push(...parsed.error.issues.map((i) => (i.path[0] === "riskPct" ? "Risk must be above 0 and at most 1%" : i.path[0] === "tps" ? "At most 4 targets" : i.message)));
-  if (parsed.success) errs.push(...checkSignal(parsed.data, { symbols: terminal?.symbols ?? [] }).filter((m) => terminal || !m.endsWith("terminal's symbol list")));
+  if (parsed.success) errs.push(...checkSignal(parsed.data, { symbols: terminal?.symbols ?? [], marketEntryOnServer: true }).filter((m) => terminal || !m.endsWith("terminal's symbol list")));
   const preview = parsed.success && errs.length === 0 ? formatSignalPost(parsed.data) : null;
   // Rules are shown once prices are being typed, not for a form that was just reset.
   const typing = !!(entry || stop || tps.some(Boolean));
@@ -148,7 +148,7 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
           <div>
             <label htmlFor="sd-entry" className={label}>Entry</label>
             <input id="sd-entry" className={`${field} num`} inputMode="decimal" value={entry} onChange={(e) => { setEntry(e.target.value); setMaxDev(null); }} placeholder="market" />
-            <p className={hint}>Blank = market now</p>
+            <p className={hint}>{entry.trim() ? "Blank = market now" : execute ? "Market: the terminal fills at the live price" : "Market: posted at the live price when you send"}</p>
           </div>
           <div>
             <label htmlFor="sd-stop" className={label}>Stop</label>
