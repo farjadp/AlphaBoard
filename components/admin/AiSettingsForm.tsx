@@ -43,7 +43,7 @@ export default function AiSettingsForm({ initial, models, providers }: { initial
         </label>
         <label className="space-y-1 text-sm">
           <span className="label-caps block">Daily token allowance for new users</span>
-          <input type="number" min={1} step={1000} className={select} value={s.defaultDailyTokenQuota}
+          <input type="number" min={1} max={50_000_000} step={1} className={select} value={s.defaultDailyTokenQuota}
             onChange={(e) => setS({ ...s, defaultDailyTokenQuota: Number(e.target.value) })} />
         </label>
       </div>
