@@ -4,7 +4,7 @@ import { useState } from "react";
 import { checkSignal, signalInput } from "@/lib/signals/validate";
 import { formatSignalPost } from "@/lib/signals/format";
 import { num } from "@/lib/signals/num";
-import type { SignalDraft } from "@/lib/signals/importDraft";
+import { matchSymbol, type SignalDraft } from "@/lib/signals/importDraft";
 import { PasteBox } from "./PasteBox";
 import { useResource } from "@/lib/client/resource";
 import { btn, btnQuiet, field, hint, isOnline, label, signalsRes, templateRes, type DeviceDto } from "./resources";
@@ -44,7 +44,10 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
   const stopN = price(stop, "Stop", errs);
   const tpN = tps.map((t, i) => price(t, `TP${i + 1}`, errs)).filter((x): x is number => x != null);
   const riskN = price(risk, "Risk", errs);
-  const raw = { symbol, side, entry: entryN, stop: stopN ?? undefined, tps: tpN, riskPct: riskN ?? undefined, note: note.trim() || null, source: source.trim() || null, maxDeviation: entryN == null ? null : maxDev, execute, post };
+  // "XAUUSD", "gold", "XAU/USD" → the terminal's own name ("XAUUSD.ec"), so the broker suffix never has to be typed.
+  const mapped = symbol.trim() && terminal?.symbols.length ? matchSymbol(symbol, terminal.symbols) : null;
+  const effSymbol = mapped ?? symbol;
+  const raw = { symbol: effSymbol, side, entry: entryN, stop: stopN ?? undefined, tps: tpN, riskPct: riskN ?? undefined, note: note.trim() || null, source: source.trim() || null, maxDeviation: entryN == null ? null : maxDev, execute, post };
   const parsed = signalInput.safeParse(raw);
   if (execute && !terminal) errs.push("No terminal is connected: untick “Execute on MT5” to only post, or add a terminal");
   if (!symbol.trim()) errs.push("Pick a symbol");
@@ -131,7 +134,11 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
             <label htmlFor="sd-symbol" className={label}>Symbol</label>
             <input id="sd-symbol" className={field} list="sd-symbols" value={symbol} onChange={(e) => setSymbol(e.target.value.trim())} autoComplete="off" spellCheck={false} placeholder={terminal?.symbols[0] ?? "XAUUSD"} />
             <datalist id="sd-symbols">{terminal?.symbols.map((s) => <option key={s} value={s} />)}</datalist>
-            <p className={hint}>{terminal ? `${terminal.symbols.length} symbols from ${terminal.label}` : "No terminal yet — add one on the right"}</p>
+            <p className={hint}>
+              {mapped && mapped !== symbol
+                ? <>Sent as <span className="font-semibold text-ink">{mapped}</span> on {terminal?.label}</>
+                : terminal ? `${terminal.symbols.length} symbols from ${terminal.label}` : "No terminal yet — add one on the right"}
+            </p>
           </div>
           <div role="group" aria-labelledby="sd-side-label">
             <span id="sd-side-label" className={label}>Side</span>
