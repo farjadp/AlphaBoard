@@ -6,7 +6,7 @@ import { formatSignalPost } from "@/lib/signals/format";
 import { num } from "@/lib/signals/num";
 import type { SignalDraft } from "@/lib/signals/importDraft";
 import { PasteBox } from "./PasteBox";
-import { btn, field, hint, isOnline, label, signalsRes, type DeviceDto } from "./resources";
+import { btn, btnQuiet, field, hint, isOnline, label, signalsRes, type DeviceDto } from "./resources";
 
 const TP_SLOTS = 4;
 
@@ -31,6 +31,8 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
   /** Set by "Paste a signal" from an entry zone; cleared when the entry is edited by hand. */
   const [maxDev, setMaxDev] = useState<number | null>(null);
   const [imported, setImported] = useState<string[] | null>(null);
+  const [levels, setLevels] = useState<{ ok: boolean; notes: string[] } | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
   const [execute, setExecute] = useState(true);
   const [post, setPost] = useState(channelOn);
   const [busy, setBusy] = useState(false);
@@ -64,6 +66,29 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
     setSource(d.source ?? "");
     setImported(warnings);
     setResult(null);
+    setLevels(null);
+    // The post gave only part of the plan: read the chart for what is missing, without touching what it gave.
+    if (d.symbol && d.side && (d.stop == null || d.tps.length === 0)) {
+      void suggest({ symbol: d.symbol, side: d.side, entry: d.entry }, { stop: d.stop == null, tps: d.tps.length === 0 });
+    }
+  }
+
+  /** Stop and Fibonacci targets from live candles; `fill` says which fields to set (all of them from the button). */
+  async function suggest(at: { symbol: string; side: "BUY" | "SELL"; entry: number | null }, fill = { stop: true, tps: true }) {
+    setSuggesting(true); setLevels(null);
+    try {
+      const res = await fetch("/api/signal-desk/levels", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(at) });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error ?? `Request failed (HTTP ${res.status})`);
+      const r = body as { stop: number; tps: number[]; notes: string[] };
+      if (fill.stop) setStop(num(r.stop));
+      if (fill.tps) setTps(Array.from({ length: TP_SLOTS }, (_, i) => (r.tps[i] == null ? "" : num(r.tps[i]))));
+      setLevels({ ok: true, notes: r.notes });
+    } catch (err) {
+      setLevels({ ok: false, notes: [err instanceof Error ? err.message : "Failed"] });
+    } finally {
+      setSuggesting(false);
+    }
   }
 
   async function submit(e: React.FormEvent) {
@@ -79,7 +104,7 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
       if (s.channelError) lines.push(`Channel: ${s.channelError}`);
       lines.push(...(body.warnings as string[]));
       setResult({ ok: true, lines });
-      setEntry(""); setStop(""); setTps(Array(TP_SLOTS).fill("")); setNote(""); setSource(""); setMaxDev(null); setImported(null);
+      setEntry(""); setStop(""); setTps(Array(TP_SLOTS).fill("")); setNote(""); setSource(""); setMaxDev(null); setImported(null); setLevels(null);
       await signalsRes.load(true);
     } catch (err) {
       setResult({ ok: false, lines: [err instanceof Error ? err.message : "Failed"] });
@@ -137,7 +162,13 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
         </div>
 
         <fieldset>
-          <legend className={label}>Targets</legend>
+          <legend className="mb-1 flex w-full flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-semibold text-ink-2">Targets</span>
+            <button type="button" className={btnQuiet} disabled={suggesting || !symbol.trim() || !!entry && entryN == null}
+              onClick={() => suggest({ symbol, side, entry: entryN })}>
+              {suggesting ? "Reading the chart…" : "Suggest stop & targets"}
+            </button>
+          </legend>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {tps.map((t, i) => (
               <input key={i} aria-label={`Target ${i + 1}`} className={`${field} num`} inputMode="decimal" value={t} placeholder={`TP${i + 1}`}
@@ -145,6 +176,12 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
             ))}
           </div>
           <p className={hint}>One position per target, each with its own take-profit at the broker. After TP1 the rest move to entry.</p>
+          {levels && (
+            <div role={levels.ok ? "status" : "alert"} className={`mt-2 space-y-1 rounded-lg p-3 text-sm ${levels.ok ? "bg-wash text-ink-2" : "text-down"}`}>
+              {levels.ok && <p className="font-semibold text-ink">Suggested from the chart. A starting point, not a forecast: adjust before sending.</p>}
+              {levels.notes.map((n) => <p key={n}>{n}</p>)}
+            </div>
+          )}
         </fieldset>
 
         <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
