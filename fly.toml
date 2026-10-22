@@ -1,0 +1,20 @@
+# Background worker (tick, session monitor, reconciler, news, Lab jobs, Telegram polling) on Fly.io.
+# The web app runs on Vercel; this machine serves no HTTP. Keep exactly ONE machine running.
+# Deploy: fly deploy   ·   Secrets: fly secrets set DATABASE_URL=… (the direct Neon URL, not the pooler)
+app = "alphaboard-worker"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  WORKER_MODE = "separate"
+
+[processes]
+  worker = "node worker.mjs"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
+  processes = ["worker"]

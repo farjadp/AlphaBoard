@@ -21,7 +21,7 @@ export const GET = route(async () => {
     ok: db === "ok",
     db,
     tick,
-    version: process.env.APP_VERSION ?? process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
+    version: process.env.APP_VERSION ?? (process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.RAILWAY_GIT_COMMIT_SHA)?.slice(0, 7) ?? "dev",
     uptimeSec: Math.round((Date.now() - startedAt) / 1000),
     time: new Date().toISOString(),
   };
