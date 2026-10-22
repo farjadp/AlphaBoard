@@ -13,6 +13,11 @@ describe("matchSymbol", () => {
     expect(matchSymbol("ETH/USDT", SYMS)).toBe("ETHUSD.ec");
     expect(matchSymbol("XRPUSDT.P", SYMS)).toBe("XRPUSD.ec");
     expect(matchSymbol("BTCUSDT PERP", SYMS)).toBe("BTCUSD.ec");
+    expect(matchSymbol("OP", ["OPUSD.ec"])).toBe("OPUSD.ec");
+    expect(matchSymbol("ETH", SYMS)).toBe("ETHUSD.ec");
+    expect(matchSymbol("XAUUSD.ec", SYMS)).toBe("XAUUSD.ec");
+    expect(matchSymbol("XAUUSDm", SYMS)).toBe("XAUUSD.ec");
+    expect(matchSymbol("gold", SYMS)).toBe("XAUUSD.ec");
   });
   it("returns null when the terminal does not list it", () => {
     expect(matchSymbol("ALT/USDT", SYMS)).toBeNull();

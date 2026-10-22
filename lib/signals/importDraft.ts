@@ -61,7 +61,12 @@ Read numbers exactly as printed. Ignore leverage, margin, profit claims, images 
 
 /** "XAU/USD", "GOLD", "ETHUSDT.P", "BTCUSDT PERP" → bare upper-case ticker; "" for nothing usable. */
 function bare(raw: string) {
-  const s = raw.toUpperCase().replace(/\.P$|PERP(ETUAL)?$/g, "").replace(/[^A-Z0-9]/g, "");
+  const s = raw.trim()
+    .replace(/(?<=[A-Z0-9])[a-z]{1,3}$/, "") // broker suffix glued on: XAUUSDm
+    .toUpperCase()
+    .replace(/\.P$|PERP(ETUAL)?$/g, "")
+    .replace(/\.[A-Z0-9]{1,5}$/, "") // broker suffix after a dot: XAUUSD.ec
+    .replace(/[^A-Z0-9]/g, "");
   return ({ GOLD: "XAUUSD", SILVER: "XAGUSD" } as Record<string, string>)[s] ?? s;
 }
 
@@ -69,7 +74,8 @@ function bare(raw: string) {
 export function matchSymbol(raw: string, symbols: string[]): string | null {
   const want = bare(raw);
   if (!want) return null;
-  const variants = new Set([want, want.replace(/USDT$/, "USD"), want.replace(/USD$/, "USDT")]);
+  // A bare coin ("OP") is quoted in USD on CFD brokers and in USDT on exchanges.
+  const variants = new Set([want, want.replace(/USDT$/, "USD"), want.replace(/USD$/, "USDT"), `${want}USD`, `${want}USDT`]);
   return symbols.find((s) => variants.has(s.split(".")[0].replace(/[a-z]+$/, "").toUpperCase())) ?? null;
 }
 
