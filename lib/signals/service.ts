@@ -5,6 +5,11 @@ import { logger } from "@/lib/http/logger";
 import { HttpError, badRequest, notFound } from "@/lib/http/errors";
 import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
+import { findAsset } from "@/lib/assetCatalog";
+import { getQuote } from "@/lib/market/quote";
+import { roundForPrice } from "@/lib/market/indicators";
+import { catalogSymbolFor } from "./levels";
+import { channelUsername, getPostTemplate } from "./template";
 import { channelFromEnv, type Channel } from "./channel";
 import { displaySymbol, formatSignalPost } from "./format";
 import { applyReport, type SignalView } from "./state";
@@ -23,7 +28,17 @@ const SILENT_MS = 120_000;
 
 const conflict = (msg: string) => new HttpError(409, msg, "CONFLICT");
 
-interface Deps { channel?: Channel | null; now?: Date }
+/** Live price for a symbol as written; `futures` when the only feed is a futures contract (offset from spot). */
+export type MarketPriceOf = (symbol: string) => Promise<{ price: number; futures: boolean } | null>;
+
+interface Deps { channel?: Channel | null; now?: Date; priceOf?: MarketPriceOf }
+
+export const livePriceOf: MarketPriceOf = async (symbol) => {
+  const catalog = catalogSymbolFor(symbol);
+  const asset = catalog ? findAsset(catalog) : undefined;
+  const quote = asset ? await getQuote(asset).catch(() => null) : null;
+  return asset && quote?.price ? { price: quote.price, futures: !!asset.yahooSymbol?.endsWith("=F") } : null;
+};
 
 /** PENDING signals of the device's owner → SENT for this device, plus queued commands for signals it holds. */
 export async function claimJobs(device: Mt5Device, now = new Date()): Promise<Job[]> {
@@ -105,6 +120,14 @@ export async function createSignal(userId: string, raw: unknown, deps: Deps = {}
   const parsed = signalInput.safeParse(raw);
   if (!parsed.success) throw badRequest(parsed.error.issues.map((i) => `${i.path.join(".") || "signal"}: ${i.message}`).join("; "));
   const input = parsed.data;
+  // A post-only market signal still needs a number for the post and for R: the live price when it is sent.
+  // Never a futures price: it is offset from broker spot and would print a wrong entry.
+  if (!input.execute && input.entry == null) {
+    const quote = await (deps.priceOf ?? livePriceOf)(input.symbol);
+    if (!quote) throw badRequest(`No live price for ${input.symbol}: type the entry`);
+    if (quote.futures) throw badRequest(`${input.symbol} data is futures and differs from broker spot: type your broker's price as the entry`);
+    input.entry = roundForPrice(quote.price, quote.price);
+  }
   const device = await prisma.mt5Device.findFirst({ where: { userId, revokedAt: null }, orderBy: { lastSeenAt: { sort: "desc", nulls: "last" } } });
   const errs = checkSignal(input, { symbols: device?.symbols ?? [] });
   if (errs.length) throw badRequest(errs.join("; "));
@@ -125,7 +148,8 @@ export async function createSignal(userId: string, raw: unknown, deps: Deps = {}
     update = { channelError: "channel not configured (SIGNAL_BOT_TOKEN / SIGNAL_CHANNEL_ID)" };
   } else {
     try {
-      update = { channelMessageId: await channel.post(formatSignalPost(input)) };
+      const { template } = await getPostTemplate();
+      update = { channelMessageId: await channel.post(formatSignalPost(input, template, channelUsername())) };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn({ err: msg, signalId: signal.id }, "signal channel post failed");

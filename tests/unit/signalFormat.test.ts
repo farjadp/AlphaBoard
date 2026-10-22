@@ -1,37 +1,62 @@
 import { describe, it, expect } from "vitest";
-import { displaySymbol, formatSignalPost } from "@/lib/signals/format";
+import { DEFAULT_POST_TEMPLATE, displaySymbol, formatSignalPost, renderPost, templateProblems } from "@/lib/signals/format";
 import { channelFromEnv } from "@/lib/signals/channel";
 
 const gold = { symbol: "XAUUSD.ec", side: "BUY" as const, entry: 2650.4, stop: 2638, tps: [2656, 2662], riskPct: 0.5, note: null };
+const FOOTER = "پیشنهاد سرمایه گذاری نیست. ما سیگنال فروش نیستیم. این دیتا مستقیما از تریدهای خودمان توسط ربات به کانال @gheymat_today ارسال میشود";
 
-describe("formatSignalPost", () => {
-  it("formats a long with entry, stop distance, TPs and R:R", () => {
-    expect(formatSignalPost(gold)).toBe([
-      "🟢 LONG XAUUSD",
-      "Entry 2650.4",
-      "Stop 2638 (−12.4)",
-      "🎯 TP1 2656 · TP2 2662",
-      "R:R to TP1 0.45 · risk 0.5%",
-      "#XAUUSD",
-      "Not financial advice.",
+describe("default post template", () => {
+  it("renders a long like the channel's existing posts", () => {
+    expect(formatSignalPost(gold, DEFAULT_POST_TEMPLATE, "gheymat_today")).toBe([
+      "XAUUSD",
+      "🟢 Long Position",
+      "",
+      "Entry: 2650.4",
+      "",
+      "🔥 Risk: 0.5%",
+      "⛔️ Stop-Loss: 2638",
+      "",
+      "TARGETS:",
+      "🎯 TP1: 2656",
+      "🎯 TP2: 2662",
+      "",
+      "----",
+      FOOTER,
     ].join("\n"));
   });
-  it("formats a short with a note", () => {
-    expect(formatSignalPost({ symbol: "SOLUSD.ec", side: "SELL", entry: 180, stop: 186, tps: [174], riskPct: 1, note: "Under the 4H EMA" })).toBe([
-      "🔴 SHORT SOLUSD",
-      "Entry 180",
-      "Stop 186 (+6)",
-      "🎯 TP1 174",
-      "R:R to TP1 1 · risk 1%",
-      "Under the 4H EMA",
-      "#SOLUSD",
-      "Not financial advice.",
-    ].join("\n"));
+  it("a market short with a note and no targets drops the empty lines", () => {
+    const out = formatSignalPost({ symbol: "SOLUSD.ec", side: "SELL", entry: null, stop: 186, tps: [], riskPct: 1, note: "Under the 4H EMA" }, DEFAULT_POST_TEMPLATE, "gheymat_today");
+    expect(out).toContain("🔴 Short Position");
+    expect(out).toContain("Entry: Market");
+    expect(out).toContain("Under the 4H EMA");
+    expect(out).not.toContain("TP1");
+    expect(out).not.toMatch(/\n{3,}/);
   });
-  it("formats a market signal without distance or R:R, and no TP line without TPs", () => {
-    expect(formatSignalPost({ ...gold, entry: null, tps: [] })).toBe(["🟢 LONG XAUUSD", "Entry market", "Stop 2638", "Risk 0.5%", "#XAUUSD", "Not financial advice."].join("\n"));
+});
+
+describe("renderPost", () => {
+  const t = "{sideEmoji} {side} {symbol} {hashtag}\nEntry {entry} · Stop {stop} ({stopDistance})\nR:R {rr}\n{targets}\n{note}\n{channel}";
+  it("fills every field", () => {
+    expect(renderPost(t, { ...gold, note: "n" }, "chan")).toBe("🟢 Long XAUUSD #XAUUSD\nEntry 2650.4 · Stop 2638 (−12.4)\nR:R 0.45\n🎯 TP1: 2656\n🎯 TP2: 2662\nn\n@chan");
   });
-  it("strips broker suffixes for display", () => {
+  it("drops a line whose fields are all empty, keeps static lines", () => {
+    expect(renderPost("{symbol}\nR:R {rr}\n{note}\nfixed text", { ...gold, entry: null, tps: [] }, null)).toBe("XAUUSD\nfixed text");
+  });
+  it("leaves text without fields alone", () => {
+    expect(renderPost("{symbol}\n----", gold, null)).toBe("XAUUSD\n----");
+  });
+});
+
+describe("templateProblems", () => {
+  it("accepts the default", () => expect(templateProblems(DEFAULT_POST_TEMPLATE)).toEqual([]));
+  it("names unknown fields and missing essentials", () => {
+    expect(templateProblems("{symbol} {lev}")).toEqual(["Unknown field {lev}", "The template needs {side} or {sideEmoji}", "The template needs {stop}"]);
+  });
+  it("limits the length", () => expect(templateProblems("{symbol}{side}{stop}" + "x".repeat(3000))).toContain("The template is too long (max 2000 characters)"));
+});
+
+describe("displaySymbol", () => {
+  it("strips broker suffixes", () => {
     expect(displaySymbol("XAUUSD.ec")).toBe("XAUUSD");
     expect(displaySymbol("XAUUSDm")).toBe("XAUUSD");
     expect(displaySymbol("US30")).toBe("US30");

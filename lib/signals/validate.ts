@@ -18,12 +18,17 @@ export const signalInput = z.object({
 });
 export type SignalInput = z.infer<typeof signalInput>;
 
-/** Rule violations as user-facing strings; [] when the signal is valid. Prices are checked against `entry` when given. */
-export function checkSignal(s: SignalInput, ctx: { symbols: string[] }): string[] {
+export const ENTRY_REQUIRED = "entry is required when the signal is not executed";
+
+/**
+ * Rule violations as user-facing strings; [] when the signal is valid. Prices are checked against `entry` when given.
+ * `marketEntryOnServer`: the form leaves a post-only entry blank because the server fills in the live price.
+ */
+export function checkSignal(s: SignalInput, ctx: { symbols: string[]; marketEntryOnServer?: boolean }): string[] {
   const errs: string[] = [];
   const dir = s.side === "BUY" ? 1 : -1;
   if (!s.execute && !s.post) errs.push("choose post, execute or both");
-  if (!s.execute && s.entry == null) errs.push("entry is required when the signal is not executed");
+  if (!s.execute && s.entry == null && !ctx.marketEntryOnServer) errs.push(ENTRY_REQUIRED);
   if (s.execute && !ctx.symbols.includes(s.symbol)) errs.push(`${s.symbol} is not in the terminal's symbol list`);
   const ref = s.entry;
   if (ref != null && (s.stop - ref) * dir >= 0) errs.push(`stop must be ${dir > 0 ? "below" : "above"} entry for a ${s.side}`);
