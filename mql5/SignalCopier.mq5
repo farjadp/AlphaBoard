@@ -22,7 +22,7 @@
 //|  hedging account.                                                  |
 //+------------------------------------------------------------------+
 #property copyright "AlphaBoard"
-#property version   "1.11"
+#property version   "1.12"
 #property description "Executes AlphaBoard Signal Desk signals: one position per target, broker-side SL/TP, reports back"
 
 #include <Trade/Trade.mqh>
@@ -38,6 +38,7 @@ input bool   InpDryRun      = true;    // Dry run: log and report, open nothing
 input bool   InpAllowReal   = false;   // Allow a REAL-money account
 input double InpRiskCapPct  = 1.0;     // Max risk per signal, % of balance
 input double InpMaxLot      = 0.05;    // Max total lot per signal (all legs)
+input double InpMinLotRiskCapPct = 3.0; // Risk too small for the min lot: open ONE min-lot position if its real risk is at most this % (0 = reject)
 
 input group "=== Money management (whole account, broker day) ==="
 input double InpDailyLossPct   = 2.0;  // Daily loss lock, % of balance at day start (0 = off)
@@ -442,7 +443,22 @@ void OpenSignal(string &f[])
    double riskMoney = AccountInfoDouble(ACCOUNT_BALANCE) * riskPct / 100.0;
    double lossPerLot = MathAbs(price - stop) / tickSize * tickLoss;
    double lots = FloorTo(MathMin(MathMin(riskMoney / lossPerLot, InpMaxLot), maxLot), step);
-   if(lots < minLot - 1e-9) { Reject(id, "volume below min lot (risk allows " + DoubleToString(riskMoney / lossPerLot, 4) + ", min " + Vol(sym, minLot) + ")"); return; }
+   string sizing = "";
+   if(lots < minLot - 1e-9)
+     {
+      // The risk is smaller than the broker's smallest position. Opening the min lot means more risk than asked,
+      // so only one position, and only when its real risk stays under the cap.
+      double balance = AccountInfoDouble(ACCOUNT_BALANCE);
+      double realPct = balance > 0 ? minLot * lossPerLot / balance * 100.0 : 1e9;
+      if(InpMinLotRiskCapPct <= 0 || realPct > InpMinLotRiskCapPct + 1e-9 || minLot > InpMaxLot + 1e-9)
+        {
+         Reject(id, "volume below min lot (risk allows " + DoubleToString(riskMoney / lossPerLot, 4) + ", min " + Vol(sym, minLot)
+                + " would risk " + DoubleToString(realPct, 2) + "%, cap " + DoubleToString(InpMinLotRiskCapPct, 1) + "%)");
+         return;
+        }
+      lots = minLot;
+      sizing = " min-lot real risk=" + DoubleToString(realPct, 2) + "%";
+     }
 
    // legs: one per target, fewer when the volume cannot be split; the first targets are kept
    int n = MathMax(1, ArraySize(tps));
@@ -450,7 +466,7 @@ void OpenSignal(string &f[])
    double per = FloorTo(lots / n, step);
    double first = FloorTo(lots - per * (n - 1), step);
 
-   string plan = "lots=" + Vol(sym, lots) + " legs=" + IntegerToString(n) + " price=" + Px(sym, price) + " stop=" + Px(sym, stop);
+   string plan = "lots=" + Vol(sym, lots) + " legs=" + IntegerToString(n) + sizing + " price=" + Px(sym, price) + " stop=" + Px(sym, stop);
    for(int i = 0; i < n; i++) plan += " tp" + IntegerToString(i + 1) + "=" + (i < ArraySize(tps) ? Px(sym, tps[i]) : "none");
    if(InpDryRun)
      {
@@ -544,9 +560,9 @@ int OnInit()
    EventSetTimer(MathMax(1, InpPollSec));
    if(InpCountFrom > CalendarDayStart())
       Print("SignalCopier: today's guards count only trades from ", TimeToString(InpCountFrom), " (server time); this ends at midnight");
-   Print("SignalCopier 1.11 started: ", g_base, InpDryRun ? " [DRY RUN - opens nothing]" : " [LIVE]",
+   Print("SignalCopier 1.12 started: ", g_base, InpDryRun ? " [DRY RUN - opens nothing]" : " [LIVE]",
          " account ", AccountInfoInteger(ACCOUNT_LOGIN), " risk cap ", DoubleToString(InpRiskCapPct, 2), "% max lot ", DoubleToString(InpMaxLot, 2),
-         " | daily lock ", DoubleToString(InpDailyLossPct, 1), "% stop after ", InpMaxConsecLoss, " losses cooldown ", InpCooldownMin, "m max open ", InpMaxOpenSignals);
+         " min-lot cap ", DoubleToString(InpMinLotRiskCapPct, 1), "% | daily lock ", DoubleToString(InpDailyLossPct, 1), "% stop after ", InpMaxConsecLoss, " losses cooldown ", InpCooldownMin, "m max open ", InpMaxOpenSignals);
    Heartbeat();
    return INIT_SUCCEEDED;
   }
