@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { createDevice, deviceFromRequest, recordHeartbeat, revokeDevice } from "@/lib/mt5/devices";
 import { claimJobs, createSignal, queueCommand, recordReport, sweepSignals } from "@/lib/signals/service";
 import type { Telegram } from "@/lib/notify/telegram";
+import { getPostTemplate, resetPostTemplate, savePostTemplate } from "@/lib/signals/template";
 import type { Channel } from "@/lib/signals/channel";
 
 const run = !!process.env.TEST_DATABASE_URL;
@@ -166,7 +167,17 @@ describe.skipIf(!run)("Signal Desk (Postgres)", () => {
       expect(warnings).toEqual([]);
       expect(signal).toMatchObject({ status: "PENDING", riskPct: 0.5, channelMessageId: 101, expiresAt: new Date(NOW.getTime() + 10 * 60_000) });
       expect(out).toHaveLength(1);
-      expect(out[0].text).toMatch(/^🟢 LONG XAUUSD\nEntry 2650.4/);
+      expect(out[0].text).toMatch(/^XAUUSD\n🟢 Long Position\n\nEntry: 2650.4/);
+    });
+    it("posts with the saved template, and falls back to the default after a reset", async () => {
+      await online();
+      await savePostTemplate("{sideEmoji} {symbol} @ {entry}\nSL {stop}\n{targets}");
+      const { ch, sent: out } = fakeChannel();
+      await createSignal(A, input, { channel: ch, now: NOW });
+      expect(out[0].text).toBe("🟢 XAUUSD @ 2650.4\nSL 2638\n🎯 TP1: 2656\n🎯 TP2: 2662");
+      await expect(savePostTemplate("{symbol}")).rejects.toMatchObject({ status: 400 });
+      await resetPostTemplate();
+      expect((await getPostTemplate()).isDefault).toBe(true);
     });
     it("rejects an invalid signal with every reason and stores nothing", async () => {
       await online();

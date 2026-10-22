@@ -9,6 +9,7 @@ import { findAsset } from "@/lib/assetCatalog";
 import { getQuote } from "@/lib/market/quote";
 import { roundForPrice } from "@/lib/market/indicators";
 import { catalogSymbolFor } from "./levels";
+import { channelUsername, getPostTemplate } from "./template";
 import { channelFromEnv, type Channel } from "./channel";
 import { displaySymbol, formatSignalPost } from "./format";
 import { applyReport, type SignalView } from "./state";
@@ -147,7 +148,8 @@ export async function createSignal(userId: string, raw: unknown, deps: Deps = {}
     update = { channelError: "channel not configured (SIGNAL_BOT_TOKEN / SIGNAL_CHANNEL_ID)" };
   } else {
     try {
-      update = { channelMessageId: await channel.post(formatSignalPost(input)) };
+      const { template } = await getPostTemplate();
+      update = { channelMessageId: await channel.post(formatSignalPost(input, template, channelUsername())) };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn({ err: msg, signalId: signal.id }, "signal channel post failed");

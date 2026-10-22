@@ -51,3 +51,6 @@ export const btnQuiet = "rounded-lg border border-line px-3 py-1.5 text-xs font-
 export const field = "w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none";
 export const label = "mb-1 block text-xs font-semibold text-ink-2";
 export const hint = "mt-1 text-xs text-ink-3";
+
+export interface TemplateDto { template: string; isDefault: boolean; defaultTemplate: string; fields: Record<string, string>; channel: string | null }
+export const templateRes = createResource<TemplateDto | null>("/api/signal-desk/template", { fallback: null, select: (j) => j as TemplateDto });

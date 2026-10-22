@@ -6,7 +6,8 @@ import { formatSignalPost } from "@/lib/signals/format";
 import { num } from "@/lib/signals/num";
 import type { SignalDraft } from "@/lib/signals/importDraft";
 import { PasteBox } from "./PasteBox";
-import { btn, btnQuiet, field, hint, isOnline, label, signalsRes, type DeviceDto } from "./resources";
+import { useResource } from "@/lib/client/resource";
+import { btn, btnQuiet, field, hint, isOnline, label, signalsRes, templateRes, type DeviceDto } from "./resources";
 
 const TP_SLOTS = 4;
 
@@ -50,7 +51,8 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
   else if (stopN == null) errs.push("A stop is required");
   else if (!parsed.success) errs.push(...parsed.error.issues.map((i) => (i.path[0] === "riskPct" ? "Risk must be above 0 and at most 1%" : i.path[0] === "tps" ? "At most 4 targets" : i.message)));
   if (parsed.success) errs.push(...checkSignal(parsed.data, { symbols: terminal?.symbols ?? [], marketEntryOnServer: true }).filter((m) => terminal || !m.endsWith("terminal's symbol list")));
-  const preview = parsed.success && errs.length === 0 ? formatSignalPost(parsed.data) : null;
+  const tpl = useResource(templateRes).data;
+  const preview = parsed.success && errs.length === 0 ? formatSignalPost(parsed.data, tpl?.template, tpl?.channel ?? null) : null;
   // Rules are shown once prices are being typed, not for a form that was just reset.
   const typing = !!(entry || stop || tps.some(Boolean));
 
@@ -217,7 +219,7 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
         {preview && (
           <div>
             <span className={label}>Channel preview</span>
-            <pre className="whitespace-pre-wrap rounded-lg bg-wash p-3 font-sans text-sm leading-relaxed text-ink">{preview}</pre>
+            <pre dir="auto" className="whitespace-pre-wrap rounded-lg bg-wash p-3 font-sans text-sm leading-relaxed text-ink">{preview}</pre>
           </div>
         )}
 

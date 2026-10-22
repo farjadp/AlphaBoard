@@ -5,6 +5,7 @@ import { useResource } from "@/lib/client/resource";
 import { DeviceCard } from "./DeviceCard";
 import { SignalForm } from "./SignalForm";
 import { SignalList } from "./SignalList";
+import { TemplateEditor } from "./TemplateEditor";
 import { devicesRes, signalsRes } from "./resources";
 
 const SIGNALS_MS = 5_000;
@@ -30,6 +31,7 @@ export default function SignalDesk({ channelUsername, channelOn }: { channelUser
         <DeviceCard devices={devices.data} error={devices.error} />
       </div>
       <SignalList signals={signals.data} error={signals.error} loaded={signals.loaded} channelUsername={channelUsername} />
+      <TemplateEditor />
     </div>
   );
 }
