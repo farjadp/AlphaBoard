@@ -43,10 +43,11 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
   const riskN = price(risk, "Risk", errs);
   const raw = { symbol, side, entry: entryN, stop: stopN ?? undefined, tps: tpN, riskPct: riskN ?? undefined, note: note.trim() || null, source: source.trim() || null, maxDeviation: entryN == null ? null : maxDev, execute, post };
   const parsed = signalInput.safeParse(raw);
+  if (execute && !terminal) errs.push("No terminal is connected: untick “Execute on MT5” to only post, or add a terminal");
   if (!symbol.trim()) errs.push("Pick a symbol");
   else if (stopN == null) errs.push("A stop is required");
   else if (!parsed.success) errs.push(...parsed.error.issues.map((i) => (i.path[0] === "riskPct" ? "Risk must be above 0 and at most 1%" : i.path[0] === "tps" ? "At most 4 targets" : i.message)));
-  if (parsed.success) errs.push(...checkSignal(parsed.data, { symbols: terminal?.symbols ?? [] }));
+  if (parsed.success) errs.push(...checkSignal(parsed.data, { symbols: terminal?.symbols ?? [] }).filter((m) => terminal || !m.endsWith("terminal's symbol list")));
   const preview = parsed.success && errs.length === 0 ? formatSignalPost(parsed.data) : null;
   // Rules are shown once prices are being typed, not for a form that was just reset.
   const typing = !!(entry || stop || tps.some(Boolean));
@@ -192,7 +193,10 @@ export function SignalForm({ terminal, channelOn }: { terminal: DeviceDto | null
           </div>
         )}
 
-        <button type="submit" className={btn} disabled={busy || errs.length > 0}>{busy ? "Sending…" : execute ? "Send signal" : "Post signal"}</button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="submit" className={btn} disabled={busy || errs.length > 0} aria-describedby={errs.length && !typing ? "sd-why" : undefined}>{busy ? "Sending…" : execute ? "Send signal" : "Post signal"}</button>
+          {errs.length > 0 && !typing && <p id="sd-why" className="text-sm text-ink-2">{errs[0]}</p>}
+        </div>
       </form>
     </section>
   );
