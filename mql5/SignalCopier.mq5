@@ -22,7 +22,7 @@
 //|  hedging account.                                                  |
 //+------------------------------------------------------------------+
 #property copyright "AlphaBoard"
-#property version   "1.10"
+#property version   "1.11"
 #property description "Executes AlphaBoard Signal Desk signals: one position per target, broker-side SL/TP, reports back"
 
 #include <Trade/Trade.mqh>
@@ -44,6 +44,7 @@ input double InpDailyLossPct   = 2.0;  // Daily loss lock, % of balance at day s
 input int    InpMaxConsecLoss  = 2;    // No new signals today after N losing trades in a row (0 = off)
 input int    InpCooldownMin    = 30;   // No new signal for N minutes after a losing trade (0 = off)
 input int    InpMaxOpenSignals = 2;    // Max signals open at once (0 = off)
+input datetime InpCountFrom    = 0;    // Count today from (server time): earlier trades ignored, today only
 
 input group "=== Management ==="
 input bool   InpBEAfterTP1  = true;    // After TP1, move the other legs' stop to entry
@@ -257,12 +258,20 @@ bool Breakeven(const string id, const int skipLeg)
 //+------------------------------------------------------------------+
 //| money management                                                  |
 //+------------------------------------------------------------------+
-datetime DayStart()
+datetime CalendarDayStart()
   {
    MqlDateTime d;
    TimeToStruct(TimeCurrent(), d);
    d.hour = 0; d.min = 0; d.sec = 0;
    return StructToTime(d);
+  }
+
+//--- start of "today" for the guards: midnight, or InpCountFrom when it is later today (a one-day reset that
+//--- lapses on its own at the next midnight)
+datetime DayStart()
+  {
+   datetime midnight = CalendarDayStart();
+   return InpCountFrom > midnight ? InpCountFrom : midnight;
   }
 
 //--- index of key in keys[], appending it when new
@@ -533,7 +542,9 @@ int OnInit()
    ArrayResize(g_qPath, 0);
    ArrayResize(g_qBody, 0);
    EventSetTimer(MathMax(1, InpPollSec));
-   Print("SignalCopier 1.10 started: ", g_base, InpDryRun ? " [DRY RUN - opens nothing]" : " [LIVE]",
+   if(InpCountFrom > CalendarDayStart())
+      Print("SignalCopier: today's guards count only trades from ", TimeToString(InpCountFrom), " (server time); this ends at midnight");
+   Print("SignalCopier 1.11 started: ", g_base, InpDryRun ? " [DRY RUN - opens nothing]" : " [LIVE]",
          " account ", AccountInfoInteger(ACCOUNT_LOGIN), " risk cap ", DoubleToString(InpRiskCapPct, 2), "% max lot ", DoubleToString(InpMaxLot, 2),
          " | daily lock ", DoubleToString(InpDailyLossPct, 1), "% stop after ", InpMaxConsecLoss, " losses cooldown ", InpCooldownMin, "m max open ", InpMaxOpenSignals);
    Heartbeat();
