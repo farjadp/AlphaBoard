@@ -1043,6 +1043,8 @@ model TradeSignal {
   riskPct          Float
   maxDeviation     Float?
   note             String?
+  /// Where the idea came from (another channel's name); never posted. Lets results be split by source.
+  source           String?
   execute          Boolean
   post             Boolean
   status           TradeSignalStatus @default(PENDING)

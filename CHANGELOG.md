@@ -16,6 +16,8 @@ All notable changes to AlphaBoard are documented here.
   - at most 2 signals open at once.
 
   All the positions of one signal count as one trade. A blocked signal shows the reason in the list.
+- **Paste a signal:** you can paste a post's text, paste or drop a screenshot from another channel, and AI fills the form. It reads the symbol, side, entry or entry zone, stop and targets, and matches the symbol to your terminal's (`GOLD`/`XAU/USD` → `XAUUSD.ec`, `ETH/USDT` → `ETHUSD.ec`). An entry zone becomes its middle, and the terminal accepts a fill anywhere in the zone. Targets on the wrong side are dropped and at most 4 are kept. A missing stop is flagged, never invented. Every decision is listed above the form. Nothing is sent until you press Send.
+- **Source:** an optional field for where the idea came from. It is shown in the list and never posted, so results can later be compared by source. 1 migration (`TradeSignal.source`).
 - Plan: `docs/superpowers/plans/2026-10-21-p12-signal-desk.md`. 2 migrations (`Mt5Device`, `TradeSignal`, `TradeSignalLeg`; `TradeSignal.breakevenAt`).
 
 ### P11a · Money-management guards and an honest drawdown

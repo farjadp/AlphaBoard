@@ -11,6 +11,8 @@ export const signalInput = z.object({
   riskPct: z.number().positive().max(1).default(0.5),
   maxDeviation: z.number().positive().nullable().default(null),
   note: z.string().trim().max(280).nullable().default(null),
+  /** Where the idea came from; stored, never posted. */
+  source: z.string().trim().max(80).nullable().default(null),
   execute: z.boolean(),
   post: z.boolean(),
 });
