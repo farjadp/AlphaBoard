@@ -49,7 +49,7 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 
 - Next.js 16: read `node_modules/next/dist/docs/` before using an API (`proxy.ts` replaces middleware; nonce CSP requires request-time rendering — root layout is `force-dynamic`).
 - Every route handler: `route()` / `userRoute()` / `adminRoute()` / `deviceRoute()` wrapper (auth + `await enforceRateLimit()` inside); bodies via `readJson(req, maxBytes)`; errors as `HttpError` → `{ error, code, requestId }`. Environment only via `lib/env.ts`; numbers via `lib/format`; trade arithmetic via `lib/trading/math`.
-- DB access only via `lib/db/*` (server-only, `userId` on every query). DTO shapes live in `lib/types/userData.ts`.
+- DB access only via `lib/db/*` and feature services (server-only, `userId` on every query). DTO shapes live in `lib/db/types.ts`.
 - Client data via `lib/client/resource.ts` (`useSyncExternalStore`), never `setState` in effects (ESLint enforces it).
 - AI calls only via `aiJson()` in `lib/ai/index.ts` (model resolution, quota, usage logging, zod validation). Give it `jsonSchema` from `lib/ai/jsonSchemas.ts`.
 - Market data only via `lib/market/*` (cached with `marketMemo`); never fabricate or fall back to fake values — show "unavailable".
@@ -76,7 +76,7 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 - `lib/worker/index.ts` `startWorker()`: a lease row (`AppSetting worker.lease`, 45 s, renewed every 15 s) makes exactly one process the worker; another takes over when it expires. Heartbeat: `AppSetting worker.last`.
 - `WORKER_MODE=inline` (default) → started by `instrumentation.ts` in the web process. `WORKER_MODE=separate` → the web process starts nothing; run `npm run worker` (Node with `--conditions=react-server` so `server-only` resolves, loads `.env` + `.env.local`). A bundled production worker image comes with P8b (ccxt).
 - Loops: `runTick()` every 60 s (`TICK_DISABLED=1` turns only this off; `POST /api/cron/tick` still works), `monitorSessions()` every 15 s, Telegram `getUpdates` long-poll (25 s).
-- `runTick()` in `lib/jobs/tick.ts`: paper settlement (+ notifications) → equity snapshots → signal evaluation (P5) → price alerts (P6). Each part has its own try/catch.
+- `runTick()` in `lib/worker/tick.ts`: paper settlement (+ notifications) → equity snapshots → signal evaluation (P5) → price alerts (P6). Each part has its own try/catch.
 
 ## Exchange sessions (P8b/P8c)
 
@@ -100,9 +100,9 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 
 ## Agent sessions (P8a)
 
-- Flow per cycle (`lib/sessions/cycle.ts`): triggers (interval, a close since the last cycle, ≥1.5% move; a quiet all-hold interval is skipped at most twice) → context block (`lib/agents/context.ts`, "unavailable" instead of guesses) → analysts (market + news, parallel) → optional debate → strategist (exit plan per entry) → `evaluateProposal` (`lib/risk/verdict.ts`) → paper venue (`lib/venues/paper.ts`, idempotent `clientOrderId`) → room messages.
+- Flow per cycle (`lib/sessions/cycle.ts`): triggers (interval, a close since the last cycle, ≥1.5% move; a quiet all-hold interval is skipped at most twice) → context block (`lib/sessions/desk/context.ts`, "unavailable" instead of guesses) → analysts (market + news, parallel) → optional debate → strategist (exit plan per entry) → `evaluateProposal` (`lib/risk/verdict.ts`) → paper venue (`lib/venues/paper.ts`, idempotent `clientOrderId`) → room messages.
 - Monitor (`lib/sessions/monitor.ts`): stops/targets/liquidation on live prices, loss limit (realized + unrealized − fees) → HALTED + flatten, end → AWAITING_EXTENSION + prompt → timeout → `onEnd`; retries closes without a price; journals closed trades and writes the report in the background.
-- AI prompts spell out their JSON shape (`SHAPES` in `lib/agents/prompts.ts`) because OpenAI runs in `json_object` mode; zod validates every answer. Per-role models via `AiRequest.model`.
+- AI prompts spell out their JSON shape (`SHAPES` in `lib/sessions/desk/prompts.ts`) because OpenAI runs in `json_object` mode; zod validates every answer. Per-role models via `AiRequest.model`.
 - Agent failure → no trading that cycle, retry in 2 min; 3 in a row → PAUSED. AI budget reached → no more cycles, stops keep running.
 - Limits: at most 3 active sessions per user; daily limits in `UserTradingLimits`; live mode refused until P8b.
 
@@ -116,14 +116,14 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 ## Signal Desk (P12)
 
 **Pieces:**
-- `lib/signals/*`:
+- `lib/signalDesk/*`:
   - `validate` (form rules)
   - `wire` (EA protocol)
   - `state` (report → status, leg update, reply)
   - `format` (channel text)
   - `channel` (posting)
   - `service` (DB)
-- `lib/mt5/devices.ts` (terminal tokens).
+- `lib/signalDesk/devices.ts` (terminal tokens).
 - EA routes `/api/mt5/{heartbeat,signals/next,signals/:id/report}`. They are public at the proxy and each one checks the bearer token.
 - Admin routes `/api/signal-desk/*`.
 - Page `/admin/signal-desk`.
