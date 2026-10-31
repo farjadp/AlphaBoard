@@ -4,6 +4,17 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P14a · One position core (paper + agent sessions)
+- `lib/trading/positions`: exits over candles or a spot price (liquidation, stop, target), MFE/MAE and R against the **initial** stop, and management rules (breakeven with a buffer, ATR trailing, manual levels that only tighten, take-profit ladders). Pure, tested, used by both worlds.
+- **Agent sessions:** the 15-second monitor now also scans the 5-minute candles since its last check, so a wick between two polls no longer slips through; a moved stop resets that window. Positions show **R now** and best/worst excursion in the room; `/api/sessions/positions/[id]` takes `set_exits` (stop and/or target, stop only tightening) and any close `fraction`.
+- **Paper trading:** positions record the stop at entry and best/worst price from candle ranges; open and closed tables show R. (Partial close, trailing and ladders in the paper UI come with P14b.)
+- Migration `20261031150000_p14a_position_tracking`.
+
+### P14d · SignalCopier 1.13 + Signal Desk commands
+- **New commands from Admin → Signals** on an open signal: *Move stop…* (`MOVE_SL`, tightening only, checked on the server against the signal's stop and the open targets, and again by the expert against the market), *Move target…* (`MOVE_TP`, one leg), *Close part…* (`CLOSE_PARTIAL`, a fraction of every open leg). One command waits at a time.
+- **Expert 1.13:** breakeven can sit a few points past the entry (`InpBEBufferPts`, covers spread and commission); after TP2 the remaining legs' stop moves to the TP1 price (`InpStepUpAfterTP2`); optional ATR trailing (`InpTrailAtr` × ATR on `InpTrailTf`, by default only once the stop is at or beyond the entry; trailing steps are local and not posted); `BE` reports carry the real level; new reports `SL_MOVED`, `TP_MOVED`, `PARTIAL` (volume closed and volume left) are posted as replies under the signal.
+- The expert compiles with 0 errors and 0 warnings; it has not been attached to a terminal yet.
+
 ### P13b · Shared foundations (no behaviour change, one new table)
 - `lib/trading/math.ts`: one definition of direction, R-multiple, gross P&L and stop/target side rules, used by paper trading, sessions, the signal evaluator, the Signal Desk and the Lab.
 - `lib/format/`: one number/money/date module replaces about twenty local helpers; a true minus sign and "Unavailable" for missing values everywhere.

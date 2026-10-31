@@ -235,18 +235,41 @@ describe.skipIf(!run)("Signal Desk (Postgres)", () => {
   describe("queueCommand", () => {
     it("cancels a pending signal, but not one already sent", async () => {
       const p = await signal(A);
-      await queueCommand(A, p.id, "CANCEL");
+      await queueCommand(A, p.id, { command: "CANCEL" });
       expect((await prisma.tradeSignal.findUniqueOrThrow({ where: { id: p.id } })).status).toBe("CANCELLED");
       const s = await signal(A, { status: "SENT" });
-      await expect(queueCommand(A, s.id, "CANCEL")).rejects.toMatchObject({ status: 409, message: "already sent to the terminal; use Close all" });
+      await expect(queueCommand(A, s.id, { command: "CANCEL" })).rejects.toMatchObject({ status: 409, message: "already sent to the terminal; use Close all" });
     });
     it("queues BREAKEVEN / CLOSE_ALL only on an open signal of the owner", async () => {
       const o = await signal(A, { status: "OPEN" });
-      await queueCommand(A, o.id, "CLOSE_ALL");
+      await queueCommand(A, o.id, { command: "CLOSE_ALL" });
       expect((await prisma.tradeSignal.findUniqueOrThrow({ where: { id: o.id } })).pendingCommand).toBe("CLOSE_ALL");
       const p = await signal(A);
-      await expect(queueCommand(A, p.id, "BREAKEVEN")).rejects.toMatchObject({ status: 409 });
-      await expect(queueCommand(B, o.id, "BREAKEVEN")).rejects.toMatchObject({ status: 404 });
+      await expect(queueCommand(A, p.id, { command: "BREAKEVEN" })).rejects.toMatchObject({ status: 409 });
+      await expect(queueCommand(B, o.id, { command: "BREAKEVEN" })).rejects.toMatchObject({ status: 404 });
+    });
+  });
+
+  describe("management commands (P14d)", () => {
+    it("MOVE_SL only tightens and stays short of every open target; one command waits at a time", async () => {
+      const o = await signal(A, { status: "OPEN", side: "BUY", stop: 2600 });
+      await prisma.tradeSignalLeg.create({ data: { signalId: o.id, leg: 1, ticket: "1", volume: 0.1, openPrice: 2650, tp: 2680 } });
+      await expect(queueCommand(A, o.id, { command: "MOVE_SL", price: 2590 })).rejects.toMatchObject({ status: 400 });
+      await expect(queueCommand(A, o.id, { command: "MOVE_SL", price: 2690 })).rejects.toMatchObject({ status: 400 });
+      await queueCommand(A, o.id, { command: "MOVE_SL", price: 2640 });
+      expect((await prisma.tradeSignal.findUniqueOrThrow({ where: { id: o.id } })).pendingCommand).toBe("MOVE_SL|2640");
+      await expect(queueCommand(A, o.id, { command: "CLOSE_ALL" })).rejects.toMatchObject({ status: 409 });
+    });
+    it("MOVE_TP needs an open leg and a level beyond its entry; CLOSE_PARTIAL encodes the fraction", async () => {
+      const o = await signal(A, { status: "OPEN", side: "SELL", stop: 2700 });
+      await prisma.tradeSignalLeg.create({ data: { signalId: o.id, leg: 2, ticket: "2", volume: 0.1, openPrice: 2650, tp: 2600 } });
+      await expect(queueCommand(A, o.id, { command: "MOVE_TP", leg: 1, price: 2600 })).rejects.toMatchObject({ status: 400 });
+      await expect(queueCommand(A, o.id, { command: "MOVE_TP", leg: 2, price: 2660 })).rejects.toMatchObject({ status: 400 });
+      await queueCommand(A, o.id, { command: "MOVE_TP", leg: 2, price: 2590 });
+      expect((await prisma.tradeSignal.findUniqueOrThrow({ where: { id: o.id } })).pendingCommand).toBe("MOVE_TP|2|2590");
+      const q = await signal(A, { status: "OPEN" });
+      await queueCommand(A, q.id, { command: "CLOSE_PARTIAL", fraction: 0.5 });
+      expect((await prisma.tradeSignal.findUniqueOrThrow({ where: { id: q.id } })).pendingCommand).toBe("CLOSE_PARTIAL|0.5");
     });
   });
 

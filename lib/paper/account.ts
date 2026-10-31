@@ -1,3 +1,4 @@
+import { excursionR, positionR } from "@/lib/trading/positions";
 import "server-only";
 import type { PaperPosition, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -95,7 +96,7 @@ export async function openPaperPosition(userId: string, input: OpenInput, priceO
       data: {
         accountId: account.id, symbol: input.symbol, side: input.side, qty: fill.qty, entryPrice: fill.fillPrice,
         leverage: input.leverage, margin: input.margin, stopLoss: input.stopLoss ?? null, takeProfit: input.takeProfit ?? null,
-        signalId: input.signalId ?? null, fees: fill.fee,
+        initialStop: input.stopLoss ?? null, signalId: input.signalId ?? null, fees: fill.fee,
       },
     });
     await tx.paperOrder.create({
@@ -193,9 +194,13 @@ export async function snapshotEquity(accountId: string, priceOf: PriceOf = liveP
 }
 
 function positionDto(p: PaperPosition, mark: { markPrice: number | null; unrealizedPnl: number | null } | null): PaperPositionDto {
+  const x = excursionR({ side: p.side, entryPrice: p.entryPrice, initialStop: p.initialStop, bestPrice: p.bestPrice, worstPrice: p.worstPrice, closePrice: p.closePrice });
   return {
     id: p.id, symbol: p.symbol, side: p.side, qty: p.qty, entryPrice: p.entryPrice, leverage: p.leverage, margin: p.margin,
     stopLoss: p.stopLoss, takeProfit: p.takeProfit, liquidationPrice: liquidationPrice(p.side, p.entryPrice, p.leverage),
+    initialStop: p.initialStop, bestPrice: p.bestPrice, worstPrice: p.worstPrice,
+    r: positionR({ side: p.side, entryPrice: p.entryPrice, initialStop: p.initialStop, stopLoss: null }, p.closedAt ? p.closePrice : mark?.markPrice),
+    mfeR: x?.mfeR ?? null, maeR: x?.maeR ?? null,
     signalId: p.signalId, fees: p.fees, openedAt: p.openedAt.toISOString(),
     markPrice: mark?.markPrice ?? null, unrealizedPnl: mark?.unrealizedPnl ?? null,
     closedAt: p.closedAt?.toISOString() ?? null, closePrice: p.closePrice, realizedPnl: p.realizedPnl, closeReason: p.closeReason,

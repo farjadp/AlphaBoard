@@ -324,7 +324,7 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
           await announceExit(s, pos, "STOP_LOSS", fired, { cycle: cycleNo, telegram: deps.telegram, onExchange: true });
           continue;
         }
-        await prisma.sessionPosition.update({ where: { id: v.positionId }, data: { exitPlan: { ...(pos.exitPlan as object), invalidation: p.exitPlan.invalidation || (pos.exitPlan as { invalidation?: string }).invalidation } } });
+        await prisma.sessionPosition.update({ where: { id: v.positionId }, data: { lastCheckedAt: now, exitPlan: { ...(pos.exitPlan as object), invalidation: p.exitPlan.invalidation || (pos.exitPlan as { invalidation?: string }).invalidation } } });
         await post(sessionId, "EXECUTOR", "ORDER", `${p.symbol} stop moved ${pos.stopLoss == null ? "" : `${fmt(pos.stopLoss)} → `}${fmt(v.stopLoss)}.`, { positionId: v.positionId, stopLoss: v.stopLoss }, extra);
         executed++;
       }

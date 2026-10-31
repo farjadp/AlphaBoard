@@ -116,7 +116,12 @@ export const SessionControlInput = z.discriminatedUnion("action", [
   z.object({ action: z.literal("end"), mode: z.enum(["CLOSE_ALL", "KEEP_WITH_STOPS"]) }),
 ]);
 
-export const SessionPositionInput = z.object({ action: z.enum(["close", "close_half", "breakeven"]) });
+export const SessionPositionInput = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("close"), fraction: z.number().gt(0).lte(1).optional() }),
+  z.object({ action: z.literal("close_half") }),
+  z.object({ action: z.literal("breakeven") }),
+  z.object({ action: z.literal("set_exits"), stopLoss: z.number().finite().positive().optional(), takeProfit: z.number().finite().positive().nullable().optional() }),
+]);
 
 export const TradingLimitsInput = z.object({
   maxDailyLoss: z.number().finite().positive().max(10_000_000).nullable(),

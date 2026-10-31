@@ -82,3 +82,20 @@ describe("applyReport: final signals", () => {
   it("an UNKNOWN signal comes back to life on a fill", () =>
     expect(applyReport(sig({ status: "UNKNOWN", legs: [] }), { event: "FILLED", leg: 1, ticket: "1", volume: 0.01, price: 2650, tp: null }).status).toBe("OPEN"));
 });
+
+describe("applyReport: management (P14d)", () => {
+  const open = { status: "OPEN", side: "BUY" as const, stop: 2600, breakevenDone: false, legs: [{ leg: 1, status: "OPEN" as const, openPrice: 2650, volume: 0.1, r: null, tp: 2680 }] };
+  it("SL_MOVED replies with the level; TP_MOVED patches the leg and ignores a repeat", () => {
+    expect(applyReport(open, { event: "SL_MOVED", price: 2640 })).toMatchObject({ status: "OPEN", reply: "🔒 Stop moved to 2640" });
+    const t = applyReport(open, { event: "TP_MOVED", leg: 1, price: 2700 });
+    expect(t).toMatchObject({ legPatch: { leg: 1, tp: 2700 }, reply: "🎯 TP1 moved to 2700" });
+    expect(applyReport({ ...open, legs: [{ ...open.legs[0], tp: 2700 }] }, { event: "TP_MOVED", leg: 1, price: 2700 }).reply).toBeNull();
+    expect(applyReport(open, { event: "TP_MOVED", leg: 3, price: 2700 }).reply).toBeNull();
+  });
+  it("PARTIAL shrinks the leg, reports the R of the part that closed, and is idempotent", () => {
+    const t = applyReport(open, { event: "PARTIAL", leg: 1, price: 2675, volume: 0.05, left: 0.05 });
+    expect(t).toMatchObject({ status: "OPEN", legPatch: { leg: 1, volume: 0.05, realizedR: 0.5, realizedVolume: 0.05 }, reply: "✂️ Closed 0.05 of leg 1 at 2675 (+0.5R)" });
+    const after = { ...open, legs: [{ ...open.legs[0], volume: 0.05 }] };
+    expect(applyReport(after, { event: "PARTIAL", leg: 1, price: 2675, volume: 0.05, left: 0.05 }).reply).toBeNull();
+  });
+});
