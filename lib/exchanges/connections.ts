@@ -31,7 +31,7 @@ export interface ConnectionDto {
   createdAt: string;
 }
 
-export const connectionToDto = (c: ExchangeConnection): ConnectionDto => ({
+const connectionToDto = (c: ExchangeConnection): ConnectionDto => ({
   id: c.id, provider: c.provider === "oanda" ? "oanda" : "ccxt", accountId: c.accountId, exchange: c.exchange, label: c.label, marketType: c.marketType === "swap" ? "swap" : "spot", quote: c.quote, sandbox: c.sandbox,
   keyLast4: c.keyLast4, status: c.status, lastCheckedAt: c.lastCheckedAt?.toISOString() ?? null, lastError: c.lastError, createdAt: c.createdAt.toISOString(),
 });

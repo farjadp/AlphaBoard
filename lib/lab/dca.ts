@@ -12,7 +12,7 @@
 import { maxDrawdownPct, perYearPct } from "./metrics";
 
 /** A price column; Float32 halves the memory of a large basket (7 significant digits is plenty here). */
-export type Col = Float64Array | Float32Array;
+type Col = Float64Array | Float32Array;
 
 export interface Cube {
   /** Hour timestamps (ms), shared by every symbol. */

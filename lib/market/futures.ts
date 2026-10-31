@@ -9,7 +9,7 @@ import { logger } from "@/lib/http/logger";
 import { marketMemo } from "./cache";
 import { fetchJson } from "./http";
 
-export type FuturesSource = "binance" | "bybit" | "okx";
+type FuturesSource = "binance" | "bybit" | "okx";
 
 export interface FuturesSnapshot {
   source: FuturesSource;

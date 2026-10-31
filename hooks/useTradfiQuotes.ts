@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ASSET_CATALOG } from "@/lib/assetCatalog";
 
-export interface TradfiQuote {
+interface TradfiQuote {
   price: number;
   change: number;
   high: number;

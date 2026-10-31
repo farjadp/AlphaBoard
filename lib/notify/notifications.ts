@@ -11,7 +11,7 @@ export interface NewNotification {
   data?: Record<string, unknown>;
 }
 
-export interface NotificationDto { id: string; type: string; title: string; body: string; data: unknown; readAt: string | null; createdAt: string }
+interface NotificationDto { id: string; type: string; title: string; body: string; data: unknown; readAt: string | null; createdAt: string }
 
 /**
  * In-app notification, plus Telegram when the user linked a chat and the bot is configured.

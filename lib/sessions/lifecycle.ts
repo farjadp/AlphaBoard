@@ -1,7 +1,7 @@
 /** Session state machine (spec §4.3). Pure. */
 import type { SessionStatus } from "@/lib/types/sessions";
 
-export const ACTIVE_STATUSES = ["RUNNING", "PAUSED", "AWAITING_EXTENSION", "ENDING"] as const satisfies readonly SessionStatus[];
+const ACTIVE_STATUSES = ["RUNNING", "PAUSED", "AWAITING_EXTENSION", "ENDING"] as const satisfies readonly SessionStatus[];
 export const isActive = (s: SessionStatus) => (ACTIVE_STATUSES as readonly SessionStatus[]).includes(s);
 
 const EDGES: Record<SessionStatus, SessionStatus[]> = {

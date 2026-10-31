@@ -9,7 +9,7 @@ export type SignalBarsOf = (symbol: string, tf: TimeframeKey) => Promise<EvalBar
 
 const MAX_PER_RUN = 1_000;
 
-export const liveSignalBars: SignalBarsOf = async (symbol, tf) => {
+const liveSignalBars: SignalBarsOf = async (symbol, tf) => {
   const asset = findAsset(symbol);
   if (!asset) return null;
   return (await getCandles(asset, tf)).flatMap((c) => (c.time == null ? [] : [{ ...c, time: c.time }]));

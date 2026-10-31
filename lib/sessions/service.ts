@@ -19,9 +19,9 @@ import { dailyUsage } from "./limits";
 import { MandateError, parseMandate, type Mandate } from "./mandate";
 import { announceExit, exitPosition, flatten, sessionPriceOf, venueFor, type ExitDeps } from "./exits";
 import { post } from "./room";
-import { buildView, mandateOf, summaryToDto } from "./view";
+import { buildView, summaryToDto } from "./view";
 
-export const MAX_ACTIVE_SESSIONS = 3;
+const MAX_ACTIVE_SESSIONS = 3;
 const MAX_EXTENSION_MIN = 24 * 60;
 
 export interface ServiceDeps extends ExitDeps { now?: Date }
@@ -252,4 +252,3 @@ export async function moveStopToBreakeven(userId: string, positionId: string, de
   return be;
 }
 
-export { mandateOf };

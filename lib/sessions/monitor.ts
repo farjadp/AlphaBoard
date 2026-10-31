@@ -42,9 +42,9 @@ export interface MonitorResult {
 }
 
 /** How far past an exchange-held stop the software fallback waits before closing at market itself. */
-export const NATIVE_STOP_SLACK = 0.003;
+const NATIVE_STOP_SLACK = 0.003;
 /** Weekday-only positions are closed (CLOSE_ALL) this long before the Friday close; all-FX sessions end then too. */
-export const FLATTEN_BEFORE_CLOSE_MIN = 20;
+const FLATTEN_BEFORE_CLOSE_MIN = 20;
 
 /** Which exit, if any, the live price triggers. Liquidation first, then the stop, then the target. */
 export function exitFor(p: Pick<SessionPosition, "side" | "leverage" | "entryPrice" | "stopLoss" | "takeProfit">, price: number): SessionCloseReason | null {

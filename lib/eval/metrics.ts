@@ -62,7 +62,7 @@ export function summarize(rows: EvaluatedRow[]): Summary {
 /** "gpt-5.4-mini-2026-03-17" → "gpt-5.4-mini": providers report dated snapshots of the same model. */
 export const modelFamily = (model: string) => model.replace(/-\d{4}-\d{2}-\d{2}$/, "").replace(/-\d{8}$/, "");
 
-export const CONFIDENCE_BUCKETS = ["<50", "50–59", "60–69", "70–79", "80+"] as const;
+const CONFIDENCE_BUCKETS = ["<50", "50–59", "60–69", "70–79", "80+"] as const;
 export type ConfidenceBucket = (typeof CONFIDENCE_BUCKETS)[number];
 
 export function confidenceBucket(c: number): ConfidenceBucket {

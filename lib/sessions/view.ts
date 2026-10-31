@@ -34,7 +34,7 @@ export function sessionMoney(s: Pick<TradingSession, "capital" | "realizedPnl" |
   return { realizedNet, unrealized, equity: net == null ? null : s.capital + net, lossUsed: net == null ? null : Math.max(0, -net) };
 }
 
-export function positionToDto(p: SessionPosition, mark: number | null = null, unrealized: number | null = null): SessionPositionDto {
+function positionToDto(p: SessionPosition, mark: number | null = null, unrealized: number | null = null): SessionPositionDto {
   const plan = planOf(p);
   return {
     id: p.id, symbol: p.symbol, side: p.side, qty: p.qty, entryPrice: p.entryPrice, leverage: p.leverage, margin: p.margin,

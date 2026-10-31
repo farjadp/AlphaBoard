@@ -6,7 +6,7 @@ import { logger } from "@/lib/http/logger";
 import type { Mandate } from "@/lib/sessions/mandate";
 import type { Keyboard, Telegram } from "./telegram";
 
-export const ACTION_TTL_MS = 24 * 60 * 60_000;
+const ACTION_TTL_MS = 24 * 60 * 60_000;
 
 /** Opaque, single-use token behind an inline button (callback_data = "a:<token>"). */
 export async function actionButton(text: string, o: { userId: string; sessionId?: string | null; action: string; positionId?: string | null }, now = new Date()) {

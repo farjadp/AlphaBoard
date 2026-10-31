@@ -51,7 +51,7 @@ export async function haltSession(session: Pick<TradingSession, "id" | "userId" 
 
 /** Deterministic client order id: same intent → same id → the venue refuses to fill twice. */
 export const orderId = (sessionId: string, tag: string) => `ab-${sessionId.slice(-10)}-${tag}`.slice(0, 36);
-export const uniqueTag = (prefix: string) => `${prefix}${randomBytes(4).toString("hex")}`;
+const uniqueTag = (prefix: string) => `${prefix}${randomBytes(4).toString("hex")}`;
 
 const REASON_TEXT: Record<SessionCloseReason, string> = {
   MANUAL: "closed by you", STRATEGIST: "closed by the strategist", STOP_LOSS: "stop-loss hit", TAKE_PROFIT: "take-profit hit",
@@ -62,7 +62,7 @@ const REASON_TEXT: Record<SessionCloseReason, string> = {
 export interface ExitDeps { priceOf?: PriceOf; telegram?: Telegram | null; venue?: Venue; now?: Date }
 
 /** After the broker refuses a close (market halted, …), wait this long before sending a new one. */
-export const CLOSE_RETRY_MS = 5 * 60_000;
+const CLOSE_RETRY_MS = 5 * 60_000;
 
 /**
  * Tag for a full close. A refused attempt (CANCELED / REJECTED) is final for its client order id, and the

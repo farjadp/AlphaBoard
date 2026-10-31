@@ -10,8 +10,8 @@ import {
   type ExitReason, type PaperSide,
 } from "./engine";
 
-export const DEFAULT_STARTING_BALANCE = 10_000;
-export const MAX_OPEN_POSITIONS = 50;
+const DEFAULT_STARTING_BALANCE = 10_000;
+const MAX_OPEN_POSITIONS = 50;
 
 /** Live price for a catalog symbol, or null when every provider fails. Injected in tests. */
 export type PriceOf = (symbol: string) => Promise<number | null>;

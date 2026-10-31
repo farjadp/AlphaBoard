@@ -6,7 +6,7 @@ import { decodeSeries, encodeSeries } from "./encode";
 
 /** Strategy Lab datasets — the only Prisma access for stored bar series; every query is owner-scoped. */
 export const MAX_DATASETS = 10;
-export const MAX_DATASET_BYTES = 40 * 1024 * 1024;
+const MAX_DATASET_BYTES = 40 * 1024 * 1024;
 
 export type DatasetSource = "binance" | "oanda" | "mt5csv";
 export type DatasetTimeframe = "1m" | "15m" | "1h";

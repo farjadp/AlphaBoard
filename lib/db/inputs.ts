@@ -2,11 +2,11 @@
 import { z } from "zod";
 
 /** JSON has no undefined; clients send null for "not set". Treat both as absent. */
-export const opt = <S extends z.ZodType>(schema: S) => z.preprocess((v) => (v === null || v === "" ? undefined : v), schema.optional());
+const opt = <S extends z.ZodType>(schema: S) => z.preprocess((v) => (v === null || v === "" ? undefined : v), schema.optional());
 
-export const TRADE_EMOTIONS = ["Confident", "FOMO", "Panic", "Neutral", "Greed", "Revenge"] as const;
+const TRADE_EMOTIONS = ["Confident", "FOMO", "Panic", "Neutral", "Greed", "Revenge"] as const;
 
-export const PostMortemInput = z.object({
+const PostMortemInput = z.object({
   outcome: z.enum(["WIN", "LOSS", "BREAKEVEN", "OPEN"]),
   rootCause: z.string().max(2000),
   mistakes: z.array(z.string().max(400)).max(8),

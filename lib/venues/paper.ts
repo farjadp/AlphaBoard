@@ -6,7 +6,7 @@ import type { MarketRules } from "@/lib/risk/verdict";
 import { VenueError, type CloseIntent, type OpenIntent, type Venue } from "./types";
 
 /** Paper fills never have exchange minimums beyond this dust guard. */
-export const PAPER_RULES = { minQty: 1e-8, qtyStep: 1e-8, minCost: 1 } as const;
+const PAPER_RULES = { minQty: 1e-8, qtyStep: 1e-8, minCost: 1 } as const;
 
 const entryAction = (side: "LONG" | "SHORT") => (side === "LONG" ? "BUY" : "SELL");
 const exitAction = (side: "LONG" | "SHORT") => (side === "LONG" ? "SELL" : "BUY");

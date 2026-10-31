@@ -35,7 +35,7 @@ export interface TgUpdate {
   callback?: { id: string; data: string; messageId: number | null };
 }
 
-export interface SendOptions { replyTo?: number }
+interface SendOptions { replyTo?: number }
 
 export interface Telegram {
   username(): Promise<string>;

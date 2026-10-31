@@ -18,7 +18,7 @@ export const signalInput = z.object({
 });
 export type SignalInput = z.infer<typeof signalInput>;
 
-export const ENTRY_REQUIRED = "entry is required when the signal is not executed";
+const ENTRY_REQUIRED = "entry is required when the signal is not executed";
 
 /**
  * Rule violations as user-facing strings; [] when the signal is valid. Prices are checked against `entry` when given.

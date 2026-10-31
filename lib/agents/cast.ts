@@ -65,7 +65,6 @@ export const SEAT_CAST: CastMember[] = [
   },
 ];
 
-const BY_ROLE = new Map(SEAT_CAST.map((c) => [c.role, c]));
 
 /** Every role that can speak in the room, including the two that own no seat. */
 interface RoomName { name: string; title: string; badge: string; tone: string; kind: "ai" | "engine" | "desk" }
@@ -78,4 +77,3 @@ export const CAST: Record<SessionRole, RoomName> = {
   USER: { name: "The Owner", title: "you", badge: "OW", tone: "bg-ink text-paper", kind: "desk" },
 };
 
-export const castFor = (role: SeatRole) => BY_ROLE.get(role)!;

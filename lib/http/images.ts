@@ -2,7 +2,7 @@ import { badRequest, HttpError } from "./errors";
 
 const DATA_URL = /^data:(image\/(?:png|jpeg|webp|gif));base64,([A-Za-z0-9+/]+={0,2})$/;
 
-export const MAX_IMAGE_BYTES = 1_500_000; // matches the client-side compression cap
+const MAX_IMAGE_BYTES = 1_500_000; // matches the client-side compression cap
 
 /**
  * Accept only inline raster images. Remote URLs are rejected: the model provider would fetch

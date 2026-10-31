@@ -15,7 +15,7 @@ import { telegramFromEnv } from "@/lib/notify/telegram";
  * WORKER_MODE=separate: the web process starts nothing; run `npm run worker`.
  */
 export const LEASE_KEY = "worker.lease";
-export const HEARTBEAT_KEY = "worker.last";
+const HEARTBEAT_KEY = "worker.last";
 const LEASE_MS = 45_000;
 const MONITOR_MS = 15_000;
 const TICK_MS = 60_000;

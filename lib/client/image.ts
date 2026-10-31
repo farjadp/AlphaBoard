@@ -1,13 +1,8 @@
 "use client";
 
 /** Must stay ≤ the server cap in lib/http/images.ts (MAX_IMAGE_BYTES). */
-export const MAX_UPLOAD_BYTES = 1_500_000;
+const MAX_UPLOAD_BYTES = 1_500_000;
 
-export function dataUrlBytes(dataUrl: string): number {
-  const b64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
-  const padding = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
-  return Math.floor((b64.length * 3) / 4) - padding;
-}
 
 function blobToDataUrl(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {

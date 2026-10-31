@@ -26,7 +26,7 @@ const strList = (maxItems: number, maxLen: number) =>
 const json = z.unknown().optional();
 
 /** An image either still embedded (client side) or already uploaded (server side). */
-export type LegacyImage = { dataUrl?: string; attachmentId?: string };
+type LegacyImage = { dataUrl?: string; attachmentId?: string };
 const toImage = (v: unknown, attachmentId: unknown): LegacyImage | undefined => {
   if (typeof attachmentId === "string" && attachmentId) return { attachmentId };
   if (typeof v === "string" && DATA_URL.test(v)) return { dataUrl: v };

@@ -12,8 +12,8 @@ import { rankedNews } from "@/lib/news/read";
 import { PROVIDERS } from "@/lib/news/sources";
 import { sentimentLabel, type SentimentLabel, type SentimentSource } from "@/lib/news/text";
 
-export type Sentiment = SentimentLabel;
-export interface NewsItem {
+type Sentiment = SentimentLabel;
+interface NewsItem {
   id: string;
   publishedAt: string | null;
   source: string;

@@ -25,7 +25,7 @@ export type AnalystNotes = z.output<typeof AnalystNotesSchema>;
 export const DebateSchema = z.object({ bull: clip(1200), bear: clip(1200) });
 export type Debate = z.output<typeof DebateSchema>;
 
-export const StrategistDecisionSchema = z.object({
+const StrategistDecisionSchema = z.object({
   action: z.preprocess(upper, z.enum(["OPEN_LONG", "OPEN_SHORT", "CLOSE", "TIGHTEN_STOP", "HOLD"])),
   symbol: z.string().trim().max(30),
   positionId: z.string().trim().max(64).nullable(),
@@ -40,8 +40,6 @@ export const StrategistPlanSchema = z.object({
   decisions: z.array(StrategistDecisionSchema).max(10),
   commentary: clip(1200),
 });
-export type StrategistPlan = z.output<typeof StrategistPlanSchema>;
-export type StrategistDecision = z.output<typeof StrategistDecisionSchema>;
 
 export const TradeLessonSchema = z.object({
   outcome: z.preprocess(upper, z.enum(["WIN", "LOSS", "BREAKEVEN"])),
@@ -51,13 +49,11 @@ export const TradeLessonSchema = z.object({
   lesson: clip(800),
   tags: z.array(clip(40)).max(10),
 });
-export type TradeLessonOut = z.output<typeof TradeLessonSchema>;
 
 export const SessionSummarySchema = z.object({
   summary: clip(2400),
   lessons: z.array(clip(400)).max(8).transform((a) => a.slice(0, 5)),
 });
-export type SessionSummary = z.output<typeof SessionSummarySchema>;
 
 // ─── Closed JSON Schemas ──────────────────────────────────────────────────────
 

@@ -14,7 +14,6 @@ export const logger = pino({
     : { transport: { target: "pino-pretty", options: { colorize: true, translateTime: "HH:MM:ss", ignore: "pid,hostname,service" } } }),
 });
 
-export type Logger = typeof logger;
 
 /** Per-request child logger. Reuses an inbound x-request-id when present. */
 export function requestLogger(req: Request) {

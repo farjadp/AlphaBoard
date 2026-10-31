@@ -2,9 +2,9 @@
 
 import { useCallback } from "react";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
-import type { Annotation, AnnotationCategory, AnnotationType, ChartLesson, Timeframe, TimeframeChart } from "@/lib/types/userData";
+import type { Annotation, ChartLesson, Timeframe } from "@/lib/types/userData";
 
-export type { Annotation, AnnotationCategory, AnnotationType, ChartLesson, Timeframe, TimeframeChart };
+export type { Annotation, ChartLesson, Timeframe };
 
 const EMPTY: ChartLesson[] = [];
 const academyResource = createResource<ChartLesson[]>("/api/chart-lessons", { fallback: EMPTY, select: (j) => (j as { lessons: ChartLesson[] }).lessons });
