@@ -1,3 +1,5 @@
+import type { z } from "zod";
+import type { PostMortemSchema } from "@/lib/ai/schemas";
 /**
  * Client-facing shapes for user data. Shared by the API (lib/db mappers) and the React hooks,
  * so the wire format has exactly one definition.
@@ -9,15 +11,8 @@ export type { TradePosition };
 // ─── Journal ─────────────────────────────────────────────────────────────────
 export type TradeEmotion = "Confident" | "FOMO" | "Panic" | "Neutral" | "Greed" | "Revenge";
 
-export interface PostMortemAnalysis {
-  outcome: "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
-  rootCause: string;
-  mistakes: string[];
-  strengths: string[];
-  lesson: string;
-  tags: string[];
-  generatedAt: string;
-}
+/** What the post-mortem model returns (lib/ai/schemas PostMortemSchema) plus when it was generated. */
+export type PostMortemAnalysis = z.output<typeof PostMortemSchema> & { generatedAt: string };
 
 export interface JournalEntry {
   id: string;

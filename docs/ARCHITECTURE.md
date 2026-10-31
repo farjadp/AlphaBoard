@@ -11,9 +11,9 @@ Next.js 16 (App Router, TypeScript, Tailwind 4) on Vercel serves the UI and `app
 ```
 browser ─► proxy.ts (nonce CSP, public paths, disclaimer gate)
         ─► app/<page>/page.tsx  ("use client" screens; data via lib/client/resource.ts)
-        ─► app/api/**/route.ts  wrapped by route() | userRoute() | userIdRoute()  (lib/http/route.ts, userRoute.ts)
+        ─► app/api/**/route.ts  wrapped by route() | userRoute() | userIdRoute() | adminRoute() | deviceRoute()  (lib/http/route.ts, userRoute.ts)
               ├─ requireUser() / requireAdmin()   (lib/auth/dal.ts)
-              ├─ enforceRateLimit()               (lib/http/rateLimit.ts, in-memory per instance)
+              ├─ await enforceRateLimit()         (lib/http/rateLimit.ts: RateLimitBucket in Postgres, per-instance fallback)
               ├─ readJson(req, maxBytes) + zod    (lib/http/*, lib/db/inputs.ts)
               └─ feature service → prisma         errors: HttpError → { error, code, requestId }
 ```
@@ -49,7 +49,7 @@ Kill switches: `TICK_DISABLED`, `NEWS_DISABLED`, `LAB_DISABLED`, `TRADING_HALT`,
 | Strategy Lab | `lab/`, `mt5/{deals,import}.ts` ➜ `lab/data/mt5` | bars, ladders, robustness, DCA, edge-vs-random |
 | News hub | `news/` | sources, weights agent, shadow index |
 | Alerts & notify | `alerts/` + `db/alerts.ts` ➜ `alerts/`, `notify/` | price alerts; Notification model; Telegram senders |
-| Platform | `http/`, `db/`, `prisma.ts` ➜ `db/client.ts`, `config/`, `ops/`, `worker/`, `jobs/` ➜ `worker/`, `client/`, `types/` ➜ per feature | route wrappers, logger, rate limit, health, overview |
+| Platform | `http/`, `env.ts`, `format/`, `trading/`, `db/`, `prisma.ts` ➜ `db/client.ts`, `config/`, `ops/`, `worker/`, `jobs/` ➜ `worker/`, `client/`, `types/` ➜ per feature | route wrappers, validated env, formatting, trade math, logger, rate limit, health, overview |
 
 `components/` mirrors the features (`paper/`, `sessions/`, `market/`, `admin/{lab,news,signals,system}`, `settings/`, `shell/`); P13c moves the four loose files at its root into those folders and renders `NavBar` once from a route-group layout. P13d splits the oversized client pages (journal, academy, LabWorkbench, SessionRoom, setup, alerts).
 

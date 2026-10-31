@@ -52,12 +52,13 @@ describe.skipIf(!run)("exchange sessions (Postgres, fake exchange)", () => {
   });
 
   it("gating: env flag, admin only, healthy connection, real money needs LIVE, enough balance", async () => {
+    const weekday = new Date("2026-10-28T12:00:00Z"); // a Wednesday: FX and metals are open, so the test does not depend on the day it runs
     delete process.env.LIVE_TRADING_ENABLED;
     await expect(startSession(admin, { mandate: mandate() })).rejects.toMatchObject({ status: 403 });
     process.env.LIVE_TRADING_ENABLED = "1";
     await expect(startSession(user, { mandate: mandate() })).rejects.toMatchObject({ status: 403 });
     await expect(startSession(admin, { mandate: { ...mandate(), capital: 5_000 } })).rejects.toMatchObject({ code: "INSUFFICIENT_BALANCE" });
-    await expect(startSession(admin, { mandate: { ...mandate(), symbols: ["XAU/USD"] } })).rejects.toMatchObject({ code: "BAD_SYMBOL" });
+    await expect(startSession(admin, { mandate: { ...mandate(), symbols: ["XAU/USD"] } }, { now: weekday })).rejects.toMatchObject({ code: "BAD_SYMBOL" });
     await prisma.exchangeConnection.update({ where: { id: connId }, data: { sandbox: false } });
     await expect(startSession(admin, { mandate: mandate() })).rejects.toMatchObject({ code: "CONFIRM_LIVE" });
     const live = await startSession(admin, { mandate: mandate(), confirmLive: "LIVE" });

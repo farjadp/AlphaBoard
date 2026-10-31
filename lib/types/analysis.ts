@@ -1,31 +1,9 @@
-/** Strategy report as returned by POST /api/analyze. */
-export interface AnalysisResult {
+import type { Analysis } from "@/lib/ai/schemas";
+
+/** Strategy report as returned by POST /api/analyze: the validated model output plus what the server added. */
+export type AnalysisResult = Analysis & {
   /** Id of the archived signal the server saved for this report. */
   id?: string;
-  signal: "BUY" | "SELL" | "HOLD";
-  confidence: number;
-  timeframe: string;
-  entry: number;
-  stopLoss: number;
-  takeProfit: number;
-  tradeStyle?: string;
-  risk_management?: {
-    leverage: string;
-    leverageReasoning: string;
-    positionSize: string;
-    sizeReasoning: string;
-    riskRewardRatio: string;
-    distanceToTarget: string;
-  };
-  supportResistance?: { support: number[]; resistance: number[] };
-  safeEntries?: Array<{ price: number; reasoning: string }>;
-  reasoning: string;
-  indicators_breakdown?: Array<{
-    name: string;
-    value: string;
-    signal: "Bullish" | "Bearish" | "Neutral";
-    explanation: string;
-  }>;
   /** What the server actually used — recorded with the archived signal. */
   context?: {
     symbol: string;
@@ -37,7 +15,7 @@ export interface AnalysisResult {
     generatedAt: string;
     ai?: { provider: string; model: string; inputTokens: number; outputTokens: number; costUsd: number };
   };
-}
+};
 
 export const AI_ERROR_HINTS: Record<string, string> = {
   AI_NOT_CONFIGURED: "AI analysis is not configured on the server (missing API key).",

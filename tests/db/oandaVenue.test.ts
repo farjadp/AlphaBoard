@@ -171,7 +171,8 @@ describe.skipIf(!run)("OANDA venue (Postgres, fake v20 server)", () => {
     process.env.LIVE_TRADING_ENABLED = "1";
     await expect(startSession(userId, { mandate: { venue: "exchange", connectionId: conn.id, symbols: ["BTC/USDT"], capital: 100, marketType: "swap", maxLeverage: 5 } }))
       .rejects.toMatchObject({ code: "BAD_SYMBOL" });
-    const s = await startSession(userId, { mandate: { venue: "exchange", connectionId: conn.id, symbols: ["XAU/USD", "EUR/USD"], capital: 500, marketType: "swap", maxLeverage: 20 } });
+    const weekday = new Date("2026-10-28T12:00:00Z"); // a Wednesday: FX and metals are open, so the test does not depend on the day it runs
+    const s = await startSession(userId, { mandate: { venue: "exchange", connectionId: conn.id, symbols: ["XAU/USD", "EUR/USD"], capital: 500, marketType: "swap", maxLeverage: 20 } }, { now: weekday });
     expect(s).toMatchObject({ venue: "exchange", live: false });
     delete process.env.LIVE_TRADING_ENABLED;
   });
