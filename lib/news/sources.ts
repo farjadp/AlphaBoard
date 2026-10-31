@@ -2,6 +2,7 @@
  * News providers → RawArticle. Parsing is separate from fetching so the shapes are unit-tested.
  * Keys travel in headers where the provider allows it; errors only ever name the host (lib/market/http).
  */
+import { env, secretByName } from "@/lib/env";
 import type { Asset } from "@/lib/assetCatalog";
 import { findAsset } from "@/lib/assetCatalog";
 import { fetchJson } from "@/lib/market/http";
@@ -156,7 +157,7 @@ export function parseNewsApi(j: unknown, queried: string | null): RawArticle[] {
 const CRYPTOPANIC_PLANS = ["developer", "growth", "enterprise"] as const;
 
 /** v2 puts the plan in the path: /api/<plan>/v2/posts/. */
-export function cryptoPanicUrl(code: string, key: string, plan = process.env.CRYPTOPANIC_PLAN): string {
+export function cryptoPanicUrl(code: string, key: string, plan = env().CRYPTOPANIC_PLAN): string {
   const p = (plan ?? "").trim().toLowerCase() || "developer";
   if (!(CRYPTOPANIC_PLANS as readonly string[]).includes(p)) throw new Error(`CRYPTOPANIC_PLAN must be one of ${CRYPTOPANIC_PLANS.join(", ")}`);
   const q = new URLSearchParams({ auth_token: key, currencies: code, public: "true", kind: "news" });
@@ -181,7 +182,7 @@ export function parseCryptoPanic(j: unknown): RawArticle[] {
 
 // ─── Registry ────────────────────────────────────────────────────────────────
 
-const key = (name: string) => process.env[name]?.trim() || "";
+const key = (name: string) => secretByName(name) ?? "";
 
 export const PROVIDERS: ProviderSpec[] = [
   {

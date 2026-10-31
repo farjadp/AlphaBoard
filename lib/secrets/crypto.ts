@@ -3,6 +3,7 @@
  * EXCHANGE_KEY_SECRET (base64). Format: `v1:<iv>:<tag>:<ciphertext>` (base64 parts). Tampering or a wrong
  * key fails the auth tag check. Without a valid master key every exchange feature is off (fail closed).
  */
+import { env as readEnv } from "@/lib/env";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 const KEY_VERSION = 1;
@@ -14,7 +15,7 @@ class SecretsError extends Error {
   }
 }
 
-export function masterKey(env: string | undefined = process.env.EXCHANGE_KEY_SECRET): Buffer | null {
+export function masterKey(env: string | undefined = readEnv().EXCHANGE_KEY_SECRET): Buffer | null {
   if (!env?.trim()) return null;
   const key = Buffer.from(env.trim(), "base64");
   return key.length === 32 ? key : null;

@@ -48,7 +48,7 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 ## Conventions that matter
 
 - Next.js 16: read `node_modules/next/dist/docs/` before using an API (`proxy.ts` replaces middleware; nonce CSP requires request-time rendering — root layout is `force-dynamic`).
-- Every route handler: `route()` / `userRoute()` wrapper → `requireUser()` → `enforceRateLimit()`; bodies via `readJson(req, maxBytes)`; errors as `HttpError` → `{ error, code, requestId }`.
+- Every route handler: `route()` / `userRoute()` / `adminRoute()` / `deviceRoute()` wrapper (auth + `await enforceRateLimit()` inside); bodies via `readJson(req, maxBytes)`; errors as `HttpError` → `{ error, code, requestId }`. Environment only via `lib/env.ts`; numbers via `lib/format`; trade arithmetic via `lib/trading/math`.
 - DB access only via `lib/db/*` (server-only, `userId` on every query). DTO shapes live in `lib/types/userData.ts`.
 - Client data via `lib/client/resource.ts` (`useSyncExternalStore`), never `setState` in effects (ESLint enforces it).
 - AI calls only via `aiJson()` in `lib/ai/index.ts` (model resolution, quota, usage logging, zod validation). Give it `jsonSchema` from `lib/ai/jsonSchemas.ts`.
@@ -63,7 +63,7 @@ It aborts when Prisma wants a confirmation (e.g. adding a unique index). Workaro
 - **Worker:** Fly.io app `alphaboard-worker`, one machine in `iad`, `fly.toml` runs `node worker.mjs` from the repo `Dockerfile` (the entrypoint also runs `migrate deploy` + seed; P13e removes that so only Vercel migrates). Deploy from the repo root: `flyctl deploy -a alphaboard-worker --ha=false --remote-only`. Its `DATABASE_URL` is the **unpooled** URL. Loops: tick 60 s, session monitor 15 s, reconciler 30 s, news, Lab jobs, Telegram long-poll.
 - **Secrets:** Farjad sets them (`vercel env`, `flyctl secrets`); Claude never sees values. Check a Fly secret without printing it: `fly ssh console -a alphaboard-worker -C "node -e ..."` printing a character-class pattern. Never run `vercel deploy` / `vercel link` in `~/Developer/alphaboard` (it once overwrote `.env.local` with production credentials).
 - **Telegram bots:** `TELEGRAM_BOT_TOKEN` = @AlphaBoardDeskBot (alerts, session room, long-polled by the worker). `SIGNAL_BOT_TOKEN` = @gheymattoday_bot (send-only channel posts; another service long-polls it, so never give it to the worker or you get `getUpdates: Conflict`).
-- **Known limits:** Vercel's 4.5 MB request cap breaks Lab M1 CSV uploads above it (needs Vercel Blob). The in-memory rate limiter is per instance (P13b moves it to the DB).
+- **Known limits:** Vercel's 4.5 MB request cap breaks Lab M1 CSV uploads above it (needs Vercel Blob). Rate limits live in `RateLimitBucket` since P13b.
 - **Release checklist:** CI green on the PR → Farjad merges → Vercel builds (watch `/api/health` `version`) → if worker code changed, `flyctl deploy` → check Admin → System shows the tick running. Before any infra/migration change, run the production image test from `docs/ARCHITECTURE.md` § Verification.
 
 ## Decisions taken (2026-09-28)

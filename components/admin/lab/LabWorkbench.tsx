@@ -1,4 +1,5 @@
 "use client";
+import { signedPct } from "@/lib/format";
 
 import { useEffect, useState } from "react";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
@@ -20,7 +21,7 @@ const label = "mb-1 block text-xs font-semibold text-ink-2";
 const hint = "mt-1 text-xs text-ink-3";
 const btn = "rounded-lg bg-ink px-4 py-2 text-sm font-bold text-paper hover:bg-ink-hover disabled:opacity-50";
 const day = (iso: string) => iso.slice(0, 10);
-const pct = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(d)}%`;
+const pct = (x: number, d = 1) => signedPct(x, d);
 
 export interface LabProps {
   binanceSymbols: string[];

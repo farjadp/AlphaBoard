@@ -1,4 +1,5 @@
 /** Strategy Lab — a DCA-ladder study on a coin basket, with a plain verdict (pure). */
+import { signedPct } from "@/lib/format";
 import { z } from "zod";
 import { runDca, type Cube, type DcaRun } from "./dca";
 
@@ -24,7 +25,7 @@ export const DcaStudySchema = z.object({
 export type DcaStudySpec = z.output<typeof DcaStudySchema>;
 export type DcaStudyResult = DcaRun & { start: string; end: string; symbols: number; slots: number; verdict: string[] };
 
-const pct = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(d)}%`;
+const pct = (x: number, d = 1) => signedPct(x, d);
 
 export function runDcaStudy(cube: Cube, spec: DcaStudySpec): DcaStudyResult {
   const startMs = Date.parse(`${spec.start}T00:00:00Z`);

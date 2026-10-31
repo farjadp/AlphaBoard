@@ -6,6 +6,7 @@
 import { findAsset } from "@/lib/assetCatalog";
 import { minutesToWeeklyClose, tradesWeekdaysOnly } from "@/lib/market/hours";
 import { liquidationPrice } from "@/lib/paper/engine";
+import { favourMove, riskPerUnit, tightens } from "@/lib/trading/math";
 import type { Mandate } from "@/lib/sessions/mandate";
 import { floorToStep, fmt, money } from "./limits";
 
@@ -150,12 +151,12 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
     if (next == null) return reject("tighten needs a new stop level");
     const long = pos.side === "LONG";
     if (long ? next >= price : next <= price) return reject(`new stop ${fmt(next)} must stay ${long ? "below" : "above"} the price ${fmt(price)}`);
-    if (pos.stopLoss != null && (long ? next <= pos.stopLoss : next >= pos.stopLoss))
+    if (pos.stopLoss != null && !tightens(pos.side, pos.stopLoss, next))
       return reject(`stops only move toward the price (current ${fmt(pos.stopLoss)}, proposed ${fmt(next)})`);
     const initial = pos.initialStop ?? pos.stopLoss;
     if (initial != null) {
-      const r1 = Math.abs(pos.entryPrice - initial);
-      const progress = long ? price - pos.entryPrice : pos.entryPrice - price;
+      const r1 = riskPerUnit(pos.entryPrice, initial);
+      const progress = favourMove(pos.side, pos.entryPrice, price);
       if (r1 > 0 && progress < TIGHTEN_AFTER_R * r1 - price * EPS)
         return reject(`stops tighten only after the trade has moved ${TIGHTEN_AFTER_R}R in its favour (now ${(progress / r1).toFixed(2)}R) — an early tight stop gets taken by noise`);
     }

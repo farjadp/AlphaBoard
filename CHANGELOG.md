@@ -4,6 +4,15 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P13b · Shared foundations (no behaviour change, one new table)
+- `lib/trading/math.ts`: one definition of direction, R-multiple, gross P&L and stop/target side rules, used by paper trading, sessions, the signal evaluator, the Signal Desk and the Lab.
+- `lib/format/`: one number/money/date module replaces about twenty local helpers; a true minus sign and "Unavailable" for missing values everywhere.
+- `lib/market/symbols.ts` (broker suffixes, aliases, USD/USDT) and one Binance host failover (`binanceJson`).
+- `lib/env.ts`: every server environment read goes through one validated module; flags are on only when set to `1`.
+- Routes: `adminRoute()` and `deviceRoute()` wrappers (nine admin routes gained the rate limit they were missing), size-capped JSON on the Signal Desk routes, an `audit()` helper.
+- **Rate limits are shared through Postgres** (`RateLimitBucket`, migration `20261031120000`), so they hold across Vercel instances; the per-instance bucket remains as a 30-second fallback when the database is unreachable.
+- Two Postgres tests no longer fail on weekends (they pin a weekday clock).
+
 ### P12 · Signal Desk (admin)
 - **Admin → Signals:** write a trade once (symbol, long/short, entry or market, a mandatory stop, up to four targets, risk % of balance up to 1 %, an optional note). It is posted to your Telegram channel and executed in MetaTrader 5 by the new `SignalCopier` expert. The form checks every rule while you type and shows the exact channel post before you send it.
 - **Channel posts** go out through a separate bot (`SIGNAL_BOT_TOKEN`, `SIGNAL_CHANNEL_ID`; it only sends, never polls). Targets, stops and closes are posted as replies under the signal, with the result in R. Account money never appears. Execution never waits on Telegram: a failed post is shown on the signal.

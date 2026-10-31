@@ -1,3 +1,4 @@
+import { rMultiple } from "@/lib/trading/math";
 import { num } from "./num";
 import type { ReportEvent } from "./wire";
 
@@ -25,8 +26,7 @@ const round2 = (x: number) => Math.round(x * 100) / 100 || 0;
 export const fmtR = (r: number) => `${r > 0 ? "+" : r < 0 ? "−" : ""}${num(Math.abs(r))}R`;
 
 function rOf(s: SignalView, openPrice: number, closePrice: number) {
-  const risk = Math.abs(openPrice - s.stop);
-  return risk > 0 ? round2(((closePrice - openPrice) * (s.side === "BUY" ? 1 : -1)) / risk) : 0;
+  return round2(rMultiple({ side: s.side, entry: openPrice, stop: s.stop, price: closePrice }) ?? 0);
 }
 
 function legLine(e: { event: "TP" | "SL" | "CLOSED"; leg: number; price: number }, r: number) {

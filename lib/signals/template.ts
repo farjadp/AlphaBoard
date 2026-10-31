@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -24,4 +25,4 @@ export async function resetPostTemplate(): Promise<void> {
   await prisma.appSetting.deleteMany({ where: { key: TEMPLATE_KEY } });
 }
 
-export const channelUsername = () => process.env.SIGNAL_CHANNEL_USERNAME?.trim().replace(/^@/, "") || null;
+export const channelUsername = () => env().SIGNAL_CHANNEL_USERNAME ?? null;

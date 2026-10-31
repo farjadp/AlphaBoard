@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 /** Funding, open interest and long/short ratio. `futures: null` = no perpetual market / providers down. */
 export const GET = route(async (req) => {
   await requireUser();
-  enforceRateLimit(req, "api");
+  await enforceRateLimit(req, "api");
   const asset = requireAsset(new URL(req.url).searchParams.get("symbol"));
   return NextResponse.json({ futures: await getFutures(asset) });
 });

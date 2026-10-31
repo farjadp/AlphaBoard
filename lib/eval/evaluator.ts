@@ -14,6 +14,7 @@
  *   that bar's close. No fees — this measures the call, not an execution.
  * - R = (exit − entry) × direction / |entry − stop|.
  */
+import { rMultiple } from "@/lib/trading/math";
 import type { TimeframeKey } from "@/lib/market/timeframes";
 import { TIMEFRAME_KEYS } from "@/lib/market/timeframes";
 
@@ -71,8 +72,7 @@ export function evaluateSignal(s: EvalSignal, bars: EvalBar[], now: Date): Evalu
   const t0 = s.createdAt.getTime();
   if (sorted.length === 0 || sorted[0].time > t0) return invalid("Price history no longer covers this signal");
 
-  const risk = Math.abs(s.entry - s.stopLoss);
-  const R = (exit: number) => round(((exit - s.entry) * dir) / risk);
+  const R = (exit: number) => round(rMultiple({ side: dir === 1 ? "LONG" : "SHORT", entry: s.entry, stop: s.stopLoss, price: exit }) ?? 0);
   const horizon = HORIZON_BARS[tf];
   const after = sorted.filter((b) => b.time >= t0).slice(0, horizon);
 

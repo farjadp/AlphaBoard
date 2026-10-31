@@ -1,3 +1,4 @@
+import { isDevelopment } from "@/lib/env";
 /**
  * Content-Security-Policy with a per-request nonce (see proxy.ts).
  * Next.js reads the nonce from the request's CSP header and stamps it on its inline scripts.
@@ -8,7 +9,7 @@ const CONNECT_SRC = [
   "wss://data-stream.binance.vision",
 ];
 
-export function buildCsp(nonce: string, isDev = process.env.NODE_ENV === "development"): string {
+export function buildCsp(nonce: string, isDev = isDevelopment()): string {
   return [
     "default-src 'self'",
     "base-uri 'self'",

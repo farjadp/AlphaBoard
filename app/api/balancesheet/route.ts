@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export const GET = route(async (req) => {
   await requireUser();
-  enforceRateLimit(req, "api");
+  await enforceRateLimit(req, "api");
   const asset = requireAsset(new URL(req.url).searchParams.get("symbol"));
   return NextResponse.json({ balanceSheet: await getBalanceSheet(asset) });
 });

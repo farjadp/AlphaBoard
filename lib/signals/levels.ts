@@ -1,3 +1,4 @@
+import { matchCatalogSymbol } from "@/lib/market/symbols";
 import { ASSET_CATALOG } from "@/lib/assetCatalog";
 import type { Candle } from "@/lib/candlestickPatterns";
 import { computeAtr, roundForPrice } from "@/lib/market/indicators";
@@ -58,13 +59,5 @@ export function suggestLevels(bars: Candle[], side: "BUY" | "SELL", reference: n
 
 /** "XAUUSD.ec", "GOLD", "OP", "ETHUSD.ec" → the market-data catalog's symbol ("XAU/USD", "OP/USDT"), or null. */
 export function catalogSymbolFor(raw: string): string | null {
-  const s = raw.split(".")[0].replace(/[a-z]+$/, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const want = ({ GOLD: "XAUUSD", SILVER: "XAGUSD" } as Record<string, string>)[s] ?? s;
-  if (!want) return null;
-  const variants = [want, `${want}USDT`, want.replace(/USD$/, "USDT"), want.replace(/USDT$/, "USD")];
-  for (const v of variants) {
-    const hit = ASSET_CATALOG.find((a) => a.symbol.replace("/", "").toUpperCase() === v);
-    if (hit) return hit.symbol;
-  }
-  return null;
+  return matchCatalogSymbol(raw, ASSET_CATALOG);
 }
