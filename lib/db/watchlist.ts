@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { ASSET_CATALOG, DEFAULT_WATCHLIST } from "@/lib/assetCatalog";
 import { badRequest } from "@/lib/http/errors";
 
-export const WATCHLIST_MAX = 5;
+const WATCHLIST_MAX = 5;
 
 export async function getWatchlist(userId: string): Promise<string[]> {
   const rows = await prisma.watchlistItem.findMany({ where: { userId }, orderBy: { position: "asc" }, select: { symbol: true } });

@@ -5,7 +5,7 @@ import { badRequest } from "@/lib/http/errors";
 import { DEFAULT_POST_TEMPLATE, templateProblems } from "./format";
 
 /** The channel post template (Admin → Signals), one for the whole desk since there is one channel. */
-export const TEMPLATE_KEY = "signalDesk.postTemplate";
+const TEMPLATE_KEY = "signalDesk.postTemplate";
 
 export async function getPostTemplate(): Promise<{ template: string; isDefault: boolean }> {
   const row = await prisma.appSetting.findUnique({ where: { key: TEMPLATE_KEY } });

@@ -41,7 +41,7 @@ export interface JournalEntry {
 }
 
 // ─── Trade lessons (post-mortems) ────────────────────────────────────────────
-export type LessonOutcome = "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
+type LessonOutcome = "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
 
 export interface TradeLesson {
   id: string;
@@ -98,11 +98,11 @@ export interface ArchivedSignal {
 }
 
 // ─── Chart academy ───────────────────────────────────────────────────────────
-export type AnnotationType =
+type AnnotationType =
   | "hline" | "line" | "zone" | "arrow_up" | "arrow_down"
   | "marker" | "channel" | "fib" | "label";
 
-export type AnnotationCategory =
+type AnnotationCategory =
   | "support" | "resistance" | "ob_bull" | "ob_bear"
   | "fvg_bull" | "fvg_bear" | "entry" | "sl" | "tp"
   | "trendline" | "bos" | "choch" | "pattern"

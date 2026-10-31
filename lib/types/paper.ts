@@ -1,6 +1,6 @@
 /** Paper-trading DTOs shared by the API and the client. Nullable numbers mean "unavailable", never zero. */
 export type PaperSide = "LONG" | "SHORT";
-export type PaperCloseReason = "MANUAL" | "STOP_LOSS" | "TAKE_PROFIT" | "LIQUIDATION";
+type PaperCloseReason = "MANUAL" | "STOP_LOSS" | "TAKE_PROFIT" | "LIQUIDATION";
 
 export interface PaperPositionDto {
   id: string;
@@ -39,7 +39,7 @@ export interface PaperOrderDto {
   createdAt: string;
 }
 
-export interface PaperAccountDto {
+interface PaperAccountDto {
   startingBalance: number;
   cash: number;
   currency: string;

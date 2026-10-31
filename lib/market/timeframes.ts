@@ -6,8 +6,8 @@
 export const TIMEFRAME_KEYS = ["1M", "1W", "1D", "4H", "1H", "15M", "5M"] as const;
 export type TimeframeKey = (typeof TIMEFRAME_KEYS)[number];
 
-export type BinanceInterval = "1M" | "1w" | "1d" | "4h" | "1h" | "15m" | "5m";
-export type YahooInterval = "1mo" | "1wk" | "1d" | "60m" | "15m" | "5m";
+type BinanceInterval = "1M" | "1w" | "1d" | "4h" | "1h" | "15m" | "5m";
+type YahooInterval = "1mo" | "1wk" | "1d" | "60m" | "15m" | "5m";
 
 export interface TimeframeSpec {
   key: TimeframeKey;

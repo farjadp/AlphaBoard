@@ -7,16 +7,6 @@ export interface BinanceTicker {
   volume: number;   // quote volume in USDT
 }
 
-/** "BTC/USDT" → "BTCUSDT" */
-export function pairToSymbol(pair: string): string {
-  return pair.replace("/", "").toUpperCase();
-}
-
-/** "BTCUSDT" → "BTC/USDT" */
-export function symbolToPair(symbol: string): string {
-  if (symbol.endsWith("USDT")) return symbol.slice(0, -4) + "/USDT";
-  return symbol;
-}
 
 export function formatPrice(n: number): string {
   if (n >= 1000)

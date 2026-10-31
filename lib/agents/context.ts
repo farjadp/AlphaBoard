@@ -84,7 +84,7 @@ export function formatMandate(m: Mandate): string {
 /** How a headline's sentiment was obtained, in words the analyst can weigh. */
 const SENTIMENT_BY: Record<string, string> = { provider: "scored by the news provider", votes: "reader votes", keywords: "keyword guess" };
 
-export function formatSymbol(s: SymbolContext, opts: { technical: boolean; news: boolean }): string {
+function formatSymbol(s: SymbolContext, opts: { technical: boolean; news: boolean }): string {
   const out = [`### ${s.symbol}`, `Price: ${n(s.price)} · 24h change: ${s.changePct24h == null ? NA : `${s.changePct24h.toFixed(2)}%`}`];
   if (opts.technical) {
     out.push(...s.timeframes.map((t) => (t.available
@@ -106,7 +106,7 @@ export function formatSymbol(s: SymbolContext, opts: { technical: boolean; news:
   return out.join("\n");
 }
 
-export function formatPositions(ps: PositionContext[]): string {
+function formatPositions(ps: PositionContext[]): string {
   if (!ps.length) return "No open positions.";
   return ps.map((p) => [
     `- id ${p.id} · ${p.side} ${n(p.qty)} ${p.symbol} @ ${n(p.entryPrice)} · mark ${n(p.mark)} · unrealized ${usd(p.unrealizedPnl)} · open ${p.ageMin} min`,

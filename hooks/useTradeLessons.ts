@@ -2,9 +2,9 @@
 
 import { useCallback } from "react";
 import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
-import type { LessonOutcome, TradeLesson } from "@/lib/types/userData";
+import type { TradeLesson } from "@/lib/types/userData";
 
-export type { LessonOutcome, TradeLesson };
+export type { TradeLesson };
 
 const EMPTY: TradeLesson[] = [];
 const lessonsResource = createResource<TradeLesson[]>("/api/lessons", { fallback: EMPTY, select: (j) => (j as { lessons: TradeLesson[] }).lessons });

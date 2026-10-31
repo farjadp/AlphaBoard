@@ -29,11 +29,11 @@ const SILENT_MS = 120_000;
 const conflict = (msg: string) => new HttpError(409, msg, "CONFLICT");
 
 /** Live price for a symbol as written; `futures` when the only feed is a futures contract (offset from spot). */
-export type MarketPriceOf = (symbol: string) => Promise<{ price: number; futures: boolean } | null>;
+type MarketPriceOf = (symbol: string) => Promise<{ price: number; futures: boolean } | null>;
 
 interface Deps { channel?: Channel | null; now?: Date; priceOf?: MarketPriceOf }
 
-export const livePriceOf: MarketPriceOf = async (symbol) => {
+const livePriceOf: MarketPriceOf = async (symbol) => {
   const catalog = catalogSymbolFor(symbol);
   const asset = catalog ? findAsset(catalog) : undefined;
   const quote = asset ? await getQuote(asset).catch(() => null) : null;

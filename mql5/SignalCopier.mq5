@@ -29,7 +29,7 @@
 
 //--- inputs
 input group "=== Connection ==="
-input string InpBaseUrl     = "https://example.up.railway.app"; // AlphaBoard address (also allow it for WebRequest)
+input string InpBaseUrl     = "https://alphaboard.trade"; // AlphaBoard address (also allow it for WebRequest)
 input string InpToken       = "";      // Terminal token from Admin -> Signals
 input int    InpPollSec     = 3;       // Poll every N seconds
 

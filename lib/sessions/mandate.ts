@@ -5,12 +5,11 @@
 import { z } from "zod";
 import { findAsset } from "@/lib/assetCatalog";
 
-export const ModelRefSchema = z.object({ provider: z.string().min(1).max(40), model: z.string().min(1).max(120) }).strict();
-export type ModelRef = z.output<typeof ModelRefSchema>;
+const ModelRefSchema = z.object({ provider: z.string().min(1).max(40), model: z.string().min(1).max(120) }).strict();
 
 const modelRef = ModelRefSchema.nullable().default(null);
 
-export const MandateSchema = z
+const MandateSchema = z
   .object({
     venue: z.enum(["paper", "exchange"]).default("paper"),
     /** ExchangeConnection id when venue = exchange. */
@@ -45,7 +44,6 @@ export const MandateSchema = z
   })
   .strict();
 
-export type MandateInput = z.input<typeof MandateSchema>;
 export type Mandate = Omit<z.output<typeof MandateSchema>, "lossLimit"> & { lossLimit: number };
 
 export class MandateError extends Error {

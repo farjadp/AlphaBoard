@@ -1,4 +1,5 @@
 import "server-only";
+import { appVersion } from "@/lib/config/version";
 import { prisma } from "@/lib/prisma";
 import { adminUsageSummary } from "@/lib/ai/usageReport";
 import { configuredProviders } from "@/lib/ai/configured";
@@ -56,7 +57,7 @@ export async function systemOverview(now = new Date()) {
     status: overallStatus({ db, tick: tick.state, errorsLastHour }),
     errorsLastHour,
     runtime: {
-      version: process.env.APP_VERSION ?? process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) ?? "dev",
+      version: appVersion(),
       uptimeSec: Math.round((Date.now() - startedAt) / 1000),
       node: process.version,
       schedulerEnabled: process.env.TICK_DISABLED !== "1",

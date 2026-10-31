@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { DailyUsageDto } from "@/lib/types/sessions";
 
-export const startOfUtcDay = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+const startOfUtcDay = (now: Date) => new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
 /** Sessions started today (UTC) and today's net realized loss across them (spec E19). */
 export async function dailyUsage(userId: string, now = new Date()): Promise<DailyUsageDto> {

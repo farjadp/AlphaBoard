@@ -31,7 +31,7 @@ export interface EdgeResult {
   verdict: string[];
 }
 
-export const MIN_TRADES_FOR_VERDICT = 30;
+const MIN_TRADES_FOR_VERDICT = 30;
 
 /** First bar at or after t (binary search); length when none. */
 function at(b: Bars, t: number): number {

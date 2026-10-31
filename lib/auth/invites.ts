@@ -20,7 +20,7 @@ export function inviteState(
   return "valid";
 }
 
-export const INVITE_TTL_DAYS = 14;
+const INVITE_TTL_DAYS = 14;
 
 export function inviteExpiry(from: Date = new Date(), days = INVITE_TTL_DAYS): Date {
   return new Date(from.getTime() + days * 86_400_000);

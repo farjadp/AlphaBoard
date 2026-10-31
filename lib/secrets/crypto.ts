@@ -5,9 +5,9 @@
  */
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
-export const KEY_VERSION = 1;
+const KEY_VERSION = 1;
 
-export class SecretsError extends Error {
+class SecretsError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "SecretsError";

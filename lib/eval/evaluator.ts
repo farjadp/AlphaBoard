@@ -45,7 +45,7 @@ const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 
 /** Bars a signal has to play out: ≈ one day on 15M, three days on 1H, a week on 4H, a month on 1D. */
 export const HORIZON_BARS: Record<TimeframeKey, number> = { "5M": 144, "15M": 96, "1H": 72, "4H": 42, "1D": 30, "1W": 12, "1M": 6 };
-export const BAR_MS: Record<TimeframeKey, number> = { "5M": 5 * MIN, "15M": 15 * MIN, "1H": HOUR, "4H": 4 * HOUR, "1D": DAY, "1W": 7 * DAY, "1M": 31 * DAY };
+const BAR_MS: Record<TimeframeKey, number> = { "5M": 5 * MIN, "15M": 15 * MIN, "1H": HOUR, "4H": 4 * HOUR, "1D": DAY, "1W": 7 * DAY, "1M": 31 * DAY };
 const MARKET_ENTRY_TOLERANCE = 0.001;
 
 export function normalizeTimeframe(tf: string): TimeframeKey | null {

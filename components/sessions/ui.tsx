@@ -1,7 +1,7 @@
 /** Small shared pieces for the agent-session screens. */
 import type { SessionStatus } from "@/lib/types/sessions";
 
-export const STATUS_LABEL: Record<SessionStatus, string> = {
+const STATUS_LABEL: Record<SessionStatus, string> = {
   RUNNING: "Running", PAUSED: "Paused", AWAITING_EXTENSION: "Waiting for you", ENDING: "Ending", ENDED: "Ended", HALTED: "Halted",
 };
 

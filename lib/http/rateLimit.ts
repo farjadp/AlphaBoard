@@ -1,8 +1,8 @@
 import { tooManyRequests } from "./errors";
 
 /**
- * In-memory sliding token bucket. Good enough for a single instance (Railway);
- * swap the store for Redis if we ever scale out. Keys are usually client IPs.
+ * In-memory sliding token bucket. Per process, so on Vercel each instance keeps its own buckets;
+ * P13b moves the store to the database. Keys are usually client IPs.
  */
 export interface RateLimiterOptions {
   limit: number;      // tokens per window
@@ -68,7 +68,7 @@ export function createRateLimiter(opts: RateLimiterOptions) {
   };
 }
 
-/** Best-effort client IP behind Railway / reverse proxies. */
+/** Best-effort client IP behind Vercel / reverse proxies. */
 export function clientIp(req: Request): string {
   const xff = req.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0]!.trim();

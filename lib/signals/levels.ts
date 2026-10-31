@@ -12,8 +12,8 @@ import { num } from "./num";
  * the last close). Some feeds are offset from the broker (gold here is COMEX futures, a few dollars above spot),
  * so a typed broker price gives exact levels.
  */
-export const LOOKBACK_BARS = 48;
-export const FIB_EXTENSIONS = [0.618, 1, 1.272, 1.618] as const;
+const LOOKBACK_BARS = 48;
+const FIB_EXTENSIONS = [0.618, 1, 1.272, 1.618] as const;
 const STOP_BUFFER_ATR = 0.25;
 const MIN_STOP_ATR = 1.5; // the desk's own minimum (P10)
 const MAX_STOP_ATR = 3;
