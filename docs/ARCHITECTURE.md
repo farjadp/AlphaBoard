@@ -53,15 +53,15 @@ Kill switches: `TICK_DISABLED`, `NEWS_DISABLED`, `LAB_DISABLED`, `TRADING_HALT`,
 
 `components/` mirrors the features (`paper/`, `sessions/`, `market/`, `admin/{lab,news,signals,system}`, `settings/`, `shell/`); P13c moves the four loose files at its root into those folders and renders `NavBar` once from a route-group layout. P13d splits the oversized client pages (journal, academy, LabWorkbench, SessionRoom, setup, alerts).
 
-## Positions (three worlds today, one core after P14)
+## Positions (one core since P14a; three ledgers)
 
 | | Paper | Agent sessions | MT5 Signal Desk |
 |---|---|---|---|
 | Model | `PaperPosition` | `SessionPosition` (+ `exitPlan` JSON, best/worst price) | `TradeSignal` + `TradeSignalLeg` (one leg per TP) |
-| Exit check | tick, candle high/low | monitor, spot price | broker SL/TP on the terminal |
-| Manage | SL/TP edit, close | close, close half, breakeven, AI tighten | breakeven after TP1, CLOSE_ALL |
+| Exit check | tick: candles + quote via `scanExit` | monitor: candles since `lastCheckedAt` + spot via `scanExit`/`exitAtPrice` | broker SL/TP on the terminal |
+| Manage | SL/TP edit, close (P14b adds partial/trail/ladder) | close any fraction, breakeven (buffered rule), set stop/target, AI tighten | buffered breakeven after TP1, step-up after TP2, ATR trailing, MOVE_SL / MOVE_TP / CLOSE_PARTIAL / CLOSE_ALL |
 
-P14 adds `lib/trading/positions/` (one `scanExit`, `breakeven`, `trail`, `tpLadder`, MFE/MAE), native TP on venues, SignalCopier 1.13+ (buffered breakeven, trailing, partial close, `MOVE_SL`/`MOVE_TP`, position snapshot in the heartbeat) and a single `/positions` page.
+`lib/trading/positions/` holds `scanExit`/`exitAtPrice`, `breakevenStop`, `trailingStop`, `manualLevel`, ladders and MFE/MAE/R; SignalCopier mirrors the same rules in MQL5. Still to come: native TP on OANDA/ccxt (P14c), paper partial/trail/ladder UI and one `/positions` page (P14b/e), a position snapshot in the MT5 heartbeat (P14d 1.14).
 
 ## Data
 

@@ -20,7 +20,8 @@ const STATUS: Record<SignalDto["status"], { text: string; cls: string }> = {
 };
 
 const LEG: Record<LegDto["status"], string> = { OPEN: "open", TP: "target", SL: "stop", CLOSED: "closed" };
-const COMMAND: Record<string, string> = { CLOSE_ALL: "Close all", BREAKEVEN: "Stop to entry" };
+const COMMAND: Record<string, string> = { CLOSE_ALL: "Close all", BREAKEVEN: "Stop to entry", MOVE_SL: "Move stop", MOVE_TP: "Move target", CLOSE_PARTIAL: "Partial close" };
+const pendingText = (p: string) => { const [c, ...a] = p.split("|"); return `${COMMAND[c] ?? c}${a.length ? ` (${a.join(" / ")})` : ""}`; };
 const time = (iso: string) => `${iso.slice(5, 10)} ${iso.slice(11, 16)} UTC`;
 
 /** Volume-weighted R of a signal whose legs are all closed; null while any leg is open. */
@@ -34,13 +35,28 @@ export function SignalList({ signals, error, loaded, channelUsername }: { signal
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function command(s: SignalDto, cmd: "CANCEL" | "CLOSE_ALL" | "BREAKEVEN") {
+  type Cmd = { command: "CANCEL" | "CLOSE_ALL" | "BREAKEVEN" } | { command: "MOVE_SL"; price: number } | { command: "MOVE_TP"; leg: number; price: number } | { command: "CLOSE_PARTIAL"; fraction: number };
+  const askNumber = (label: string, fallback = "") => { const v = window.prompt(label, fallback); if (v == null) return null; const n = Number(v.replace(",", ".")); return Number.isFinite(n) && n > 0 ? n : NaN; };
+  async function command(s: SignalDto, kind: Cmd["command"]) {
     const name = displaySymbol(s.symbol);
-    const ask = cmd === "CLOSE_ALL" ? `Close every open position of this ${name} signal at market?` : cmd === "BREAKEVEN" ? `Move the stop of every open ${name} position to its entry?` : null;
-    if (ask && !window.confirm(ask)) return;
+    let cmd: Cmd;
+    if (kind === "MOVE_SL") { const price = askNumber(`New stop for every open ${name} position (current signal stop ${s.stop}):`); if (price == null) return; if (Number.isNaN(price)) { setMsg("Enter a price"); return; } cmd = { command: "MOVE_SL", price }; }
+    else if (kind === "MOVE_TP") {
+      const open = s.legs.filter((l) => l.status === "OPEN");
+      const leg = open.length === 1 ? open[0].leg : askNumber(`Which leg? (open: ${open.map((l) => l.leg).join(", ")})`, String(open[0]?.leg ?? 1));
+      if (leg == null) return; if (Number.isNaN(leg)) { setMsg("Enter a leg number"); return; }
+      const price = askNumber(`New target for leg ${leg} of ${name}:`, String(open.find((l) => l.leg === leg)?.tp ?? "")); if (price == null) return; if (Number.isNaN(price)) { setMsg("Enter a price"); return; }
+      cmd = { command: "MOVE_TP", leg, price };
+    }
+    else if (kind === "CLOSE_PARTIAL") { const pctv = askNumber(`Close what percent of every open ${name} position? (1–99)`, "50"); if (pctv == null) return; if (Number.isNaN(pctv) || pctv >= 100) { setMsg("Enter 1–99"); return; } cmd = { command: "CLOSE_PARTIAL", fraction: pctv / 100 }; }
+    else {
+      const ask = kind === "CLOSE_ALL" ? `Close every open position of this ${name} signal at market?` : kind === "BREAKEVEN" ? `Move the stop of every open ${name} position to its entry?` : null;
+      if (ask && !window.confirm(ask)) return;
+      cmd = { command: kind };
+    }
     setBusy(s.id); setMsg(null);
     try {
-      const res = await fetch(`/api/signal-desk/${encodeURIComponent(s.id)}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ command: cmd }) });
+      const res = await fetch(`/api/signal-desk/${encodeURIComponent(s.id)}`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cmd) });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `Request failed (HTTP ${res.status})`);
       await signalsRes.load(true);
     } catch (err) { setMsg(err instanceof Error ? err.message : "Failed"); } finally { setBusy(null); }
@@ -84,13 +100,16 @@ export function SignalList({ signals, error, loaded, channelUsername }: { signal
                 </ul>
               )}
               {s.statusReason && <p className="text-sm text-ink-2">{s.statusReason}</p>}
-              {s.pendingCommand && <p className="text-sm text-amber">{COMMAND[s.pendingCommand] ?? s.pendingCommand} is waiting for the terminal</p>}
+              {s.pendingCommand && <p className="text-sm text-amber">{pendingText(s.pendingCommand)} is waiting for the terminal</p>}
               {s.channelError && <p className="text-sm text-down">Channel: {s.channelError}</p>}
               <div className="flex flex-wrap items-center gap-2">
                 {s.status === "PENDING" && <button type="button" className={btnQuiet} disabled={busy === s.id} onClick={() => command(s, "CANCEL")}>Cancel</button>}
                 {s.status === "OPEN" && (
                   <>
                     <button type="button" className={btnQuiet} disabled={busy === s.id} onClick={() => command(s, "BREAKEVEN")}>Stop to entry</button>
+                    <button type="button" className={btnQuiet} disabled={busy === s.id} onClick={() => command(s, "MOVE_SL")}>Move stop…</button>
+                    <button type="button" className={btnQuiet} disabled={busy === s.id} onClick={() => command(s, "MOVE_TP")}>Move target…</button>
+                    <button type="button" className={btnQuiet} disabled={busy === s.id} onClick={() => command(s, "CLOSE_PARTIAL")}>Close part…</button>
                     <button type="button" className={btnQuiet} disabled={busy === s.id} onClick={() => command(s, "CLOSE_ALL")}>Close all</button>
                   </>
                 )}
