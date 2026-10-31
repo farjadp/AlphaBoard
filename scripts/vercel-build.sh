@@ -6,4 +6,8 @@ if [ "${VERCEL_ENV:-}" = "production" ]; then
   echo "[vercel-build] applying migrations"
   DATABASE_URL="${DATABASE_URL_UNPOOLED:-$DATABASE_URL}" npx prisma migrate deploy
 fi
+# The restored Turbopack build cache keys modules by path; after files move it resolved next/font's
+# virtual module wrongly ("Can't resolve '@vercel/turbopack-next/internal/font/google/font'", P13c).
+# Start Turbopack from a clean cache; the rest of .next/cache is kept.
+rm -rf .next/cache/turbopack
 npm run build
