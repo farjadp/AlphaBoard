@@ -9,6 +9,7 @@ export function isPublicPath(pathname: string): boolean {
   if (pathname.startsWith("/api/auth/")) return true;      // NextAuth + register
   if (pathname.startsWith("/legal/")) return true;
   if (pathname === "/api/cron/tick") return true;       // authenticates itself (CRON_SECRET or admin)
+  if (pathname.startsWith("/api/mt5/")) return true;   // SignalCopier EA routes authenticate with a device token
   if (pathname === "/api/access-request") return true;  // public waitlist form (rate-limited, honeypot)
   if (pathname === "/opengraph-image" || pathname === "/twitter-image") return true; // social preview images
   return false;

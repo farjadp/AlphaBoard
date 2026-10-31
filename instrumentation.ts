@@ -5,7 +5,8 @@ export async function register() {
   const { logBoot } = await import("./lib/http/boot");
   logBoot();
   // Background work runs here unless a separate worker process is deployed (WORKER_MODE=separate).
-  if (process.env.WORKER_MODE === "separate") return;
+  // Vercel functions are short-lived, so there the worker always runs elsewhere (fly.toml).
+  if (process.env.WORKER_MODE === "separate" || process.env.VERCEL) return;
   const { startWorker } = await import("./lib/worker");
   startWorker();
 }

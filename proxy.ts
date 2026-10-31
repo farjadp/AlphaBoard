@@ -22,7 +22,9 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    // Everything except Next internals and static assets.
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff2?)$).*)",
+    // Everything except Next internals, static assets and the Lab upload: the proxy buffers request bodies
+    // only up to 10 MB and silently truncates the rest, and a year of M1 bars is ~26 MB. That route checks
+    // the admin itself (requireAdmin) and needs no CSP nonce.
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|api/admin/lab/datasets$|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|woff2?)$).*)",
   ],
 };

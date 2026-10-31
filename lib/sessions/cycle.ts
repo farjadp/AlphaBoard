@@ -10,7 +10,8 @@ import { gatherSymbol, type ContextData, type PositionContext, type SymbolContex
 import { runAnalysts, runDebate, runStrategist, type AiFn } from "@/lib/agents/run";
 import type { AnalystNotes } from "@/lib/agents/schemas";
 import { fmt, money } from "@/lib/risk/limits";
-import { evaluateProposal, type Proposal, type RiskState, type Verdict } from "@/lib/risk/verdict";
+import { lossStreak } from "@/lib/risk/streak";
+import { evaluateProposal, MIN_ANALYST_CONFIDENCE, type Proposal, type RiskState, type SymbolSignals, type Verdict } from "@/lib/risk/verdict";
 import { sessionFreeCapital } from "@/lib/venues/paper";
 import { VenueError, type Venue } from "@/lib/venues/types";
 import { dailyUsage } from "./limits";
@@ -25,6 +26,13 @@ export const QUIET_MOVE = 0.002;
 export const MAX_SKIPS = 2;
 export const FAILS_TO_PAUSE = 3;
 export const RETRY_AFTER_FAIL_MS = 2 * 60_000;
+/** With no open position, the debate and strategist run only if a market note is directional at this confidence. */
+export const SETUP_CONFIDENCE = MIN_ANALYST_CONFIDENCE;
+
+/** Symbols the market analyst reads as directional with enough confidence to be worth a strategist call. */
+export function setupCandidates(market: AnalystNotes): string[] {
+  return market.notes.filter((n) => n.stance !== "neutral" && n.confidence >= SETUP_CONFIDENCE).map((n) => n.symbol);
+}
 
 export interface CycleDeps {
   ai?: AiFn;
@@ -68,6 +76,15 @@ function verdictBody(p: Proposal, v: Verdict) {
   return `${head}${size}${v.reasons.length ? `\n• ${v.reasons.join("\n• ")}` : ""}`;
 }
 
+/** Losing streak of the session today and the latest losing close (money-management guards, P11a). */
+function streakOf(positions: Array<{ closedAt: Date | null; realizedPnl: number | null }>, now: Date) {
+  // A position's realizedPnl is net of its fees (lib/venues/paper.ts books gross − entry fee share − exit fee).
+  return lossStreak(
+    positions.flatMap((p) => (p.closedAt && p.realizedPnl != null ? [{ closedAt: p.closedAt.getTime(), pnl: p.realizedPnl }] : [])),
+    now.getTime(),
+  );
+}
+
 async function riskState(s: Loaded, priceOf: PriceOf, now: Date): Promise<RiskState> {
   const fresh = await prisma.tradingSession.findUniqueOrThrow({ where: { id: s.id }, include: { positions: true } });
   const open = fresh.positions.filter((p) => !p.closedAt);
@@ -80,16 +97,22 @@ async function riskState(s: Loaded, priceOf: PriceOf, now: Date): Promise<RiskSt
       stopOuts[p.symbol] = Math.max(stopOuts[p.symbol] ?? 0, p.closedAt.getTime());
   }
   const daily = await dailyUsage(s.userId, now);
+  const { streak, lastLossAt } = streakOf(fresh.positions, now);
   return {
     equity: money.equity ?? fresh.capital + money.realizedNet + knownUnrealized,
     freeCapital: await sessionFreeCapital(s.id),
-    openPositions: open.map((p) => ({ id: p.id, symbol: p.symbol, side: p.side, qty: p.qty, entryPrice: p.entryPrice, stopLoss: p.stopLoss, margin: p.margin })),
+    openPositions: open.map((p) => ({
+      id: p.id, symbol: p.symbol, side: p.side, qty: p.qty, entryPrice: p.entryPrice, stopLoss: p.stopLoss, margin: p.margin,
+      initialStop: (p.exitPlan as { initialStop?: number } | null)?.initialStop ?? null,
+    })),
     tradesCount: fresh.tradesCount,
     lastStopOutAt: stopOuts,
     now: now.getTime(),
     dailyLossUsed: daily.lossToday,
     dailyLossLimit: daily.limits.maxDailyLoss,
     sessionLoss: money.lossUsed ?? Math.max(0, -money.realizedNet),
+    lossStreak: streak,
+    lastLossAt,
   };
 }
 
@@ -97,6 +120,7 @@ async function buildContext(s: Loaded, m: Mandate, symbols: SymbolContext[], pri
   const open = s.positions.filter((p) => !p.closedAt);
   const marks = await markOpen(open, priceOf);
   const money = sessionMoney(s, marks);
+  const guard = streakOf(s.positions, now);
   const lessons = await prisma.tradeLesson.findMany({
     where: { userId: s.userId, journalEntry: { pnlSource: "SESSION" } }, orderBy: { createdAt: "desc" }, take: 5,
     select: { outcome: true, symbol: true, lesson: true },
@@ -116,10 +140,23 @@ async function buildContext(s: Loaded, m: Mandate, symbols: SymbolContext[], pri
       equity: money.equity, freeCapital: await sessionFreeCapital(s.id), lossUsed: money.lossUsed ?? Math.max(0, -money.realizedNet), lossLimit: m.lossLimit,
       tradesUsed: s.tradesCount, maxTrades: m.maxTrades, openPositions: open.length, maxOpenPositions: m.maxOpenPositions,
       timeLeftMin: Math.max(0, Math.round((s.endsAt.getTime() - now.getTime()) / 60_000)), llmCostUsd: s.llmCostUsd, maxLlmCostUsd: m.maxLlmCostUsd,
+      lossStreak: guard.streak, maxConsecLosses: m.maxConsecLosses,
+      lossCooldownLeftMin: guard.lastLossAt != null && m.lossCooldownMin > 0
+        ? Math.max(0, Math.ceil((m.lossCooldownMin * 60_000 - (now.getTime() - guard.lastLossAt)) / 60_000)) : 0,
     },
     symbols,
     positions,
     lessons: lessons.map((l) => `[${l.outcome} ${l.symbol}] ${l.lesson}`),
+  };
+}
+
+/** What the risk engine reads from a symbol's market context (1H ATR, 4H trend) and the market analyst's note. */
+export function signalsOf(c: SymbolContext | undefined, market?: AnalystNotes): SymbolSignals {
+  const tf = (name: string) => c?.timeframes.find((t) => t.timeframe === name && t.available);
+  const note = market && c ? market.notes.find((n) => n.symbol === c.symbol) : undefined;
+  return {
+    atr1h: tf("1H")?.atr ?? null, trend4h: tf("4H")?.trend ?? null,
+    ...(market ? { analyst: note ? { stance: note.stance, confidence: note.confidence } : null } : {}),
   };
 }
 
@@ -153,6 +190,10 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
   const moves = m.symbols.map((x) => (prices[x] != null && last[x] ? Math.abs(prices[x]! - last[x]!) / last[x]! : 0));
   const maxMove = Math.max(0, ...moves);
   const closedSince = s.positions.some((p) => p.closedAt && (!s.lastCycleAt || p.closedAt > s.lastCycleAt));
+  // The monitor passes the time its pass started; a close it booked a moment later is still seen by this
+  // cycle, so remember the later of the two — or that same close triggers a second cycle 30 s later.
+  const lastClose = Math.max(0, ...s.positions.map((p) => p.closedAt?.getTime() ?? 0));
+  const seenUntil = new Date(Math.max(now.getTime(), lastClose));
   const due = deps.force || !s.nextCycleAt || s.nextCycleAt <= now;
   const event = s.cycleCount > 0 && (closedSince || maxMove >= EVENT_MOVE);
   if (!due && !event) return none("not due");
@@ -177,7 +218,7 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
   };
   const schedule = (data: Prisma.TradingSessionUpdateInput = {}) => prisma.tradingSession.update({
     where: { id: sessionId },
-    data: { cycleCount: cycleNo, lastCycleAt: now, nextCycleAt: new Date(now.getTime() + interval), lastPrices: prices as Prisma.InputJsonValue, ...data },
+    data: { cycleCount: cycleNo, lastCycleAt: seenUntil, nextCycleAt: new Date(now.getTime() + interval), lastPrices: prices as Prisma.InputJsonValue, ...data },
   });
 
   const symbols = await Promise.all(m.symbols.map((x) => gather(x, m.marketType).catch((): SymbolContext => ({ symbol: x, price: null, changePct24h: null, timeframes: [], consensus: null, funding: null, news: [] }))));
@@ -200,11 +241,19 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
   const ctx = await buildContext(s, m, symbols, priceOf, now);
   const agentDeps = { ai, userId: s.userId, mandate: m };
   let proposals: Proposal[];
+  let marketNotes: AnalystNotes | undefined;
   try {
     const a = await runAnalysts(agentDeps, ctx);
+    marketNotes = a.market;
     await addCost(a.costUsd);
     await post(sessionId, "MARKET", "TEXT", notesBody("Market", a.market), { notes: a.market.notes }, { ...extra, costUsd: a.costUsd / 2 });
     await post(sessionId, "NEWS", "TEXT", notesBody("News", a.news), { notes: a.news.notes }, { ...extra, costUsd: a.costUsd / 2 });
+    if (!ctx.positions.length && !setupCandidates(a.market).length) {
+      await post(sessionId, "SYSTEM", "TEXT", `No setup: no symbol has a directional technical read at ${Math.round(SETUP_CONFIDENCE * 100)}% confidence or more, and nothing is open — skipped the debate and the strategist this cycle.`, { noSetup: true }, extra);
+      await schedule({ skipStreak: 0, agentFailStreak: 0 });
+      await budgetCheck(sessionId, m, deps.telegram);
+      return { ran: true, skipped: "no setup", decisions: 0, executed: 0 };
+    }
     let debate = null;
     if (m.debate) {
       const d = await runDebate(agentDeps, ctx, a.market, a.news);
@@ -245,7 +294,7 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
     let v: Verdict;
     if (opening && current.status !== "RUNNING") v = { kind: "rejected", reasons: [`session is ${current.status.toLowerCase().replace("_", " ")} — no new entries`] };
     else if (opening && current.endsAt.getTime() - now.getTime() < noEntryWindowMin(m) * 60_000) v = { kind: "rejected", reasons: [`less than ${noEntryWindowMin(m)} min left in the session — no new entries`] };
-    else v = evaluateProposal(p, m, await riskState(s, priceOf, now), await venue.marketRules(p.symbol));
+    else v = evaluateProposal(p, m, await riskState(s, priceOf, now), await venue.marketRules(p.symbol), signalsOf(symbols.find((x) => x.symbol === p.symbol), marketNotes));
     if (v.kind === "hold") continue;
     await post(sessionId, "RISK", "VERDICT", verdictBody(p, v), { kind: v.kind, reasons: v.reasons, symbol: p.symbol, action: p.action }, extra);
     try {
@@ -253,7 +302,10 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
         const r = await venue.openPosition({
           sessionId, clientOrderId: orderId(sessionId, `c${cycleNo}-${i}`), symbol: p.symbol, side: v.side, qty: v.qty, leverage: v.leverage,
           stopLoss: v.stopLoss, takeProfit: v.takeProfit,
-          exitPlan: { thesis: p.thesis, invalidation: p.exitPlan.invalidation, horizonMin: p.exitPlan.horizonMin, conviction: p.conviction, initialStop: v.stopLoss, takeProfit: v.takeProfit },
+          exitPlan: {
+            thesis: p.thesis, invalidation: p.exitPlan.invalidation, horizonMin: p.exitPlan.horizonMin, conviction: p.conviction, initialStop: v.stopLoss, takeProfit: v.takeProfit,
+            atr1hAtEntry: signalsOf(symbols.find((x) => x.symbol === p.symbol)).atr1h,
+          },
         });
         if (!r.replayed) {
           executed++;

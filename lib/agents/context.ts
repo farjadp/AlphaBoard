@@ -8,6 +8,8 @@ import { getFutures } from "@/lib/market/futures";
 import { getNews } from "@/lib/market/news";
 import { getQuote } from "@/lib/market/quote";
 import { getIndicatorReport } from "@/lib/market/report";
+import { minutesToWeeklyClose, tradesWeekdaysOnly } from "@/lib/market/hours";
+import { MIN_STOP_ATR, NO_ENTRY_BEFORE_CLOSE_MIN } from "@/lib/risk/verdict";
 import type { Mandate } from "@/lib/sessions/mandate";
 
 export interface SymbolContext {
@@ -48,6 +50,11 @@ export interface SessionUsage {
   timeLeftMin: number;
   llmCostUsd: number;
   maxLlmCostUsd: number;
+  /** Money-management guards (P11a); absent in older callers = not shown. */
+  lossStreak?: number;
+  maxConsecLosses?: number;
+  /** Minutes left in the after-loss cooldown (0 = none). */
+  lossCooldownLeftMin?: number;
 }
 
 export interface ContextData {
@@ -83,6 +90,10 @@ export function formatSymbol(s: SymbolContext, opts: { technical: boolean; news:
     out.push(...s.timeframes.map((t) => (t.available
       ? `- ${t.timeframe}: trend ${t.trend} | stretch ${t.stretch} | RSI ${n(t.rsi, 3)} | ${t.macd} | ${t.ema} | ATR ${n(t.atr)}`
       : `- ${t.timeframe}: ${NA}`)));
+    const h1 = s.timeframes.find((t) => t.timeframe === "1H" && t.available && t.atr != null && t.atr > 0);
+    out.push(h1
+      ? `Minimum stop distance (risk engine: ${MIN_STOP_ATR}× 1H ATR): ${n(MIN_STOP_ATR * h1.atr!)}`
+      : "Minimum stop distance: 1H ATR unavailable — the risk engine refuses entries on this symbol");
     out.push(s.consensus
       ? `Consensus ${s.consensus.netScore}/100 (${s.consensus.dominantBias}, ${s.consensus.confluenceStrength})`
       : `Consensus: ${NA}`);
@@ -105,19 +116,34 @@ export function formatPositions(ps: PositionContext[]): string {
   ].join("\n")).join("\n");
 }
 
+function guardLines(u: SessionUsage): string[] {
+  if (u.lossStreak == null || u.maxConsecLosses == null) return [];
+  const streakHit = u.maxConsecLosses > 0 && u.lossStreak >= u.maxConsecLosses;
+  const cooling = (u.lossCooldownLeftMin ?? 0) > 0;
+  const lines = [`Losing trades in a row today ${u.lossStreak}${u.maxConsecLosses > 0 ? ` (limit ${u.maxConsecLosses})` : ""}${cooling ? ` · after-loss cooldown ${u.lossCooldownLeftMin} min left` : ""}`];
+  if (streakHit || cooling) lines.push("NEW ENTRIES ARE CLOSED by the risk engine — only manage or close open positions; propose HOLD otherwise.");
+  return lines;
+}
+
 export function formatUsage(u: SessionUsage): string {
   return [
     `Equity ${usd(u.equity)} · free capital ${usd(u.freeCapital)}`,
     `Loss used ${usd(u.lossUsed)} of ${usd(u.lossLimit)} · trades ${u.tradesUsed}/${u.maxTrades} · open ${u.openPositions}/${u.maxOpenPositions}`,
     `Time left ${u.timeLeftMin} min · AI cost ${usd(u.llmCostUsd)} of ${usd(u.maxLlmCostUsd)}`,
+    ...guardLines(u),
   ].join("\n");
 }
 
 /** Full block for the strategist; analysts get the technical-only or news-only slice. */
 export function formatContext(d: ContextData, view: "full" | "technical" | "news" = "full"): string {
   const opts = { technical: view !== "news", news: view !== "technical" };
+  const weekday = d.mandate.symbols.filter(tradesWeekdaysOnly);
+  const closeIn = weekday.length ? minutesToWeeklyClose(new Date(`${d.now}Z`)) : null;
   const parts = [
     `Time (UTC): ${d.now}`,
+    ...(closeIn == null ? [] : [closeIn <= 0
+      ? `Market hours: ${weekday.join(", ")} closed for the weekend.`
+      : `Market hours: ${weekday.join(", ")} close for the weekend in ${closeIn} min (no new entries in the last ${NO_ENTRY_BEFORE_CLOSE_MIN} min; open positions are closed before the close).`]),
     "## MANDATE",
     formatMandate(d.mandate),
     "## MARKET",

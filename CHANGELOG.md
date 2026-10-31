@@ -2,6 +2,42 @@
 
 All notable changes to AlphaBoard are documented here.
 
+## [Unreleased]
+
+### P12 · Signal Desk (admin)
+- **Admin → Signals:** write a trade once (symbol, long/short, entry or market, a mandatory stop, up to four targets, risk % of balance up to 1 %, an optional note). It is posted to your Telegram channel and executed in MetaTrader 5 by the new `SignalCopier` expert. The form checks every rule while you type and shows the exact channel post before you send it.
+- **Channel posts** go out through a separate bot (`SIGNAL_BOT_TOKEN`, `SIGNAL_CHANNEL_ID`; it only sends, never polls). Targets, stops and closes are posted as replies under the signal, with the result in R. Account money never appears. Execution never waits on Telegram: a failed post is shown on the signal.
+- **`mql5/SignalCopier.mq5`** polls AlphaBoard every 3 s with its own terminal token (created and revoked in the page, shown once, stored hashed). It opens one position per target, all with the same stop and their own take-profit at the broker, and sizes them from the risk without ever rounding up to the minimum lot. After TP1 the other positions move to entry. Fills, targets, stops and closes are reported back, and a failed report is retried.
+- **Safety:** each signal is handed to a terminal at most once and never re-sent. A signal that no terminal takes within 10 minutes expires. If the terminal goes silent for 2 minutes after taking a signal, the signal is marked "No word from MT5" and you get one alert to check the terminal. The expert starts in dry run and refuses a real-money account unless allowed. It stops taking signals while Algo Trading is off, and it never opens the same position twice. From the list: Cancel (before the terminal takes it), Stop to entry, Close all.
+- **Money management in the expert** (whole account, broker day, same rules as GoldHedgeManager):
+  - daily loss lock at 2 % of the day's starting balance;
+  - no new signals after 2 losing trades in a row;
+  - a 30-minute pause after any loss;
+  - at most 2 signals open at once.
+
+  All the positions of one signal count as one trade. A blocked signal shows the reason in the list.
+- **Paste a signal:** you can paste a post's text, paste or drop a screenshot from another channel, and AI fills the form. It reads the symbol, side, entry or entry zone, stop and targets, and matches the symbol to your terminal's (`GOLD`/`XAU/USD` → `XAUUSD.ec`, `ETH/USDT` → `ETHUSD.ec`). An entry zone becomes its middle, and the terminal accepts a fill anywhere in the zone. Targets on the wrong side are dropped and at most 4 are kept. A missing stop is flagged, never invented. Every decision is listed above the form. Nothing is sent until you press Send.
+- **Suggest stop & targets:** when a post gives only a symbol and a side, the desk reads the last two days of 1H candles. It places the stop past the swing with a 0.25 ATR buffer, kept between 1.5 and 3 ATR, and sets four targets on Fibonacci extensions (0.618 / 1 / 1.272 / 1.618) of that swing. After a paste it runs on its own and fills only the missing fields; the button recomputes both. Levels are distances placed around the typed entry, because gold and silver data are futures and trade away from broker spot (the form says so).
+- **Channel post template:** Admin → Signals has a template editor with field buttons (`{symbol}`, `{entry}`, `{stop}`, `{targets}`, `{rr}`, `{note}`, `{channel}`, …) and a live preview. A line whose fields are all empty is left out. The default matches the channel's existing posts (Entry / Risk / Stop-Loss / TARGETS with 🎯 lines and the Persian footer). Templates missing the symbol, side or stop are refused.
+- **Market entry for post-only signals:** a blank entry is filled with the live price when the post is sent (Binance for crypto). Gold and silver ask for the broker price, because their feed is futures.
+- **Source:** an optional field for where the idea came from. It is shown in the list and never posted, so results can later be compared by source. 1 migration (`TradeSignal.source`).
+- Plan: `docs/superpowers/plans/2026-10-21-p12-signal-desk.md`. 2 migrations (`Mt5Device`, `TradeSignal`, `TradeSignalLeg`; `TradeSignal.breakevenAt`).
+
+### P11a · Money-management guards and an honest drawdown
+- **Stop after losses in a row:** a session refuses new entries for the rest of the UTC day after `maxConsecLosses` losing trades in a row (default 2, 0 = off). A winning or breakeven close resets the count.
+- **Pause after any loss:** no new entry on any symbol for `lossCooldownMin` minutes after a losing close (default 30, 0 = off). The existing per-symbol cooldown after a stop-out stays.
+- Exits are never blocked. The strategist sees the streak and is told when entries are closed, so it holds instead of proposing trades the risk engine will refuse. Both settings are in the mandate form and in the room's mandate box. Sessions started before this change keep both guards off.
+- **Drawdown with open positions included:** the monitor records the equity peak and the deepest fall from it every pass (`TradingSession.equityPeak`, `maxDrawdownMtm`). The report leads with that figure, keeps the closed-trades-only figure next to it, and says so when most of the fall happened in positions that were still open. Until now the report counted closed trades only, which hides losses a strategy never closes.
+- Background: the 2026-10-20 research (plan `docs/superpowers/plans/2026-10-20-p11-honest-numbers-and-strategy-lab.md`).
+
+### P11b · Strategy Lab (admin)
+- **Admin → Lab:** test a trading rule and its money management on real past prices before real money touches it. Every figure counts open positions, includes costs, and shows how much of the result is luck (random re-runs on half the entries).
+- **Data:** one-minute bars from OANDA (bid and ask, so the spread is the broker's real one; read-only use of your connection), from Binance, or a broker's own MT5 export (`ExportM1.mq5` script, up to ~60 MB).
+- **Study:** the gold expert's set (one position with a stop, or two positions with the second one candle against), entries at every allowed 15-minute candle, direction with the 4-hour trend / both / long / short, and money rules (risk %, trades open at once with the risk split, daily loss lock, stop after losses in a row, pause after a loss, martingale as the warning case). The result leads with plain sentences, then the numbers, the re-run range, the balance curve and returns by year.
+- **Crypto basket · DCA ladder:** build a survivorship-free basket of Binance USD-M coins (every symbol listed at a chosen month, delisted ones included, from the public monthly archive) and test the long-only DCA ladder ("Robi" family). The chart puts the real account value next to the closed-trades-only curve a profit calendar shows.
+- **Your trades (MT5):** `mql5/ExportDeals.mq5` exports the deal history; the Lab imports closed positions (journal rows too) and checks whether the entries beat random entries with the same side, stop and holding time (bootstrap 95 % interval, from 30 trades).
+- **Engine (`lib/lab`)** is pure TypeScript and reproduces the 2026-10-20 research: gold return-to-entry 37.4 %, the money-management run +24.9 % on 523 trades, and the "Robi" DCA replay on 129 Binance symbols (10,381 episodes, 94.5 % drawdown marked to market vs 3.3 % realized). 
+
 ## [2.1.0] — 2026-09-29
 
 Agent trading sessions: a mandate-driven AI desk that trades on paper, on crypto exchanges through ccxt (with stop orders resting on the exchange), or on OANDA for forex, gold and silver — with a rule-based risk engine, a live room, Telegram controls, journal lessons and session reports. Also: the news hub.
