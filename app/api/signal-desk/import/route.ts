@@ -14,7 +14,7 @@ const Body = z.object({ text: z.string().trim().max(4_000).optional(), image: z.
 
 /** "Paste a signal": text and/or a screenshot → a form draft with warnings. Nothing is stored or sent. */
 export const POST = adminRoute(async (req, admin) => {
-  enforceRateLimit(req, "ai");
+  await enforceRateLimit(req, "ai");
   const { text, image } = Body.parse(await readJson(req, 2_200_000));
   if (!text && !image) throw badRequest("paste the signal text or a screenshot");
   if (image) parseImageDataUrl(image);

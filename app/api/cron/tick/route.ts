@@ -18,7 +18,7 @@ function hasCronSecret(req: Request): boolean {
 
 /** External trigger for the scheduler tick: `Authorization: Bearer $CRON_SECRET`, or an admin session. */
 export const POST = route(async (req) => {
-  enforceRateLimit(req, "api");
+  await enforceRateLimit(req, "api");
   if (!hasCronSecret(req)) await requireAdmin();
   return NextResponse.json(await runTick());
 });

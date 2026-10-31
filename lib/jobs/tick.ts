@@ -11,6 +11,7 @@ import { evaluateAlerts } from "@/lib/alerts/job";
 import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { pruneEvents, recordEvent } from "@/lib/ops/events";
+import { pruneRateLimits } from "@/lib/http/rateLimit";
 import { sweepSignals } from "@/lib/signals/service";
 
 export const TICK_KEY = "tick.last";
@@ -167,6 +168,7 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
   await prisma.appSetting.upsert({ where: { key: TICK_HISTORY_KEY }, create: { key: TICK_HISTORY_KEY, value: hv }, update: { value: hv } });
   if (errors.length) await recordEvent({ level: "warn", source: "tick", message: errors[0], meta: { errors: errors.slice(0, 20) } }, now());
   await pruneEvents(now());
+  await pruneRateLimits(now()).catch((e) => logger.warn({ err: e instanceof Error ? e.message : String(e) }, "rate limit prune failed"));
   if (errors.length) logger.warn({ ...result }, "tick finished with errors");
   else if (closed.length || signals.resolved || alerts.fired || signalDesk.expired || signalDesk.unknown) logger.info({ ...result }, "tick settled positions");
   return result;

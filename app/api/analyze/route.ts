@@ -33,7 +33,7 @@ const Body = z.object({
  */
 export const POST = route(async (req) => {
   const user = await requireUser();
-  enforceRateLimit(req, "ai");
+  await enforceRateLimit(req, "ai");
   const body = Body.parse(await readJson(req, 64_000));
   const asset = requireAsset(body.symbol);
   const timeframe = requireTimeframe(body.timeframe, "1H");

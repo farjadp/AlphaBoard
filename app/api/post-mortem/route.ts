@@ -42,7 +42,7 @@ function deriveOutcome(b: z.output<typeof Body>) {
 /** No heuristic fallback any more: if the AI is unavailable the client is told so (503), not handed canned advice. */
 export const POST = route(async (req) => {
   const user = await requireUser();
-  enforceRateLimit(req, "ai");
+  await enforceRateLimit(req, "ai");
   const b = Body.parse(await readJson(req, 2_300_000));
   // The screenshot is either freshly uploaded (data URL) or already stored on the trade.
   const storedId = attachmentIdFromUrl(b.image);

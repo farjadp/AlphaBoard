@@ -22,7 +22,7 @@ const Body = z.object({
 /** No mock response any more: without an API key this returns 503 instead of a fabricated BUY. */
 export const POST = route(async (req) => {
   const user = await requireUser();
-  enforceRateLimit(req, "ai");
+  await enforceRateLimit(req, "ai");
   const { charts } = Body.parse(await readJson(req, 6_800_000));
   charts.forEach((c) => parseImageDataUrl(c.imageDataUrl));
 
