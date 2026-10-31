@@ -101,7 +101,7 @@ let defaultAi: ReturnType<typeof createAi> | null = null;
 /** The app-wide instance (lazy so tests can import this module without a database). */
 export async function aiJson<S extends z.ZodType>(req: AiRequest<S>) {
   if (!defaultAi) {
-    const [{ prisma }, usage, settings] = await Promise.all([import("@/lib/prisma"), import("./usage"), import("./settings")]);
+    const [{ prisma }, usage, settings] = await Promise.all([import("@/lib/db/client"), import("./usage"), import("./settings")]);
     defaultAi = createAi({
       providers: {
         openai: openAiCompatibleProvider("openai"),

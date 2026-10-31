@@ -1,4 +1,4 @@
-import type { Candle } from "@/lib/candlestickPatterns";
+import type { Candle } from "@/lib/market/patterns/candlestick";
 
 export interface ChartPatternMatch {
   key: string;

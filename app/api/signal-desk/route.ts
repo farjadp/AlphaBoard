@@ -2,7 +2,7 @@ import { audit } from "@/lib/auth/audit";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { badRequest, readJson } from "@/lib/http/errors";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { createSignal } from "@/lib/signals/service";
 
 export const dynamic = "force-dynamic";

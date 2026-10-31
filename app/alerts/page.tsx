@@ -6,8 +6,8 @@ import { useAlerts } from "@/hooks/useAlerts";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useBinanceTickers } from "@/hooks/useBinanceTickers";
 import { useTradfiQuotes } from "@/hooks/useTradfiQuotes";
-import { formatPrice } from "@/lib/binance";
-import { findAsset } from "@/lib/assetCatalog";
+import { formatPrice } from "@/lib/format";
+import { findAsset } from "@/lib/market/catalog";
 
 export default function AlertsPage() {
   const { alerts, addAlert, removeAlert } = useAlerts();

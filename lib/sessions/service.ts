@@ -1,10 +1,10 @@
 import { breakevenStop, manualLevel } from "@/lib/trading/positions";
 import "server-only";
 import type { Prisma, TradingSession } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { badRequest, HttpError, notFound } from "@/lib/http/errors";
 import { livePrice, type PriceOf } from "@/lib/paper/account";
-import { findAsset } from "@/lib/assetCatalog";
+import { findAsset } from "@/lib/market/catalog";
 import { requireExchangeAccess } from "@/lib/exchanges/connections";
 import { venueForConnection } from "@/lib/venues/registry";
 import { notify } from "@/lib/notify/notifications";

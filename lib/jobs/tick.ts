@@ -1,8 +1,8 @@
 import { nextExtremes } from "@/lib/trading/positions";
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { findAsset } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { findAsset } from "@/lib/market/catalog";
 import { logger } from "@/lib/http/logger";
 import { getCandles } from "@/lib/market/candles";
 import { livePrice, settlePosition, snapshotEquity, type PriceOf } from "@/lib/paper/account";

@@ -1,7 +1,7 @@
 /** AI orchestration against Postgres with fake providers: quota, usage accounting, model routing. */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { createAi } from "@/lib/ai";
 import { recordUsage, tokensUsedToday, startOfUtcDay } from "@/lib/ai/usage";
 import { getAiSettings, setAiSettings } from "@/lib/ai/settings";

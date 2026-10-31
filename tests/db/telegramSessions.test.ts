@@ -1,6 +1,6 @@
 /** Interactive Telegram against Postgres with a fake bot: commands, buttons, confirmations, permissions. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { parseCommand, type Keyboard, type Telegram, type TgUpdate } from "@/lib/notify/telegram";
 import { processTelegramUpdates } from "@/lib/notify/telegramLink";
 import { startSession } from "@/lib/sessions/service";

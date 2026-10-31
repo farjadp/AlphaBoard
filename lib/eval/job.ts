@@ -1,6 +1,6 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
-import { findAsset } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { findAsset } from "@/lib/market/catalog";
 import { getCandles } from "@/lib/market/candles";
 import type { TimeframeKey } from "@/lib/market/timeframes";
 import { evaluateSignal, normalizeTimeframe, type EvalBar, type Evaluation } from "./evaluator";

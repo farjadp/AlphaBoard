@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useWatchlist } from "@/hooks/useWatchlist";
-import { assetHref, DEFAULT_WATCHLIST } from "@/lib/assetCatalog";
+import { assetHref, DEFAULT_WATCHLIST } from "@/lib/market/catalog";
 
 export default function MarketIndexPage() {
   const router = useRouter();

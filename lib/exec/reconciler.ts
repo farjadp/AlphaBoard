@@ -1,7 +1,7 @@
 import { recordEvent } from "@/lib/ops/events";
 import "server-only";
 import type { TradingSession } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import type { Telegram } from "@/lib/notify/telegram";
 import { exchangeFor, exchangeSymbol } from "@/lib/venues/ccxtClient";

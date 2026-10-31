@@ -1,7 +1,7 @@
 import "server-only";
 import { randomInt } from "node:crypto";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import { parseCommand, telegramFromEnv, type Telegram } from "./telegram";
 import { BOT_HELP, handleCallback, handleSessionCommand } from "./telegramBot";

@@ -1,7 +1,7 @@
 import { audit } from "@/lib/auth/audit";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 
 /** Revoke an unused invite. */
 export const DELETE = adminRoute(async (_req, admin, { params }) => {

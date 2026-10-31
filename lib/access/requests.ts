@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { createInvite } from "@/lib/auth/createInvite";
 import { badRequest, notFound } from "@/lib/http/errors";
 

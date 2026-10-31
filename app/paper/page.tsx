@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/dal";
 import { getSignal } from "@/lib/db/signals";
-import { findAsset } from "@/lib/assetCatalog";
+import { findAsset } from "@/lib/market/catalog";
 import PaperScreen from "@/components/paper/PaperScreen";
 import type { TicketPrefill } from "@/components/paper/OrderTicket";
 

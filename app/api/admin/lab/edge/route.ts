@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
 import { badRequest, readJson } from "@/lib/http/errors";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { loadDataset } from "@/lib/lab/data/store";
 import { edgeCheck } from "@/lib/lab/edge";
 

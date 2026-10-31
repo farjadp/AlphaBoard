@@ -1,5 +1,5 @@
-import type { CandlestickPatternMatch } from "@/lib/candlestickPatterns";
-import type { ChartPatternMatch } from "@/lib/chartPatterns";
+import type { CandlestickPatternMatch } from "@/lib/market/patterns/candlestick";
+import type { ChartPatternMatch } from "@/lib/market/patterns/chart";
 
 type VisualPattern = Pick<CandlestickPatternMatch, "key" | "bias"> | Pick<ChartPatternMatch, "key" | "bias">;
 

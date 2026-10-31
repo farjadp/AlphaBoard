@@ -1,6 +1,6 @@
 /** Session monitor against Postgres: stops, loss limit, end prompt + timeout, journal and report. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import type { AiRequest } from "@/lib/ai";
 import type { AiFn } from "@/lib/agents/run";
 import { exitFor, monitorSessions } from "@/lib/sessions/monitor";

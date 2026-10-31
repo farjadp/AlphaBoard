@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { route } from "@/lib/http/route";
 import { badRequest, readJson, tooManyRequests } from "@/lib/http/errors";
 import { clientIp, limiters } from "@/lib/http/rateLimit";

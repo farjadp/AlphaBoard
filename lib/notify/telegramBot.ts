@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import { HttpError } from "@/lib/http/errors";
 import { fmt, money } from "@/lib/risk/limits";

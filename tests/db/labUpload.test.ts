@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 
 const run = !!process.env.TEST_DATABASE_URL;
 const admin = { id: "", email: "lab-up@test.local", role: "ADMIN" };

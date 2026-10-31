@@ -4,7 +4,7 @@
  * geo-blocked somewhere (Binance futures is blocked from US cloud regions). v1 called
  * fapi.binance.com from the browser, which failed for many users and violates our CSP.
  */
-import type { Asset } from "@/lib/assetCatalog";
+import type { Asset } from "@/lib/market/catalog";
 import { logger } from "@/lib/http/logger";
 import { marketMemo } from "./cache";
 import { fetchJson } from "./http";

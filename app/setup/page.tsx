@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
-import { ASSET_CATALOG, CATEGORY_LABELS, type Asset, type AssetCategory } from "@/lib/assetCatalog";
+import { ASSET_CATALOG, CATEGORY_LABELS, type Asset, type AssetCategory } from "@/lib/market/catalog";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { useTradfiQuotes } from "@/hooks/useTradfiQuotes";
 import { useBinanceTickers } from "@/hooks/useBinanceTickers";
-import { formatPrice } from "@/lib/binance";
+import { formatPrice } from "@/lib/format";
 
 const CATEGORIES: AssetCategory[] = ["crypto", "indices", "commodities", "forex"];
 

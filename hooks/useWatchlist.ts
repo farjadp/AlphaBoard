@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { DEFAULT_WATCHLIST, findAsset, type Asset } from "@/lib/assetCatalog";
+import { DEFAULT_WATCHLIST, findAsset, type Asset } from "@/lib/market/catalog";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
 
 const MAX_ITEMS = 5;

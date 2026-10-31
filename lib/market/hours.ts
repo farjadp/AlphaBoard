@@ -3,7 +3,7 @@
  * open Sunday 17:00 New York, closed Friday 17:00 New York. New York time follows US daylight saving, so the
  * close is 21:00 UTC in summer and 22:00 UTC in winter. Pure, so the session clock can be unit-tested.
  */
-import { findAsset } from "@/lib/assetCatalog";
+import { findAsset } from "@/lib/market/catalog";
 
 const CLOSE_MIN = 17 * 60; // 17:00 New York
 const DAY = 1440;

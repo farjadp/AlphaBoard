@@ -1,6 +1,6 @@
 import "server-only";
 import type { ExchangeConnection, SessionPosition } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import type { MarketRules } from "@/lib/risk/verdict";
 import { tradingHalted } from "@/lib/exchanges/connections";

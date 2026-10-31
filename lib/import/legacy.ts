@@ -4,7 +4,7 @@
  * Invalid rows are skipped and counted, never guessed at.
  */
 import { z } from "zod";
-import { ASSET_CATALOG } from "@/lib/assetCatalog";
+import { ASSET_CATALOG } from "@/lib/market/catalog";
 
 export const LEGACY_KEYS = {
   watchlist: "alphaboard_watchlist_v2",

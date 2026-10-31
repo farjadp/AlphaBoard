@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/auth/dal";
-import { prisma } from "@/lib/prisma";
-import { ASSET_CATALOG } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { ASSET_CATALOG } from "@/lib/market/catalog";
 import LabWorkbench from "@/components/admin/lab/LabWorkbench";
 
 export const dynamic = "force-dynamic";

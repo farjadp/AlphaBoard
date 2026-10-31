@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { articleWeight, corroboration, corroborationFactor, newsIndex, recencyFactor } from "@/lib/news/score";
-import { ASSET_CATALOG } from "@/lib/assetCatalog";
+import { ASSET_CATALOG } from "@/lib/market/catalog";
 import { NEWS_ALIASES } from "@/lib/news/aliases";
 
 describe("news scoring", () => {

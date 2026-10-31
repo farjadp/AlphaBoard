@@ -3,7 +3,7 @@
  * anything missing is written as "unavailable" so no agent is nudged to invent it (E15).
  * `formatContext` is pure and unit-tested; `gatherSymbol` does the market I/O.
  */
-import { findAsset } from "@/lib/assetCatalog";
+import { findAsset } from "@/lib/market/catalog";
 import { getFutures } from "@/lib/market/futures";
 import { getNews } from "@/lib/market/news";
 import { getQuote } from "@/lib/market/quote";

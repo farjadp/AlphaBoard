@@ -1,6 +1,6 @@
 import { qty as fmt } from "@/lib/format";
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
 import type { PriceOf } from "@/lib/paper/account";

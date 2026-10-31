@@ -3,7 +3,7 @@
  * risk engine / session monitor — prompts only describe them to the agents.
  */
 import { z } from "zod";
-import { findAsset } from "@/lib/assetCatalog";
+import { findAsset } from "@/lib/market/catalog";
 
 const ModelRefSchema = z.object({ provider: z.string().min(1).max(40), model: z.string().min(1).max(120) }).strict();
 

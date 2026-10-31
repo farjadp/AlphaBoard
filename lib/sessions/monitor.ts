@@ -1,12 +1,12 @@
 import "server-only";
 import type { SessionCloseReason, SessionPosition, TradingSession } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import { liquidationPrice } from "@/lib/paper/engine";
 import { exitAtPrice, nextExtremes, scanExit, trailingStop, type Bar } from "@/lib/trading/positions";
 import { computeAtr } from "@/lib/market/indicators";
 import { fmt } from "@/lib/risk/limits";
-import { findAsset } from "@/lib/assetCatalog";
+import { findAsset } from "@/lib/market/catalog";
 import { env } from "@/lib/env";
 import { getCandles } from "@/lib/market/candles";
 import { livePrice, type PriceOf } from "@/lib/paper/account";

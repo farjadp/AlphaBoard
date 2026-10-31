@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ASSET_CATALOG, CATEGORY_LABELS, findAsset, type AssetCategory } from "@/lib/assetCatalog";
+import { ASSET_CATALOG, CATEGORY_LABELS, findAsset, type AssetCategory } from "@/lib/market/catalog";
 import { FEE_RATE, MAX_LEVERAGE, SLIPPAGE, liquidationPrice } from "@/lib/paper/engine";
 import type { PaperSide } from "@/lib/types/paper";
 import type { OrderTicket as Ticket } from "@/hooks/usePaper";

@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/auth/dal";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { startOfUtcDay } from "@/lib/ai/usage";
 import { findModel } from "@/lib/ai/catalog";
 import UserQuotaRow from "@/components/admin/UserQuotaRow";

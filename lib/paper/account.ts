@@ -1,8 +1,8 @@
 import { excursionR, positionR } from "@/lib/trading/positions";
 import "server-only";
 import type { PaperPosition, Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { findAsset } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { findAsset } from "@/lib/market/catalog";
 import { badRequest, HttpError, notFound } from "@/lib/http/errors";
 import { getQuote } from "@/lib/market/quote";
 import type { PaperOrderDto, PaperOverview, PaperPositionDto } from "@/lib/types/paper";

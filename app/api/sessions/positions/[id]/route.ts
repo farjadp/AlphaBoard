@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { userIdRoute } from "@/lib/http/userRoute";
 import { readJson } from "@/lib/http/errors";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { SessionPositionInput } from "@/lib/db/inputs";
 import { closeSessionPosition, moveStopToBreakeven, sessionView, setSessionExits } from "@/lib/sessions/service";
 

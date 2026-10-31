@@ -1,4 +1,4 @@
-import { findAsset, type Asset } from "@/lib/assetCatalog";
+import { findAsset, type Asset } from "@/lib/market/catalog";
 import { badRequest } from "@/lib/http/errors";
 import { isTimeframeKey, type TimeframeKey } from "./timeframes";
 

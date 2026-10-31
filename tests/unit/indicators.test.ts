@@ -9,7 +9,7 @@ import {
   MIN_BARS,
   unavailableSnapshot,
 } from "@/lib/market/indicators";
-import type { Candle } from "@/lib/candlestickPatterns";
+import type { Candle } from "@/lib/market/patterns/candlestick";
 
 const H = 3_600_000;
 

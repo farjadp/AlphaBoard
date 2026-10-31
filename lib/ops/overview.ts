@@ -1,7 +1,7 @@
 import { env } from "@/lib/env";
 import "server-only";
 import { appVersion } from "@/lib/config/version";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { adminUsageSummary } from "@/lib/ai/usageReport";
 import { configuredProviders } from "@/lib/ai/configured";
 import { findModel, PROVIDERS } from "@/lib/ai/catalog";

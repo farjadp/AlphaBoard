@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { siteUrl } from "@/lib/site";
+import { siteUrl } from "@/lib/config/site";
 
 // Built per request so APP_URL comes from the runtime environment (it is not set at image build time).
 export const dynamic = "force-dynamic";

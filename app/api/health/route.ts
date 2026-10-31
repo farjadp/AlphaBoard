@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { appVersion } from "@/lib/config/version";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { route } from "@/lib/http/route";
 
 export const dynamic = "force-dynamic";

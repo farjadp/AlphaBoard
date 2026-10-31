@@ -1,7 +1,7 @@
 import "server-only";
 import type { z } from "zod";
-import { prisma } from "@/lib/prisma";
-import { findAsset } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { findAsset } from "@/lib/market/catalog";
 import { badRequest } from "@/lib/http/errors";
 import type { AlertInput } from "./inputs";
 import { alertToDto } from "./mappers";

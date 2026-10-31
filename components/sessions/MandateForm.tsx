@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
-import { ASSET_CATALOG, CATEGORY_LABELS, type AssetCategory } from "@/lib/assetCatalog";
+import { ASSET_CATALOG, CATEGORY_LABELS, type AssetCategory } from "@/lib/market/catalog";
 import { createResource, useResource } from "@/lib/client/resource";
 import { startSessionRequest } from "@/hooks/useSessions";
 import { durationText } from "./ui";

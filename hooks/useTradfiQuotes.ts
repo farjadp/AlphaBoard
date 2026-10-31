@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ASSET_CATALOG } from "@/lib/assetCatalog";
+import { ASSET_CATALOG } from "@/lib/market/catalog";
 
 interface TradfiQuote {
   price: number;

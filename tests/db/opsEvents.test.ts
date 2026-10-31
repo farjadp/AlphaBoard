@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { pruneEvents, recentEvents, recordEvent } from "@/lib/ops/events";
 import { systemOverview } from "@/lib/ops/overview";
 import { runTick } from "@/lib/jobs/tick";

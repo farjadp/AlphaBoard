@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, JetBrains_Mono, Manrope } from "next/font/google";
 import "./globals.css";
 import SiteFooter from "@/components/legal/SiteFooter";
-import { siteUrl } from "@/lib/site";
+import { siteUrl } from "@/lib/config/site";
 
 const manrope = Manrope({
   subsets: ["latin"],

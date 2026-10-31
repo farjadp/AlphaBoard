@@ -1,3 +1,4 @@
+/** 24h ticker as the Binance hooks deliver it. */
 export interface BinanceTicker {
   symbol: string;   // "BTCUSDT"
   price: number;
@@ -6,6 +7,3 @@ export interface BinanceTicker {
   low: number;
   volume: number;   // quote volume in USDT
 }
-
-/** @deprecated import from "@/lib/format" (kept until P13c moves the callers). */
-export { formatMarketCap, formatPrice, formatSupply, formatVolume } from "@/lib/format/money";

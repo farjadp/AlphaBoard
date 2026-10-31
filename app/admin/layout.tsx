@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/dal";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import AdminNav from "@/components/admin/AdminNav";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

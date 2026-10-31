@@ -1,6 +1,6 @@
 /** Paper venue over the session ledger: fills, fees, idempotent replays, partial and full closes. */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { FEE_RATE, SLIPPAGE } from "@/lib/paper/engine";
 import { paperVenue, sessionFreeCapital } from "@/lib/venues/paper";
 import { parseMandate } from "@/lib/sessions/mandate";

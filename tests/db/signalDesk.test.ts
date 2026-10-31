@@ -1,6 +1,6 @@
 /** Signal Desk against Postgres (P12): device tokens, the EA claim, reports → legs and channel replies. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { createDevice, deviceFromRequest, recordHeartbeat, revokeDevice } from "@/lib/mt5/devices";
 import { claimJobs, createSignal, queueCommand, recordReport, sweepSignals } from "@/lib/signals/service";
 import type { Telegram } from "@/lib/notify/telegram";

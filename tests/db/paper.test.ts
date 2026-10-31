@@ -1,6 +1,6 @@
 /** Paper trading against Postgres with injected prices/candles: cash accounting, ownership, tick settlement. */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import {
   closePaperPosition, getOrCreateAccount, openPaperPosition, paperOverview, resetPaperAccount, updatePositionExits,
 } from "@/lib/paper/account";

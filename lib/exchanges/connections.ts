@@ -1,7 +1,7 @@
 import { env } from "@/lib/env";
 import "server-only";
 import type { ExchangeConnection } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { badRequest, forbidden, notFound } from "@/lib/http/errors";
 import { encryptSecret, last4, secretsConfigured } from "@/lib/secrets/crypto";
 import { exchangeFor, forgetExchange, supportedExchanges } from "@/lib/venues/ccxtClient";

@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma, SessionPosition, TradingSession } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import { aiJson } from "@/lib/ai";
 import { livePrice, type PriceOf } from "@/lib/paper/account";

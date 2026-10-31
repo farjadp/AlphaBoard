@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { withDerivedPnl } from "@/lib/journal/derive";
 import type { LegacyData } from "@/lib/import/legacy";
 import type { JournalEntry } from "@/lib/types/userData";

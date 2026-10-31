@@ -1,7 +1,7 @@
 /** Native exchange stops (P8c) against Postgres with a fake exchange. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { randomBytes } from "node:crypto";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { encryptSecret } from "@/lib/secrets/crypto";
 import { parseMandate } from "@/lib/sessions/mandate";
 import { ccxtVenue } from "@/lib/venues/ccxt";

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { requireAdmin } from "@/lib/auth/dal";
 import { inviteState } from "@/lib/auth/invites";
 import InviteCreator from "@/components/admin/InviteCreator";

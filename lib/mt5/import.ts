@@ -1,6 +1,6 @@
 import { money as fmtMoney } from "@/lib/format";
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { badRequest } from "@/lib/http/errors";
 import { DealsFileError, parseDealsCsv, positionsFromDeals } from "./deals";
 

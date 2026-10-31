@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { modelFamily, performanceReport, type EvaluatedRow } from "./metrics";
 
 export interface PerformanceFilters {

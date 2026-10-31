@@ -3,7 +3,7 @@
 import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import { useSignalHistory, ArchivedSignal } from "@/hooks/useSignalHistory";
-import { formatPrice } from "@/lib/binance";
+import { formatPrice } from "@/lib/format";
 import OutcomeBadge from "@/components/performance/OutcomeBadge";
 
 export default function AlertsPage() {

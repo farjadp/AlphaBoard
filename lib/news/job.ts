@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { runIngest, targetAssets, type IngestResult } from "./ingest";
 import { evaluatePending, snapshotIndex, type BarsOf } from "./measure";
 import { runWeightAgent } from "./weights";

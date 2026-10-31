@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { readJson } from "@/lib/http/errors";
 import { inviteState } from "@/lib/auth/invites";
 import { createInvite } from "@/lib/auth/createInvite";

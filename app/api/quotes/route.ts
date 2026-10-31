@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { route } from "@/lib/http/route";
 import { requireUser } from "@/lib/auth/dal";
 import { enforceRateLimit } from "@/lib/http/rateLimit";
-import { findAsset } from "@/lib/assetCatalog";
+import { findAsset } from "@/lib/market/catalog";
 import { getQuote } from "@/lib/market/quote";
 
 export const dynamic = "force-dynamic";

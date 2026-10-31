@@ -2,7 +2,7 @@ import { env } from "@/lib/env";
 import "server-only";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { badRequest } from "@/lib/http/errors";
 import { DEFAULT_AI_SETTINGS, findModel, type AiSettings } from "./catalog";
 

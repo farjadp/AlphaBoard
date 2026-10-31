@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { userRoute } from "@/lib/http/userRoute";
 import { badRequest, readJson } from "@/lib/http/errors";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { MODELS, PROVIDERS, findModel, resolveModel } from "@/lib/ai/catalog";
 import { configuredProviders } from "@/lib/ai/configured";
 import { getAiSettings } from "@/lib/ai/settings";

@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ASSET_CATALOG, assetHref } from "@/lib/assetCatalog";
+import { ASSET_CATALOG, assetHref } from "@/lib/market/catalog";
 
 /** Symbol jump box. ⌘K / Ctrl+K focuses it from anywhere. */
 export default function AssetSearch() {

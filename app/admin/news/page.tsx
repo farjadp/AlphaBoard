@@ -1,6 +1,6 @@
 import { signedPct as signedPctOf } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth/dal";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { PROVIDERS } from "@/lib/news/sources";
 import { readProviderStates } from "@/lib/news/ingest";
 import { indexReport, publisherReport } from "@/lib/news/measure";

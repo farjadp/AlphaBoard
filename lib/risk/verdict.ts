@@ -3,7 +3,7 @@
  * much. Every rejection or clamp carries a human-readable reason that is posted in the session room.
  * Exits (CLOSE, TIGHTEN_STOP) are never blocked by entry limits.
  */
-import { findAsset } from "@/lib/assetCatalog";
+import { findAsset } from "@/lib/market/catalog";
 import { minutesToWeeklyClose, tradesWeekdaysOnly } from "@/lib/market/hours";
 import { liquidationPrice } from "@/lib/paper/engine";
 import { favourMove, riskPerUnit, tightens } from "@/lib/trading/math";

@@ -1,6 +1,6 @@
 /** Signal evaluation against Postgres with injected candles: job idempotency, ownership, filters. */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { evaluatePendingSignals } from "@/lib/eval/job";
 import { userPerformance } from "@/lib/eval/performance";
 import { listSignals } from "@/lib/db/signals";

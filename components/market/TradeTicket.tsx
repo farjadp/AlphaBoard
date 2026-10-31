@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { formatPrice } from "@/lib/binance";
+import { formatPrice } from "@/lib/format";
 import { buildTradePlan } from "@/lib/market/tradePlan";
 import { signedPct, timeAgo } from "@/lib/format";
 import type { AnalysisResult } from "@/lib/types/analysis";

@@ -1,7 +1,7 @@
 /** ccxt venue against Postgres with a fake exchange: fills, fees, replays, unknown outcomes, closes. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { randomBytes } from "node:crypto";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { parseMandate } from "@/lib/sessions/mandate";
 import { ccxtVenue, feeOf } from "@/lib/venues/ccxt";
 import { setExchangeFactory } from "@/lib/venues/ccxtClient";

@@ -1,6 +1,6 @@
 import { matchCatalogSymbol } from "@/lib/market/symbols";
-import { ASSET_CATALOG } from "@/lib/assetCatalog";
-import type { Candle } from "@/lib/candlestickPatterns";
+import { ASSET_CATALOG } from "@/lib/market/catalog";
+import type { Candle } from "@/lib/market/patterns/candlestick";
 import { computeAtr, roundForPrice } from "@/lib/market/indicators";
 import { num } from "./num";
 

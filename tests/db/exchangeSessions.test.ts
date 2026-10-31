@@ -1,7 +1,7 @@
 /** Exchange sessions end to end against Postgres with a fake ccxt exchange. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { randomBytes } from "node:crypto";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import type { AiRequest } from "@/lib/ai";
 import type { AiFn } from "@/lib/agents/run";
 import type { SymbolContext } from "@/lib/agents/context";

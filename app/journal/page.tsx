@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { useJournal, TradePosition, TradeEmotion, JournalEntry } from "@/hooks/useJournal";
 import { useWatchlist } from "@/hooks/useWatchlist";
-import { findAsset } from "@/lib/assetCatalog";
+import { findAsset } from "@/lib/market/catalog";
 import TradePostMortem from "@/components/TradePostMortem";
 import { compressImage } from "@/lib/client/image";
 import { apiErrorMessage } from "@/lib/client/apiError";

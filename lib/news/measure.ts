@@ -1,6 +1,6 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
-import { findAsset, type Asset } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { findAsset, type Asset } from "@/lib/market/catalog";
 import { getCandles } from "@/lib/market/candles";
 import { rankedNews } from "./read";
 import { newsIndex } from "./score";

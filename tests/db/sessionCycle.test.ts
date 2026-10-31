@@ -1,6 +1,6 @@
 /** Decision cycle against Postgres with a stub AI and stub market data. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import type { AiRequest } from "@/lib/ai";
 import { AiError } from "@/lib/ai/errors";
 import type { SymbolContext } from "@/lib/agents/context";

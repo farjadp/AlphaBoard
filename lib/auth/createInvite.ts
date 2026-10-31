@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { generateInviteToken, hashInviteToken, inviteExpiry, inviteUrl } from "./invites";
 
 /** Creates an invite and audits it. The raw token only exists in the returned URL (never stored). */
