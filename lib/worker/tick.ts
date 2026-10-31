@@ -13,7 +13,7 @@ import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { pruneEvents, recordEvent } from "@/lib/ops/events";
 import { pruneRateLimits } from "@/lib/http/rateLimit";
-import { sweepSignals } from "@/lib/signals/service";
+import { sweepSignals } from "@/lib/signalDesk/service";
 
 export const TICK_KEY = "tick.last";
 export const TICK_HISTORY_KEY = "tick.history";

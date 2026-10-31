@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
 import { readJson } from "@/lib/http/errors";
-import { DEFAULT_POST_TEMPLATE, TEMPLATE_FIELDS } from "@/lib/signals/format";
-import { channelUsername, getPostTemplate, resetPostTemplate, savePostTemplate } from "@/lib/signals/template";
+import { DEFAULT_POST_TEMPLATE, TEMPLATE_FIELDS } from "@/lib/signalDesk/format";
+import { channelUsername, getPostTemplate, resetPostTemplate, savePostTemplate } from "@/lib/signalDesk/template";
 
 export const dynamic = "force-dynamic";
 

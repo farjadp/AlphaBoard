@@ -1,6 +1,6 @@
 import { deviceRoute } from "@/lib/http/userRoute";
-import { recordReport } from "@/lib/signals/service";
-import { parseReport } from "@/lib/signals/wire";
+import { recordReport } from "@/lib/signalDesk/service";
+import { parseReport } from "@/lib/signalDesk/wire";
 
 export const dynamic = "force-dynamic";
 

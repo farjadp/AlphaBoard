@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { DEFAULT_POST_TEMPLATE, displaySymbol, formatSignalPost, renderPost, templateProblems } from "@/lib/signals/format";
-import { channelFromEnv } from "@/lib/signals/channel";
+import { DEFAULT_POST_TEMPLATE, displaySymbol, formatSignalPost, renderPost, templateProblems } from "@/lib/signalDesk/format";
+import { channelFromEnv } from "@/lib/signalDesk/channel";
 
 const gold = { symbol: "XAUUSD.ec", side: "BUY" as const, entry: 2650.4, stop: 2638, tps: [2656, 2662], riskPct: 0.5, note: null };
 const FOOTER = "پیشنهاد سرمایه گذاری نیست. ما سیگنال فروش نیستیم. این دیتا مستقیما از تریدهای خودمان توسط ربات به کانال @gheymat_today ارسال میشود";

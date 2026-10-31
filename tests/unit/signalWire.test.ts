@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { decodeCommand, encodeCommand, encodeJobs, parseReport } from "@/lib/signals/wire";
+import { decodeCommand, encodeCommand, encodeJobs, parseReport } from "@/lib/signalDesk/wire";
 
 const form = (s: string) => new URLSearchParams(s);
 

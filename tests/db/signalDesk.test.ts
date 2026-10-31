@@ -1,11 +1,11 @@
 /** Signal Desk against Postgres (P12): device tokens, the EA claim, reports → legs and channel replies. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { prisma } from "@/lib/db/client";
-import { createDevice, deviceFromRequest, recordHeartbeat, revokeDevice } from "@/lib/signals/devices";
-import { claimJobs, createSignal, queueCommand, recordReport, sweepSignals } from "@/lib/signals/service";
+import { createDevice, deviceFromRequest, recordHeartbeat, revokeDevice } from "@/lib/signalDesk/devices";
+import { claimJobs, createSignal, queueCommand, recordReport, sweepSignals } from "@/lib/signalDesk/service";
 import type { Telegram } from "@/lib/notify/telegram";
-import { getPostTemplate, resetPostTemplate, savePostTemplate } from "@/lib/signals/template";
-import type { Channel } from "@/lib/signals/channel";
+import { getPostTemplate, resetPostTemplate, savePostTemplate } from "@/lib/signalDesk/template";
+import type { Channel } from "@/lib/signalDesk/channel";
 
 const run = !!process.env.TEST_DATABASE_URL;
 const NOW = new Date("2026-10-21T15:00:00Z");

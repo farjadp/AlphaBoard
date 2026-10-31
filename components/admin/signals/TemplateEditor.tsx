@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useResource } from "@/lib/client/resource";
-import { formatSignalPost, templateProblems } from "@/lib/signals/format";
+import { formatSignalPost, templateProblems } from "@/lib/signalDesk/format";
 import { btn, btnQuiet, field, hint, templateRes } from "./resources";
 
 const SAMPLE = { symbol: "XAUUSD.ec", side: "BUY" as const, entry: 4077.5, stop: 4063, tps: [4100, 4130, 4135, 4154], riskPct: 0.5, note: "Above the 4H EMA" };

@@ -6,7 +6,7 @@ import { badRequest, readJson } from "@/lib/http/errors";
 import { parseImageDataUrl } from "@/lib/http/images";
 import { prisma } from "@/lib/db/client";
 import { aiJson, type ContentPart } from "@/lib/ai";
-import { draftFromExtract, SIGNAL_EXTRACT_JSON, SIGNAL_EXTRACT_PROMPT, SignalExtractSchema } from "@/lib/signals/importDraft";
+import { draftFromExtract, SIGNAL_EXTRACT_JSON, SIGNAL_EXTRACT_PROMPT, SignalExtractSchema } from "@/lib/signalDesk/importDraft";
 
 export const dynamic = "force-dynamic";
 

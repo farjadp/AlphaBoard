@@ -4,7 +4,7 @@ import { z } from "zod";
 import { badRequest, readJson } from "@/lib/http/errors";
 import { findAsset } from "@/lib/market/catalog";
 import { getCandles } from "@/lib/market/candles";
-import { catalogSymbolFor, suggestLevels } from "@/lib/signals/levels";
+import { catalogSymbolFor, suggestLevels } from "@/lib/signalDesk/levels";
 
 export const dynamic = "force-dynamic";
 
