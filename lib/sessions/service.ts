@@ -1,3 +1,4 @@
+import { breakevenStop, manualLevel } from "@/lib/trading/positions";
 import "server-only";
 import type { Prisma, TradingSession } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -19,9 +20,9 @@ import { dailyUsage } from "./limits";
 import { MandateError, parseMandate, type Mandate } from "./mandate";
 import { announceExit, exitPosition, flatten, sessionPriceOf, venueFor, type ExitDeps } from "./exits";
 import { post } from "./room";
-import { buildView, mandateOf, summaryToDto } from "./view";
+import { buildView, summaryToDto } from "./view";
 
-export const MAX_ACTIVE_SESSIONS = 3;
+const MAX_ACTIVE_SESSIONS = 3;
 const MAX_EXTENSION_MIN = 24 * 60;
 
 export interface ServiceDeps extends ExitDeps { now?: Date }
@@ -238,18 +239,53 @@ export async function moveStopToBreakeven(userId: string, positionId: string, de
   const pos = await ownedOpenPosition(userId, positionId);
   const price = await (deps.priceOf ?? livePrice)(pos.symbol);
   if (price == null) throw new HttpError(503, `${pos.symbol} price unavailable`, "PRICE_UNAVAILABLE");
-  const be = pos.entryPrice;
-  const long = pos.side === "LONG";
-  if (long ? price <= be : price >= be) throw badRequest(`Price ${fmt(price)} has not moved past the entry ${fmt(be)} yet`, "NOT_IN_PROFIT");
-  if (pos.stopLoss != null && (long ? pos.stopLoss >= be : pos.stopLoss <= be)) throw badRequest("The stop is already at or beyond breakeven", "ALREADY_PROTECTED");
+  const d = breakevenStop(pos, price);
+  if ("problem" in d) throw badRequest(d.problem.message, d.problem.code);
+  const be = d.stop;
   const fired = await (await venueFor(pos.session, deps.priceOf)).setStop(pos.id, be);
   if (fired) {
     await announceExit(pos.session, pos, "STOP_LOSS", fired, { telegram: deps.telegram, onExchange: true });
     throw badRequest("The exchange stop had already filled — the position is closed", "CLOSED");
   }
+  await prisma.sessionPosition.updateMany({ where: { id: pos.id, closedAt: null }, data: { lastCheckedAt: deps.now ?? new Date() } });
   await post(pos.sessionId, "USER", "TEXT", `Move ${pos.symbol} stop to breakeven (${fmt(be)}).`);
   await post(pos.sessionId, "EXECUTOR", "ORDER", `${pos.symbol} stop moved ${pos.stopLoss == null ? "" : `${fmt(pos.stopLoss)} → `}${fmt(be)}.`, { positionId: pos.id, stopLoss: be });
   return be;
 }
 
-export { mandateOf };
+
+/**
+ * Set the stop and/or the target of an open position by hand (P14a). Stops only tighten; both levels must
+ * sit on the right side of the live price. A target is written to the ledger (and to venues that support it).
+ */
+export async function setSessionExits(userId: string, positionId: string, input: { stopLoss?: number; takeProfit?: number | null; trailAtr?: number | null }, deps: ServiceDeps = {}) {
+  const pos = await ownedOpenPosition(userId, positionId);
+  const price = await (deps.priceOf ?? livePrice)(pos.symbol);
+  if (price == null) throw new HttpError(503, `${pos.symbol} price unavailable`, "PRICE_UNAVAILABLE");
+  const problem = manualLevel(pos, price, input);
+  if (problem) throw badRequest(problem.message, problem.code);
+  const venue = await venueFor(pos.session, deps.priceOf);
+  const changes: string[] = [];
+  if (input.trailAtr !== undefined) {
+    if (input.trailAtr != null && !(input.trailAtr >= 0.5 && input.trailAtr <= 10)) throw badRequest("Trail between 0.5 and 10 ATR", "BAD_LEVEL");
+    await prisma.sessionPosition.updateMany({ where: { id: pos.id, closedAt: null }, data: { exitPlan: { ...(pos.exitPlan as object), trailAtr: input.trailAtr } } });
+    changes.push(input.trailAtr == null ? "trailing off" : `trailing at ${input.trailAtr}× the 1H ATR`);
+  }
+  if (input.stopLoss != null) {
+    const fired = await venue.setStop(pos.id, input.stopLoss);
+    if (fired) {
+      await announceExit(pos.session, pos, "STOP_LOSS", fired, { telegram: deps.telegram, onExchange: true });
+      throw badRequest("The exchange stop had already filled — the position is closed", "CLOSED");
+    }
+    changes.push(`stop ${pos.stopLoss == null ? "" : `${fmt(pos.stopLoss)} → `}${fmt(input.stopLoss)}`);
+  }
+  if (input.takeProfit !== undefined) {
+    if (venue.setTakeProfit) await venue.setTakeProfit(pos.id, input.takeProfit);
+    else await prisma.sessionPosition.updateMany({ where: { id: pos.id, closedAt: null }, data: { takeProfit: input.takeProfit } });
+    changes.push(input.takeProfit == null ? "target removed" : `target ${pos.takeProfit == null ? "" : `${fmt(pos.takeProfit)} → `}${fmt(input.takeProfit)}`);
+  }
+  if (!changes.length) throw badRequest("Nothing to change", "BAD_LEVEL");
+  await prisma.sessionPosition.updateMany({ where: { id: pos.id, closedAt: null }, data: { lastCheckedAt: deps.now ?? new Date() } });
+  await post(pos.sessionId, "USER", "TEXT", `Set ${pos.symbol} ${changes.join(", ")}.`);
+  await post(pos.sessionId, "EXECUTOR", "ORDER", `${pos.symbol} ${changes.join(", ")}.`, { positionId: pos.id, stopLoss: input.stopLoss, takeProfit: input.takeProfit });
+}

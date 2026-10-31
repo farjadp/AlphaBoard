@@ -1,3 +1,4 @@
+import { nextExtremes } from "@/lib/trading/positions";
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -11,6 +12,7 @@ import { evaluateAlerts } from "@/lib/alerts/job";
 import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { pruneEvents, recordEvent } from "@/lib/ops/events";
+import { pruneRateLimits } from "@/lib/http/rateLimit";
 import { sweepSignals } from "@/lib/signals/service";
 
 export const TICK_KEY = "tick.last";
@@ -81,6 +83,11 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
     const bars = m.price != null ? [...m.bars, { time: t, open: m.price, high: m.price, low: m.price, close: m.price }] : m.bars;
     if (bars.length === 0) continue;
     try {
+      const seen = bars.filter((b) => b.time >= pos.lastCheckedAt.getTime());
+      if (seen.length) {
+        const ext = nextExtremes(pos, { high: Math.max(...seen.map((b) => b.high)), low: Math.min(...seen.map((b) => b.low)) });
+        if (ext) await prisma.paperPosition.updateMany({ where: { id: pos.id, closedAt: null }, data: ext });
+      }
       const exit = scanExit(pos, bars, pos.lastCheckedAt.getTime());
       if (exit) {
         const r = await settlePosition(pos, exit.reason, exit.level, now());
@@ -167,6 +174,7 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
   await prisma.appSetting.upsert({ where: { key: TICK_HISTORY_KEY }, create: { key: TICK_HISTORY_KEY, value: hv }, update: { value: hv } });
   if (errors.length) await recordEvent({ level: "warn", source: "tick", message: errors[0], meta: { errors: errors.slice(0, 20) } }, now());
   await pruneEvents(now());
+  await pruneRateLimits(now()).catch((e) => logger.warn({ err: e instanceof Error ? e.message : String(e) }, "rate limit prune failed"));
   if (errors.length) logger.warn({ ...result }, "tick finished with errors");
   else if (closed.length || signals.resolved || alerts.fired || signalDesk.expired || signalDesk.unknown) logger.info({ ...result }, "tick settled positions");
   return result;

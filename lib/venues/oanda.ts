@@ -55,6 +55,11 @@ export function roundStop(price: number, side: "LONG" | "SHORT", digits: number)
   return v.toFixed(digits);
 }
 
+/** Targets round toward the market: a long's target down, a short's up (never further than asked). */
+export function roundTarget(price: number, side: "LONG" | "SHORT", digits: number): string {
+  return roundStop(price, side === "LONG" ? "LONG" : "SHORT", digits);
+}
+
 const floorUnits = (n: number, precision: number) => {
   const f = 10 ** Math.max(0, precision);
   return Math.floor(Math.abs(n) * f + 1e-9) / f;
@@ -183,7 +188,10 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
         });
       if (changed.count !== 1) logger.error({ positionId: pos.id }, "position changed during an OANDA close — reconciler will check");
       const row = await tx.sessionOrder.update({ where: { id: rowId }, data: { venueOrderId: fill.transactionId, status: "FILLED", filled: sold, avgPrice: fill.price, fee: exitFee, price: fill.price } });
-      if (closed) await tx.sessionOrder.updateMany({ where: { positionId: pos.id, purpose: "STOP", status: "OPEN", id: { not: rowId } }, data: { status: reason === "STOP_LOSS" ? "FILLED" : "CANCELED" } });
+      if (closed) {
+        await tx.sessionOrder.updateMany({ where: { positionId: pos.id, purpose: "STOP", status: "OPEN", id: { not: rowId } }, data: { status: reason === "STOP_LOSS" ? "FILLED" : "CANCELED" } });
+        await tx.sessionOrder.updateMany({ where: { positionId: pos.id, purpose: "TAKE_PROFIT", status: "OPEN", id: { not: rowId } }, data: { status: reason === "TAKE_PROFIT" ? "FILLED" : "CANCELED" } });
+      }
       await tx.tradingSession.update({ where: { id: pos.sessionId }, data: { realizedPnl: { increment: gross }, fees: { increment: exitFee } } });
       return { fill: { orderId: rowId, clientOrderId: row.clientOrderId, price: fill.price, qty: sold, fee: exitFee }, realizedPnl: net, closed };
     });
@@ -240,6 +248,8 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
         positionFill: "OPEN_ONLY",
         clientExtensions: { id: i.clientOrderId, tag: "alphaboard" }, tradeClientExtensions: { id: i.clientOrderId, tag: "alphaboard" },
         stopLossOnFill: { price: roundStop(i.stopLoss, i.side, inst.displayPrecision), timeInForce: "GTC" },
+        // The target rides on the trade too (P14c): OANDA closes it even while the worker is down.
+        ...(i.takeProfit != null ? { takeProfitOnFill: { price: roundTarget(i.takeProfit, i.side, inst.displayPrecision), timeInForce: "GTC" } } : {}),
       };
       type Fill = { id: string; price: string; tradeOpened?: { tradeID: string; units: string; price: string; initialMarginRequired?: string }; commission?: string; financing?: string };
       let fillPrice: number, fillUnits: number, tradeId: string, fillId: string, commission = 0, brokerMargin = NaN;
@@ -295,6 +305,14 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
             type: "stop_market", purpose: "STOP", reduceOnly: true, amount: fillUnits, price: i.stopLoss, status: "OPEN", venueOrderId: `trade-${tradeId}-sl`,
           },
         });
+        if (i.takeProfit != null) {
+          await tx.sessionOrder.create({
+            data: {
+              sessionId: i.sessionId, positionId: p.id, clientOrderId: `${i.clientOrderId}-tp`.slice(0, 64), symbol: i.symbol, side: i.side === "LONG" ? "SELL" : "BUY",
+              type: "take_profit", purpose: "TAKE_PROFIT", reduceOnly: true, amount: fillUnits, price: i.takeProfit, status: "OPEN", venueOrderId: `trade-${tradeId}-tp`,
+            },
+          });
+        }
         await tx.tradingSession.update({ where: { id: i.sessionId }, data: { fees: { increment: commission }, tradesCount: { increment: 1 } } });
         return p;
       });
@@ -360,6 +378,28 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
       return null;
     },
 
+    async setTakeProfit(positionId: string, takeProfit: number | null) {
+      const pos = await prisma.sessionPosition.findUnique({ where: { id: positionId } });
+      if (!pos || pos.closedAt || !pos.venueTradeId) return;
+      const inst = await instrument(pos.symbol);
+      // OANDA: a null takeProfit cancels the trade's take-profit order.
+      await call("PUT", `/trades/${pos.venueTradeId}/orders`, { takeProfit: takeProfit == null ? null : { price: roundTarget(takeProfit, pos.side, inst.displayPrecision), timeInForce: "GTC" } });
+      await prisma.$transaction(async (tx) => {
+        await tx.sessionPosition.updateMany({ where: { id: positionId, closedAt: null }, data: { takeProfit } });
+        await tx.sessionOrder.updateMany({ where: { positionId, purpose: "TAKE_PROFIT", status: "OPEN" }, data: takeProfit == null ? { status: "CANCELED" } : { price: takeProfit } });
+        const resting = await tx.sessionOrder.count({ where: { positionId, purpose: "TAKE_PROFIT", status: "OPEN" } });
+        if (takeProfit != null && !resting) {
+          const n = await tx.sessionOrder.count({ where: { positionId, purpose: "TAKE_PROFIT" } });
+          await tx.sessionOrder.create({
+            data: {
+              sessionId: pos.sessionId, positionId, clientOrderId: `ab-${pos.sessionId.slice(-10)}-tp-${pos.id.slice(-6)}-${n + 1}`, symbol: pos.symbol, side: pos.side === "LONG" ? "SELL" : "BUY",
+              type: "take_profit", purpose: "TAKE_PROFIT", reduceOnly: true, amount: pos.qty, price: takeProfit, status: "OPEN", venueOrderId: `trade-${pos.venueTradeId}-tp`,
+            },
+          });
+        }
+      });
+    },
+
     async syncStops(sessionId: string) {
       const open = await prisma.sessionPosition.findMany({ where: { sessionId, closedAt: null, venueTradeId: { not: null } } });
       const booked: Array<{ positionId: string; result: CloseResult }> = [];
@@ -399,7 +439,21 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
   async function syncOne(pos: SessionPosition, rowId?: string, fallbackReason: CloseIntent["reason"] = "MANUAL"): Promise<CloseResult | null> {
     if (!pos.venueTradeId) return null;
     const t = (await call<{ trade: OandaTrade & { closingTransactionIDs?: string[] } }>("GET", `/trades/${pos.venueTradeId}`)).trade;
-    if (t.state === "OPEN") return null;
+    if (t.state === "OPEN") {
+      // Reduced at the broker (a partial close in OANDA's app): book the part that went, keep the rest open.
+      const current = Math.abs(num(t.currentUnits));
+      if (!(current > 0) || current >= pos.qty - 1e-9) return null;
+      const id = rowId ?? (await prisma.sessionOrder.create({
+        data: {
+          sessionId: pos.sessionId, positionId: pos.id, clientOrderId: `ab-${pos.sessionId.slice(-10)}-rd-${pos.id.slice(-8)}-${Date.now().toString(36)}`, symbol: pos.symbol,
+          side: pos.side === "LONG" ? "SELL" : "BUY", type: "broker", purpose: "EXIT", reduceOnly: true, amount: pos.qty - current, status: "PENDING",
+        },
+      })).id;
+      logger.warn({ positionId: pos.id, ledger: pos.qty, broker: current }, "OANDA trade reduced outside the session — booking the difference");
+      return book(pos, id, {
+        price: num(t.averageClosePrice), units: pos.qty - current, pl: (num(t.realizedPL) || 0) - (pos.realizedPnl ?? 0), commission: 0, financing: 0, transactionId: `trade-${t.id}-reduce-${current}`,
+      }, "MANUAL", false);
+    }
     const lastTx = t.closingTransactionIDs?.at(-1);
     const txReason = lastTx ? (await call<{ transaction: Tx }>("GET", `/transactions/${lastTx}`).catch(() => null))?.transaction.reason : undefined;
     const REASONS: Record<string, CloseIntent["reason"]> = {
@@ -414,8 +468,9 @@ export function oandaVenue(conn: Conn, deps: OandaDeps = {}): Venue {
         side: pos.side === "LONG" ? "SELL" : "BUY", type: "broker", purpose: reason === "STOP_LOSS" ? "STOP" : "EXIT", reduceOnly: true, amount: pos.qty, status: "PENDING",
       },
     })).id;
+    // realizedPL is cumulative for the trade; subtract what earlier reductions already booked.
     return book(pos, id, {
-      price: num(t.averageClosePrice), units: pos.qty, pl: num(t.realizedPL) || 0, commission: 0, financing: num(t.financing) || 0, transactionId: `trade-${t.id}-close`,
+      price: num(t.averageClosePrice), units: pos.qty, pl: (num(t.realizedPL) || 0) - (pos.realizedPnl ?? 0), commission: 0, financing: num(t.financing) || 0, transactionId: `trade-${t.id}-close`,
     }, reason, true);
   }
 

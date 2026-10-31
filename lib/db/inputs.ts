@@ -2,11 +2,11 @@
 import { z } from "zod";
 
 /** JSON has no undefined; clients send null for "not set". Treat both as absent. */
-export const opt = <S extends z.ZodType>(schema: S) => z.preprocess((v) => (v === null || v === "" ? undefined : v), schema.optional());
+const opt = <S extends z.ZodType>(schema: S) => z.preprocess((v) => (v === null || v === "" ? undefined : v), schema.optional());
 
-export const TRADE_EMOTIONS = ["Confident", "FOMO", "Panic", "Neutral", "Greed", "Revenge"] as const;
+const TRADE_EMOTIONS = ["Confident", "FOMO", "Panic", "Neutral", "Greed", "Revenge"] as const;
 
-export const PostMortemInput = z.object({
+const PostMortemInput = z.object({
   outcome: z.enum(["WIN", "LOSS", "BREAKEVEN", "OPEN"]),
   rootCause: z.string().max(2000),
   mistakes: z.array(z.string().max(400)).max(8),
@@ -116,7 +116,12 @@ export const SessionControlInput = z.discriminatedUnion("action", [
   z.object({ action: z.literal("end"), mode: z.enum(["CLOSE_ALL", "KEEP_WITH_STOPS"]) }),
 ]);
 
-export const SessionPositionInput = z.object({ action: z.enum(["close", "close_half", "breakeven"]) });
+export const SessionPositionInput = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("close"), fraction: z.number().gt(0).lte(1).optional() }),
+  z.object({ action: z.literal("close_half") }),
+  z.object({ action: z.literal("breakeven") }),
+  z.object({ action: z.literal("set_exits"), stopLoss: z.number().finite().positive().optional(), takeProfit: z.number().finite().positive().nullable().optional(), trailAtr: z.number().min(0.5).max(10).nullable().optional() }),
+]);
 
 export const TradingLimitsInput = z.object({
   maxDailyLoss: z.number().finite().positive().max(10_000_000).nullable(),

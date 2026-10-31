@@ -22,14 +22,14 @@
 //|  hedging account.                                                  |
 //+------------------------------------------------------------------+
 #property copyright "AlphaBoard"
-#property version   "1.12"
+#property version   "1.13"
 #property description "Executes AlphaBoard Signal Desk signals: one position per target, broker-side SL/TP, reports back"
 
 #include <Trade/Trade.mqh>
 
 //--- inputs
 input group "=== Connection ==="
-input string InpBaseUrl     = "https://example.up.railway.app"; // AlphaBoard address (also allow it for WebRequest)
+input string InpBaseUrl     = "https://alphaboard.trade"; // AlphaBoard address (also allow it for WebRequest)
 input string InpToken       = "";      // Terminal token from Admin -> Signals
 input int    InpPollSec     = 3;       // Poll every N seconds
 
@@ -49,6 +49,12 @@ input datetime InpCountFrom    = 0;    // Count today from (server time): earlie
 
 input group "=== Management ==="
 input bool   InpBEAfterTP1  = true;    // After TP1, move the other legs' stop to entry
+input int    InpBEBufferPts = 0;       // Breakeven sits this many points past the entry (covers spread/commission)
+input bool   InpStepUpAfterTP2 = true; // After TP2, move the remaining legs' stop to the TP1 price
+input double InpTrailAtr    = 0.0;     // Trail the stop at N x ATR behind the price (0 = off)
+input ENUM_TIMEFRAMES InpTrailTf = PERIOD_H1; // ATR timeframe for trailing (14 periods)
+input bool   InpTrailAfterBE = true;   // Trail only once the stop is at or beyond the entry
+input double InpTrailStepAtr = 0.1;    // Move the trailing stop only by at least this fraction of ATR
 input ulong  InpMagic       = 880900;  // Magic number (GoldHedgeManager uses 880801)
 input int    InpSlippagePts = 30;      // Max deviation for market orders (points)
 
@@ -66,6 +72,10 @@ bool     g_warnedUrl = false;
 //--- report queue (retried on every timer tick until the server accepts it)
 string   g_qPath[];
 string   g_qBody[];
+
+//--- ATR handles for trailing, one per symbol
+string   g_atrSym[];
+int      g_atrHandle[];
 
 //+------------------------------------------------------------------+
 //| helpers                                                           |
@@ -233,10 +243,50 @@ bool HistoryLeg(const ulong positionId, string &id, int &leg, double &openPrice)
    return false;
   }
 
-//--- moves every open leg of a signal (except skipLeg) to its entry; true when at least one moved or already was there
-bool Breakeven(const string id, const int skipLeg)
+double NP(const string sym, const double price) { return NormalizeDouble(price, (int)SymbolInfoInteger(sym, SYMBOL_DIGITS)); }
+
+//--- a stop/target must sit at least the broker's stops level away from the market
+bool FarEnough(const string sym, const double level)
+  {
+   double pt = SymbolInfoDouble(sym, SYMBOL_POINT);
+   double minDist = (double)SymbolInfoInteger(sym, SYMBOL_TRADE_STOPS_LEVEL) * pt;
+   double bid = SymbolInfoDouble(sym, SYMBOL_BID), ask = SymbolInfoDouble(sym, SYMBOL_ASK);
+   return MathAbs(level - bid) >= minDist && MathAbs(level - ask) >= minDist;
+  }
+
+//--- modify one leg (dry run: log only). Returns true when the levels are (or already were) in place.
+bool ModifyLeg(const ulong ticket, const string sym, const int leg, const double sl, const double tp, const string why)
+  {
+   if(InpDryRun) { Print("SignalCopier [dry run]: would set ", sym, " leg ", leg, " stop ", Px(sym, sl), " target ", Px(sym, tp), " (", why, ")"); return true; }
+   if(trade.PositionModify(ticket, sl, tp)) return true;
+   Print("SignalCopier: ", why, " failed on ", sym, " leg ", leg, ": ", trade.ResultRetcodeDescription());
+   return false;
+  }
+
+//--- 14-period ATR of a symbol on the trailing timeframe (last closed bar); 0 when unavailable
+double Atr(const string sym)
+  {
+   int h = INVALID_HANDLE;
+   int n = ArraySize(g_atrSym);
+   for(int i = 0; i < n; i++) if(g_atrSym[i] == sym) { h = g_atrHandle[i]; break; }
+   if(h == INVALID_HANDLE)
+     {
+      h = iATR(sym, InpTrailTf, 14);
+      if(h == INVALID_HANDLE) return 0;
+      ArrayResize(g_atrSym, n + 1); ArrayResize(g_atrHandle, n + 1);
+      g_atrSym[n] = sym; g_atrHandle[n] = h;
+     }
+   double buf[];
+   if(CopyBuffer(h, 0, 1, 1, buf) != 1) return 0;
+   return buf[0] > 0 ? buf[0] : 0;
+  }
+
+//--- moves every open leg of a signal (except skipLeg) to its entry plus the buffer; `level` gets the stop used.
+//--- true when at least one moved or already was there
+bool Breakeven(const string id, const int skipLeg, double &level)
   {
    bool any = false;
+   level = 0;
    for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
       ulong t = PositionGetTicket(i);
@@ -247,13 +297,131 @@ bool Breakeven(const string id, const int skipLeg)
       double sl = PositionGetDouble(POSITION_SL);
       double tp = PositionGetDouble(POSITION_TP);
       bool buy = PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY;
-      // never loosen a stop: only move it when entry is better than where it is
-      if(sl > 0 && ((buy && sl >= open) || (!buy && sl <= open))) { any = true; continue; }
-      if(InpDryRun) { Print("SignalCopier [dry run]: would move ", sym, " leg ", leg, " stop to ", Px(sym, open)); any = true; continue; }
-      if(trade.PositionModify(t, open, tp)) any = true;
-      else Print("SignalCopier: stop to entry failed on ", sym, " leg ", leg, ": ", trade.ResultRetcodeDescription());
+      double dir = buy ? 1.0 : -1.0;
+      double be = NP(sym, open + dir * InpBEBufferPts * SymbolInfoDouble(sym, SYMBOL_POINT));
+      if(level == 0) level = be;
+      // never loosen a stop: only move it when the breakeven level is better than where it is
+      if(sl > 0 && dir * (sl - be) >= 0) { any = true; continue; }
+      if(!FarEnough(sym, be)) { Print("SignalCopier: breakeven ", Px(sym, be), " is inside the stops level on ", sym, " leg ", leg, "; try again later"); continue; }
+      if(ModifyLeg(t, sym, leg, be, tp, "stop to entry")) any = true;
      }
    return any;
+  }
+
+//--- MOVE_SL: every open leg's stop to `price`, only toward the price and on the right side of the market
+bool MoveStop(const string id, const double price, const string why)
+  {
+   bool any = false;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong t = PositionGetTicket(i);
+      string pid; int leg;
+      if(!PositionLeg(t, pid, leg) || pid != id) continue;
+      string sym = PositionGetString(POSITION_SYMBOL);
+      double sl = PositionGetDouble(POSITION_SL);
+      double tp = PositionGetDouble(POSITION_TP);
+      bool buy = PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY;
+      double dir = buy ? 1.0 : -1.0;
+      double lvl = NP(sym, price);
+      double mkt = buy ? SymbolInfoDouble(sym, SYMBOL_BID) : SymbolInfoDouble(sym, SYMBOL_ASK);
+      if(dir * (mkt - lvl) <= 0) { Print("SignalCopier: stop ", Px(sym, lvl), " is on the wrong side of the market on ", sym, " leg ", leg); continue; }
+      if(sl > 0 && dir * (lvl - sl) <= 0) { Print("SignalCopier: stop ", Px(sym, lvl), " would loosen leg ", leg, " (now ", Px(sym, sl), ")"); any = true; continue; }
+      if(tp > 0 && dir * (tp - lvl) <= 0) { Print("SignalCopier: stop ", Px(sym, lvl), " is beyond the target of leg ", leg); continue; }
+      if(!FarEnough(sym, lvl)) { Print("SignalCopier: stop ", Px(sym, lvl), " is inside the stops level on ", sym); continue; }
+      if(ModifyLeg(t, sym, leg, lvl, tp, why)) any = true;
+     }
+   return any;
+  }
+
+//--- MOVE_TP: one leg's target
+bool MoveTarget(const string id, const int wantLeg, const double price)
+  {
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong t = PositionGetTicket(i);
+      string pid; int leg;
+      if(!PositionLeg(t, pid, leg) || pid != id || leg != wantLeg) continue;
+      string sym = PositionGetString(POSITION_SYMBOL);
+      double sl = PositionGetDouble(POSITION_SL);
+      bool buy = PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY;
+      double dir = buy ? 1.0 : -1.0;
+      double lvl = NP(sym, price);
+      double mkt = buy ? SymbolInfoDouble(sym, SYMBOL_BID) : SymbolInfoDouble(sym, SYMBOL_ASK);
+      if(dir * (lvl - mkt) <= 0) { Print("SignalCopier: target ", Px(sym, lvl), " is on the wrong side of the market on ", sym); return false; }
+      if(!FarEnough(sym, lvl)) { Print("SignalCopier: target ", Px(sym, lvl), " is inside the stops level on ", sym); return false; }
+      return ModifyLeg(t, sym, leg, sl, lvl, "move target");
+     }
+   Print("SignalCopier: MOVE_TP: leg ", wantLeg, " of ", id, " is not open");
+   return false;
+  }
+
+//--- CLOSE_PARTIAL: close `fraction` of every open leg at market; each part is reported with what is left
+void ClosePartial(const string id, const double fraction)
+  {
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong t = PositionGetTicket(i);
+      string pid; int leg;
+      if(!PositionLeg(t, pid, leg) || pid != id) continue;
+      string sym = PositionGetString(POSITION_SYMBOL);
+      double vol = PositionGetDouble(POSITION_VOLUME);
+      double step = SymbolInfoDouble(sym, SYMBOL_VOLUME_STEP);
+      double vmin = SymbolInfoDouble(sym, SYMBOL_VOLUME_MIN);
+      double part = FloorTo(vol * fraction, step);
+      if(part < vmin - 1e-9 || vol - part < vmin - 1e-9) { Print("SignalCopier: leg ", leg, " (", Vol(sym, vol), " lot) is too small to split by ", DoubleToString(fraction, 2)); continue; }
+      if(InpDryRun) { Print("SignalCopier [dry run]: would close ", Vol(sym, part), " of leg ", leg, " (", Vol(sym, vol), ")"); continue; }
+      if(!trade.PositionClosePartial(t, part, InpSlippagePts)) { Print("SignalCopier: partial close failed on leg ", leg, ": ", trade.ResultRetcodeDescription()); continue; }
+      double price = trade.ResultPrice();
+      double done = trade.ResultVolume() > 0 ? trade.ResultVolume() : part;
+      Report(id, "event=PARTIAL&leg=" + IntegerToString(leg) + "&price=" + Px(sym, price) + "&volume=" + Vol(sym, done) + "&left=" + Vol(sym, vol - done));
+     }
+  }
+
+//--- the price at which leg `wantLeg` of a signal closed (its TP), from history; 0 when not found
+double LegClosePrice(const string id, const int wantLeg)
+  {
+   string want = LegComment(id, wantLeg);
+   if(!HistorySelect(TimeCurrent() - 30 * 86400, TimeCurrent() + 86400)) return 0;
+   for(int i = HistoryDealsTotal() - 1; i >= 0; i--)
+     {
+      ulong d = HistoryDealGetTicket(i);
+      if(HistoryDealGetInteger(d, DEAL_MAGIC) != (long)InpMagic) continue;
+      long entry = HistoryDealGetInteger(d, DEAL_ENTRY);
+      if(entry != DEAL_ENTRY_OUT && entry != DEAL_ENTRY_OUT_BY) continue;
+      ulong posId = (ulong)HistoryDealGetInteger(d, DEAL_POSITION_ID);
+      string pid; int leg; double openPrice;
+      if(!HistoryLeg(posId, pid, leg, openPrice) || pid != id || leg != wantLeg) continue;
+      return HistoryDealGetDouble(d, DEAL_PRICE);
+     }
+   return 0;
+  }
+
+//--- ATR trailing on every open copier leg (OnTimer). Local only: each step is not posted to the channel.
+void Trail()
+  {
+   if(InpTrailAtr <= 0) return;
+   for(int i = PositionsTotal() - 1; i >= 0; i--)
+     {
+      ulong t = PositionGetTicket(i);
+      string pid; int leg;
+      if(!PositionLeg(t, pid, leg)) continue;
+      string sym = PositionGetString(POSITION_SYMBOL);
+      double open = PositionGetDouble(POSITION_PRICE_OPEN);
+      double sl = PositionGetDouble(POSITION_SL);
+      double tp = PositionGetDouble(POSITION_TP);
+      bool buy = PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY;
+      double dir = buy ? 1.0 : -1.0;
+      bool protected_ = sl > 0 && dir * (sl - open) >= 0;
+      if(InpTrailAfterBE && !protected_) continue;
+      double atr = Atr(sym);
+      if(atr <= 0) continue;
+      double cur = buy ? SymbolInfoDouble(sym, SYMBOL_BID) : SymbolInfoDouble(sym, SYMBOL_ASK);
+      double ns = NP(sym, cur - dir * atr * InpTrailAtr);
+      if(sl > 0 && dir * (ns - sl) < atr * InpTrailStepAtr) continue;
+      if(sl == 0 && dir * (ns - open) < 0 && InpTrailAfterBE) continue;
+      if(!FarEnough(sym, ns)) continue;
+      ModifyLeg(t, sym, leg, ns, tp, "trail");
+     }
   }
 
 //+------------------------------------------------------------------+
@@ -500,16 +668,36 @@ void OpenSignal(string &f[])
    Print("SignalCopier: ", sym, " ", f[3], " opened ", opened, "/", n, " legs (", plan, ")");
   }
 
-//--- CMD|<id>|<CLOSE_ALL|BREAKEVEN>
-void Command(string &f[])
+//--- CMD|<id>|CLOSE_ALL · CMD|<id>|BREAKEVEN · CMD|<id>|MOVE_SL|<price> · CMD|<id>|MOVE_TP|<leg>|<price> · CMD|<id>|CLOSE_PARTIAL|<fraction>
+void Command(string &f[], const int k)
   {
    string id = f[1];
-   if(f[2] == "BREAKEVEN")
+   if(f[2] == "BREAKEVEN" && k == 3)
      {
-      if(Breakeven(id, 0)) Report(id, "event=BE&price=1"); // the server needs a positive price but does not use it for BE
+      double lvl;
+      if(Breakeven(id, 0, lvl) && lvl > 0) Report(id, "event=BE&price=" + DoubleToString(lvl, 8));
       return;
      }
-   if(f[2] != "CLOSE_ALL") { Print("SignalCopier: unknown command ", f[2]); return; }
+   if(f[2] == "MOVE_SL" && k == 4)
+     {
+      double price = StringToDouble(f[3]);
+      if(price > 0 && MoveStop(id, price, "move stop")) Report(id, "event=SL_MOVED&price=" + DoubleToString(price, 8));
+      return;
+     }
+   if(f[2] == "MOVE_TP" && k == 5)
+     {
+      int leg = (int)StringToInteger(f[3]);
+      double price = StringToDouble(f[4]);
+      if(leg > 0 && price > 0 && MoveTarget(id, leg, price)) Report(id, "event=TP_MOVED&leg=" + IntegerToString(leg) + "&price=" + DoubleToString(price, 8));
+      return;
+     }
+   if(f[2] == "CLOSE_PARTIAL" && k == 4)
+     {
+      double fraction = StringToDouble(f[3]);
+      if(fraction > 0 && fraction < 1) ClosePartial(id, fraction);
+      return;
+     }
+   if(f[2] != "CLOSE_ALL" || k != 3) { Print("SignalCopier: unknown command ", f[2]); return; }
    for(int i = PositionsTotal() - 1; i >= 0; i--)
      {
       ulong t = PositionGetTicket(i);
@@ -534,7 +722,7 @@ void Poll()
       string f[];
       int k = StringSplit(lines[i], '|', f);
       if(k == 9 && f[0] == "OPEN") OpenSignal(f);
-      else if(k == 3 && f[0] == "CMD") Command(f);
+      else if(k >= 3 && k <= 5 && f[0] == "CMD") Command(f, k);
       else if(StringLen(lines[i]) > 0) Print("SignalCopier: ignored line ", lines[i]);
      }
   }
@@ -560,9 +748,10 @@ int OnInit()
    EventSetTimer(MathMax(1, InpPollSec));
    if(InpCountFrom > CalendarDayStart())
       Print("SignalCopier: today's guards count only trades from ", TimeToString(InpCountFrom), " (server time); this ends at midnight");
-   Print("SignalCopier 1.12 started: ", g_base, InpDryRun ? " [DRY RUN - opens nothing]" : " [LIVE]",
+   Print("SignalCopier 1.13 started: ", g_base, InpDryRun ? " [DRY RUN - opens nothing]" : " [LIVE]",
          " account ", AccountInfoInteger(ACCOUNT_LOGIN), " risk cap ", DoubleToString(InpRiskCapPct, 2), "% max lot ", DoubleToString(InpMaxLot, 2),
-         " min-lot cap ", DoubleToString(InpMinLotRiskCapPct, 1), "% | daily lock ", DoubleToString(InpDailyLossPct, 1), "% stop after ", InpMaxConsecLoss, " losses cooldown ", InpCooldownMin, "m max open ", InpMaxOpenSignals);
+         " min-lot cap ", DoubleToString(InpMinLotRiskCapPct, 1), "% | daily lock ", DoubleToString(InpDailyLossPct, 1), "% stop after ", InpMaxConsecLoss, " losses cooldown ", InpCooldownMin, "m max open ", InpMaxOpenSignals,
+         " | BE buffer ", InpBEBufferPts, "pt step-up ", InpStepUpAfterTP2 ? "on" : "off", " trail ", DoubleToString(InpTrailAtr, 1), "xATR");
    Heartbeat();
    return INIT_SUCCEEDED;
   }
@@ -571,6 +760,7 @@ void OnDeinit(const int reason)
   {
    EventKillTimer();
    FlushReports();
+   for(int i = 0; i < ArraySize(g_atrHandle); i++) if(g_atrHandle[i] != INVALID_HANDLE) IndicatorRelease(g_atrHandle[i]);
   }
 
 void OnTimer()
@@ -585,6 +775,7 @@ void OnTimer()
       return; // don't claim jobs we cannot execute: they would end up UNKNOWN
      }
    Poll();
+   Trail();
    FlushReports();
   }
 
@@ -606,7 +797,16 @@ void OnTradeTransaction(const MqlTradeTransaction &trans, const MqlTradeRequest 
 
    string ev = reason == DEAL_REASON_TP ? "TP" : reason == DEAL_REASON_SL ? "SL" : "CLOSED";
    Report(id, "event=" + ev + "&leg=" + IntegerToString(leg) + "&price=" + Px(sym, price));
-   if(ev == "TP" && leg == 1 && InpBEAfterTP1 && Breakeven(id, 1))
-      Report(id, "event=BE&price=" + Px(sym, openPrice));
+   if(ev == "TP" && leg == 1 && InpBEAfterTP1)
+     {
+      double lvl;
+      if(Breakeven(id, 1, lvl) && lvl > 0) Report(id, "event=BE&price=" + Px(sym, lvl));
+     }
+   // after TP2 the remaining legs are protected at TP1: a reversal still banks the first target
+   if(ev == "TP" && leg == 2 && InpStepUpAfterTP2)
+     {
+      double tp1 = LegClosePrice(id, 1);
+      if(tp1 > 0 && MoveStop(id, tp1, "stop to TP1")) Report(id, "event=SL_MOVED&price=" + Px(sym, tp1));
+     }
   }
 //+------------------------------------------------------------------+

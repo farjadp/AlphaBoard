@@ -59,11 +59,16 @@ export function useSessionView(id: string) {
   const control = useCallback((body: { action: "pause" | "resume" | "kill" } | { action: "extend"; minutes: number } | { action: "end"; mode: "CLOSE_ALL" | "KEEP_WITH_STOPS" }) =>
     resource.mutate<SessionViewDto>({ request: jsonRequest(`/api/sessions/${id}/control`, "POST", body), apply: (_d, v) => v }), [id, resource]);
 
-  const positionAction = useCallback((positionId: string, action: "close" | "close_half" | "breakeven") =>
-    resource.mutate<SessionViewDto>({ request: jsonRequest(`/api/sessions/positions/${positionId}`, "POST", { action }), apply: (_d, v) => v }), [resource]);
+  const positionAction = useCallback((positionId: string, action: PositionAction) =>
+    resource.mutate<SessionViewDto>({ request: jsonRequest(`/api/sessions/positions/${positionId}`, "POST", typeof action === "string" ? { action } : action), apply: (_d, v) => v }), [resource]);
 
   return { view: data, loaded, error, control, positionAction };
 }
+
+export type PositionAction =
+  | "close" | "close_half" | "breakeven"
+  | { action: "close"; fraction: number }
+  | { action: "set_exits"; stopLoss?: number; takeProfit?: number | null; trailAtr?: number | null };
 
 // ─── One session: room messages (cursor-polled, append-only) ─────────────────
 

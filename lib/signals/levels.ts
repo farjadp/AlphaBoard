@@ -1,3 +1,4 @@
+import { matchCatalogSymbol } from "@/lib/market/symbols";
 import { ASSET_CATALOG } from "@/lib/assetCatalog";
 import type { Candle } from "@/lib/candlestickPatterns";
 import { computeAtr, roundForPrice } from "@/lib/market/indicators";
@@ -12,8 +13,8 @@ import { num } from "./num";
  * the last close). Some feeds are offset from the broker (gold here is COMEX futures, a few dollars above spot),
  * so a typed broker price gives exact levels.
  */
-export const LOOKBACK_BARS = 48;
-export const FIB_EXTENSIONS = [0.618, 1, 1.272, 1.618] as const;
+const LOOKBACK_BARS = 48;
+const FIB_EXTENSIONS = [0.618, 1, 1.272, 1.618] as const;
 const STOP_BUFFER_ATR = 0.25;
 const MIN_STOP_ATR = 1.5; // the desk's own minimum (P10)
 const MAX_STOP_ATR = 3;
@@ -58,13 +59,5 @@ export function suggestLevels(bars: Candle[], side: "BUY" | "SELL", reference: n
 
 /** "XAUUSD.ec", "GOLD", "OP", "ETHUSD.ec" → the market-data catalog's symbol ("XAU/USD", "OP/USDT"), or null. */
 export function catalogSymbolFor(raw: string): string | null {
-  const s = raw.split(".")[0].replace(/[a-z]+$/, "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  const want = ({ GOLD: "XAUUSD", SILVER: "XAGUSD" } as Record<string, string>)[s] ?? s;
-  if (!want) return null;
-  const variants = [want, `${want}USDT`, want.replace(/USD$/, "USDT"), want.replace(/USDT$/, "USD")];
-  for (const v of variants) {
-    const hit = ASSET_CATALOG.find((a) => a.symbol.replace("/", "").toUpperCase() === v);
-    if (hit) return hit.symbol;
-  }
-  return null;
+  return matchCatalogSymbol(raw, ASSET_CATALOG);
 }

@@ -1,7 +1,7 @@
+import { rText } from "@/lib/format";
 import type { SignalOutcome } from "@/lib/eval/evaluator";
 
-export const r = (n: number | null | undefined, signed = true) =>
-  n == null || !Number.isFinite(n) ? "—" : `${signed && n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toFixed(2)}R`;
+export const r = rText;
 export const pctOrDash = (n: number | null | undefined) => (n == null ? "—" : `${n.toFixed(0)}%`);
 export const ratio = (n: number | null | undefined) => (n == null ? "—" : n.toFixed(2));
 export const rTone = (n: number | null | undefined) =>

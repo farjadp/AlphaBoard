@@ -20,7 +20,7 @@ export function returnsAfter(bars: HourBar[], t: number) {
   return { p0, ret4h: at(4), ret24h: at(24) };
 }
 
-export const isCall = (s: number) => Math.abs(s) > 0.15;
+const isCall = (s: number) => Math.abs(s) > 0.15;
 
 export interface Scored { sentiment: number; ret4h: number | null; ret24h: number | null }
 export interface Accuracy { articles: number; calls: number; hitRate4h: number | null; hitRate24h: number | null; avgSignedRet24hPct: number | null }

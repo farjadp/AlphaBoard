@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /** Public waitlist signup from the landing page. Always the same answer (no account/email enumeration). */
 export const POST = route(async (req) => {
-  enforceRateLimit(req, "public");
+  await enforceRateLimit(req, "public");
   await submitAccessRequest(AccessRequestInput.parse(await readJson(req, 4_000)), clientIp(req));
   return NextResponse.json({ ok: true }, { status: 202 });
 });

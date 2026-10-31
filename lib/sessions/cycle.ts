@@ -21,16 +21,16 @@ import { post } from "./room";
 import { mandateOf, markOpen, sessionMoney } from "./view";
 
 /** |move| since the last cycle that triggers an early cycle, and below which a quiet interval cycle is skipped. */
-export const EVENT_MOVE = 0.015;
-export const QUIET_MOVE = 0.002;
-export const MAX_SKIPS = 2;
-export const FAILS_TO_PAUSE = 3;
-export const RETRY_AFTER_FAIL_MS = 2 * 60_000;
+const EVENT_MOVE = 0.015;
+const QUIET_MOVE = 0.002;
+const MAX_SKIPS = 2;
+const FAILS_TO_PAUSE = 3;
+const RETRY_AFTER_FAIL_MS = 2 * 60_000;
 /** With no open position, the debate and strategist run only if a market note is directional at this confidence. */
-export const SETUP_CONFIDENCE = MIN_ANALYST_CONFIDENCE;
+const SETUP_CONFIDENCE = MIN_ANALYST_CONFIDENCE;
 
 /** Symbols the market analyst reads as directional with enough confidence to be worth a strategist call. */
-export function setupCandidates(market: AnalystNotes): string[] {
+function setupCandidates(market: AnalystNotes): string[] {
   return market.notes.filter((n) => n.stance !== "neutral" && n.confidence >= SETUP_CONFIDENCE).map((n) => n.symbol);
 }
 
@@ -52,7 +52,7 @@ const inFlight = new Set<string>();
 type Loaded = TradingSession & { positions: SessionPosition[] };
 
 /** Entries stop this close to the end so positions are not opened only to be closed by the session end. */
-export const noEntryWindowMin = (m: Mandate) => Math.min(15, Math.max(5, Math.round(m.durationMin * 0.1)));
+const noEntryWindowMin = (m: Mandate) => Math.min(15, Math.max(5, Math.round(m.durationMin * 0.1)));
 
 function notesBody(label: string, n: AnalystNotes) {
   if (!n.notes.length) return `${label}: no notes.`;
@@ -151,7 +151,7 @@ async function buildContext(s: Loaded, m: Mandate, symbols: SymbolContext[], pri
 }
 
 /** What the risk engine reads from a symbol's market context (1H ATR, 4H trend) and the market analyst's note. */
-export function signalsOf(c: SymbolContext | undefined, market?: AnalystNotes): SymbolSignals {
+function signalsOf(c: SymbolContext | undefined, market?: AnalystNotes): SymbolSignals {
   const tf = (name: string) => c?.timeframes.find((t) => t.timeframe === name && t.available);
   const note = market && c ? market.notes.find((n) => n.symbol === c.symbol) : undefined;
   return {
@@ -324,7 +324,7 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
           await announceExit(s, pos, "STOP_LOSS", fired, { cycle: cycleNo, telegram: deps.telegram, onExchange: true });
           continue;
         }
-        await prisma.sessionPosition.update({ where: { id: v.positionId }, data: { exitPlan: { ...(pos.exitPlan as object), invalidation: p.exitPlan.invalidation || (pos.exitPlan as { invalidation?: string }).invalidation } } });
+        await prisma.sessionPosition.update({ where: { id: v.positionId }, data: { lastCheckedAt: now, exitPlan: { ...(pos.exitPlan as object), invalidation: p.exitPlan.invalidation || (pos.exitPlan as { invalidation?: string }).invalidation } } });
         await post(sessionId, "EXECUTOR", "ORDER", `${p.symbol} stop moved ${pos.stopLoss == null ? "" : `${fmt(pos.stopLoss)} → `}${fmt(v.stopLoss)}.`, { positionId: v.positionId, stopLoss: v.stopLoss }, extra);
         executed++;
       }

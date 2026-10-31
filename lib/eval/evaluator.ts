@@ -14,6 +14,7 @@
  *   that bar's close. No fees — this measures the call, not an execution.
  * - R = (exit − entry) × direction / |entry − stop|.
  */
+import { rMultiple } from "@/lib/trading/math";
 import type { TimeframeKey } from "@/lib/market/timeframes";
 import { TIMEFRAME_KEYS } from "@/lib/market/timeframes";
 
@@ -45,7 +46,7 @@ const MIN = 60_000, HOUR = 60 * MIN, DAY = 24 * HOUR;
 
 /** Bars a signal has to play out: ≈ one day on 15M, three days on 1H, a week on 4H, a month on 1D. */
 export const HORIZON_BARS: Record<TimeframeKey, number> = { "5M": 144, "15M": 96, "1H": 72, "4H": 42, "1D": 30, "1W": 12, "1M": 6 };
-export const BAR_MS: Record<TimeframeKey, number> = { "5M": 5 * MIN, "15M": 15 * MIN, "1H": HOUR, "4H": 4 * HOUR, "1D": DAY, "1W": 7 * DAY, "1M": 31 * DAY };
+const BAR_MS: Record<TimeframeKey, number> = { "5M": 5 * MIN, "15M": 15 * MIN, "1H": HOUR, "4H": 4 * HOUR, "1D": DAY, "1W": 7 * DAY, "1M": 31 * DAY };
 const MARKET_ENTRY_TOLERANCE = 0.001;
 
 export function normalizeTimeframe(tf: string): TimeframeKey | null {
@@ -71,8 +72,7 @@ export function evaluateSignal(s: EvalSignal, bars: EvalBar[], now: Date): Evalu
   const t0 = s.createdAt.getTime();
   if (sorted.length === 0 || sorted[0].time > t0) return invalid("Price history no longer covers this signal");
 
-  const risk = Math.abs(s.entry - s.stopLoss);
-  const R = (exit: number) => round(((exit - s.entry) * dir) / risk);
+  const R = (exit: number) => round(rMultiple({ side: dir === 1 ? "LONG" : "SHORT", entry: s.entry, stop: s.stopLoss, price: exit }) ?? 0);
   const horizon = HORIZON_BARS[tf];
   const after = sorted.filter((b) => b.time >= t0).slice(0, horizon);
 

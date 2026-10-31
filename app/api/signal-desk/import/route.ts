@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { route } from "@/lib/http/route";
-import { badRequest, readJson } from "@/lib/http/errors";
 import { enforceRateLimit } from "@/lib/http/rateLimit";
+import { adminRoute } from "@/lib/http/userRoute";
+import { z } from "zod";
+import { badRequest, readJson } from "@/lib/http/errors";
 import { parseImageDataUrl } from "@/lib/http/images";
-import { requireAdmin } from "@/lib/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { aiJson, type ContentPart } from "@/lib/ai";
 import { draftFromExtract, SIGNAL_EXTRACT_JSON, SIGNAL_EXTRACT_PROMPT, SignalExtractSchema } from "@/lib/signals/importDraft";
@@ -14,9 +13,8 @@ export const dynamic = "force-dynamic";
 const Body = z.object({ text: z.string().trim().max(4_000).optional(), image: z.string().optional() });
 
 /** "Paste a signal": text and/or a screenshot → a form draft with warnings. Nothing is stored or sent. */
-export const POST = route(async (req) => {
-  const admin = await requireAdmin();
-  enforceRateLimit(req, "ai");
+export const POST = adminRoute(async (req, admin) => {
+  await enforceRateLimit(req, "ai");
   const { text, image } = Body.parse(await readJson(req, 2_200_000));
   if (!text && !image) throw badRequest("paste the signal text or a screenshot");
   if (image) parseImageDataUrl(image);

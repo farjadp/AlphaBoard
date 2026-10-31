@@ -1,4 +1,5 @@
 /** Session report: metrics computed in code (pure) + an AI-written narrative (spec §4.8). */
+import { usd } from "@/lib/format";
 import type { SessionMetrics } from "@/lib/types/sessions";
 
 export interface ClosedTrade {
@@ -98,7 +99,6 @@ export function computeMetrics(i: MetricsInput): SessionMetrics {
   };
 }
 
-const usd = (n: number) => `${n < 0 ? "−" : ""}$${Math.abs(n).toFixed(2)}`;
 
 /** Plain-text facts handed to the report writer (it must not recompute numbers). */
 export function metricsText(name: string, m: SessionMetrics, trades: Array<ClosedTrade & { reason: string | null }>): string {

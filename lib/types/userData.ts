@@ -1,3 +1,5 @@
+import type { z } from "zod";
+import type { PostMortemSchema } from "@/lib/ai/schemas";
 /**
  * Client-facing shapes for user data. Shared by the API (lib/db mappers) and the React hooks,
  * so the wire format has exactly one definition.
@@ -9,15 +11,8 @@ export type { TradePosition };
 // ─── Journal ─────────────────────────────────────────────────────────────────
 export type TradeEmotion = "Confident" | "FOMO" | "Panic" | "Neutral" | "Greed" | "Revenge";
 
-export interface PostMortemAnalysis {
-  outcome: "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
-  rootCause: string;
-  mistakes: string[];
-  strengths: string[];
-  lesson: string;
-  tags: string[];
-  generatedAt: string;
-}
+/** What the post-mortem model returns (lib/ai/schemas PostMortemSchema) plus when it was generated. */
+export type PostMortemAnalysis = z.output<typeof PostMortemSchema> & { generatedAt: string };
 
 export interface JournalEntry {
   id: string;
@@ -41,7 +36,7 @@ export interface JournalEntry {
 }
 
 // ─── Trade lessons (post-mortems) ────────────────────────────────────────────
-export type LessonOutcome = "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
+type LessonOutcome = "WIN" | "LOSS" | "BREAKEVEN" | "OPEN";
 
 export interface TradeLesson {
   id: string;
@@ -98,11 +93,11 @@ export interface ArchivedSignal {
 }
 
 // ─── Chart academy ───────────────────────────────────────────────────────────
-export type AnnotationType =
+type AnnotationType =
   | "hline" | "line" | "zone" | "arrow_up" | "arrow_down"
   | "marker" | "channel" | "fib" | "label";
 
-export type AnnotationCategory =
+type AnnotationCategory =
   | "support" | "resistance" | "ob_bull" | "ob_bear"
   | "fvg_bull" | "fvg_bear" | "entry" | "sl" | "tp"
   | "trendline" | "bos" | "choch" | "pattern"

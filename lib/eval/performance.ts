@@ -53,4 +53,3 @@ export async function userPerformance(userId: string, f: PerformanceFilters = {}
   };
 }
 
-export type UserPerformance = Awaited<ReturnType<typeof userPerformance>>;

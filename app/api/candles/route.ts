@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 /** OHLC bars for the price chart (same cached source the indicators are computed from). */
 export const GET = route(async (req) => {
   await requireUser();
-  enforceRateLimit(req, "api");
+  await enforceRateLimit(req, "api");
   const q = new URL(req.url).searchParams;
   const asset = requireAsset(q.get("symbol"));
   const timeframe = requireTimeframe(q.get("timeframe"), "1H");

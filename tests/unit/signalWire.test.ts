@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { encodeJobs, parseReport } from "@/lib/signals/wire";
+import { decodeCommand, encodeCommand, encodeJobs, parseReport } from "@/lib/signals/wire";
 
 const form = (s: string) => new URLSearchParams(s);
 
@@ -57,5 +57,27 @@ describe("parseReport", () => {
     expect(parseReport(form("event=REJECTED&reason=leg%202%3A%20Invalid%20stops%20%2810016%29"))).toEqual({ event: "REJECTED", reason: "leg 2: Invalid stops (10016)" });
     expect(parseReport(form("event=BE&price=1"))).toEqual({ event: "BE", price: 1 });
     expect(parseReport(form("event=SL&leg=3&price=2638.00"))).toEqual({ event: "SL", leg: 3, price: 2638 });
+  });
+});
+
+describe("management commands (P14d)", () => {
+  it("round-trips through the pendingCommand column", () => {
+    for (const c of [{ command: "CLOSE_ALL" }, { command: "BREAKEVEN" }, { command: "MOVE_SL", price: 2345.5 }, { command: "MOVE_TP", leg: 2, price: 2360 }, { command: "CLOSE_PARTIAL", fraction: 0.5 }] as const) {
+      expect(decodeCommand(encodeCommand(c))).toEqual(c);
+    }
+    expect(decodeCommand("MOVE_SL|")).toBeNull();
+    expect(decodeCommand("CLOSE_PARTIAL|1")).toBeNull();
+    expect(decodeCommand("MOVE_TP|x|1")).toBeNull();
+    expect(decodeCommand("NOPE")).toBeNull();
+  });
+  it("writes CMD lines with their arguments", () => {
+    expect(encodeJobs([{ kind: "CMD", id: "s1", command: "MOVE_SL", price: 2345.5 }, { kind: "CMD", id: "s1", command: "MOVE_TP", leg: 2, price: 2360 }, { kind: "CMD", id: "s1", command: "CLOSE_PARTIAL", fraction: 0.25 }]))
+      .toBe("CMD|s1|MOVE_SL|2345.5\nCMD|s1|MOVE_TP|2|2360\nCMD|s1|CLOSE_PARTIAL|0.25");
+  });
+  it("parses the new reports", () => {
+    expect(parseReport(form("event=SL_MOVED&price=2340"))).toEqual({ event: "SL_MOVED", price: 2340 });
+    expect(parseReport(form("event=TP_MOVED&leg=2&price=2360"))).toEqual({ event: "TP_MOVED", leg: 2, price: 2360 });
+    expect(parseReport(form("event=PARTIAL&leg=1&price=2355&volume=0.05&left=0.05"))).toEqual({ event: "PARTIAL", leg: 1, price: 2355, volume: 0.05, left: 0.05 });
+    expect(() => parseReport(form("event=PARTIAL&leg=1&price=2355&volume=0.05"))).toThrow();
   });
 });

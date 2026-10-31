@@ -78,6 +78,45 @@ describe.skipIf(!run)("session monitor (Postgres)", () => {
     expect(journalInputs.join("\n")).toMatch(/Best move in favour 0\.\d\dR, worst move against 1\.\d\dR/);
   });
 
+  it("a wick between two polls closes the position from the candles, and a tightened stop is not judged on old bars (P14a)", async () => {
+    const s = await start();
+    const { positionId } = await open(s.id); // entry ≈ 100, stop 95
+    const opened = (await prisma.sessionPosition.findUniqueOrThrow({ where: { id: positionId } })).lastCheckedAt.getTime();
+    // Spot never touched the stop, but a 5-minute candle after the entry did.
+    prices["BTC/USDT"] = 99;
+    const wick = [{ time: opened + 1, open: 99, high: 99.5, low: 94.5, close: 99 }];
+    await monitorSessions(deps({ barsOf: async () => wick }));
+    const closed = await prisma.sessionPosition.findUniqueOrThrow({ where: { id: positionId } });
+    expect(closed.closeReason).toBe("STOP_LOSS");
+    expect(closed.worstPrice).toBe(94.5);
+
+    // A second position whose stop moves up after an old dip: the old dip must not fire the new stop.
+    const second = await open(s.id, 2, 90);
+    const t0 = (await prisma.sessionPosition.findUniqueOrThrow({ where: { id: second.positionId } })).lastCheckedAt.getTime();
+    const dip = [{ time: t0 + 1, open: 100, high: 100, low: 96, close: 100 }];
+    await monitorSessions(deps({ barsOf: async () => dip })); // scanned; lastCheckedAt moves to the bar
+    await prisma.sessionPosition.update({ where: { id: second.positionId }, data: { stopLoss: 97, lastCheckedAt: new Date(t0 + 60_000) } });
+    await monitorSessions(deps({ barsOf: async () => dip }));
+    expect((await prisma.sessionPosition.findUniqueOrThrow({ where: { id: second.positionId } })).closedAt).toBeNull();
+  });
+
+  it("trails the stop at N × ATR behind the price when the plan asks for it, tightening only (P14c)", async () => {
+    const s = await start();
+    const { positionId } = await open(s.id, 2, 95);
+    await prisma.sessionPosition.update({ where: { id: positionId }, data: { exitPlan: { thesis: "t", invalidation: "i", horizonMin: 60, initialStop: 95, trailAtr: 2 } } });
+    prices["BTC/USDT"] = 110;
+    await monitorSessions(deps({ atrOf: async () => 2 })); // 110 − 2×2 = 106
+    expect((await prisma.sessionPosition.findUniqueOrThrow({ where: { id: positionId } })).stopLoss).toBe(106);
+    prices["BTC/USDT"] = 108; // would loosen → no move
+    await monitorSessions(deps({ atrOf: async () => 2 }));
+    expect((await prisma.sessionPosition.findUniqueOrThrow({ where: { id: positionId } })).stopLoss).toBe(106);
+    prices["BTC/USDT"] = 112;
+    await monitorSessions(deps({ atrOf: async () => 2 }));
+    expect((await prisma.sessionPosition.findUniqueOrThrow({ where: { id: positionId } })).stopLoss).toBe(108);
+    const msgs = await listMessages(U, s.id);
+    expect(msgs.filter((m) => m.body.includes("stop trailed")).length).toBe(2);
+  });
+
   it("records the mark-to-market drawdown of an open position that fell and recovered (P11a)", async () => {
     const s = await start();
     await open(s.id, 2, 90); // 2 BTC ≈ 100, stop 90

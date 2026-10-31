@@ -28,7 +28,7 @@ Return ONLY a JSON object with these keys:
 
 export const POST = route(async (req) => {
   const user = await requireUser();
-  enforceRateLimit(req, "ai");
+  await enforceRateLimit(req, "ai");
   const { image } = Body.parse(await readJson(req, 2_200_000));
   parseImageDataUrl(image);
 

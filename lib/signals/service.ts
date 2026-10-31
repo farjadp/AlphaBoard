@@ -1,3 +1,5 @@
+import { tightens } from "@/lib/trading/math";
+import { decodeCommand, encodeCommand, type Command } from "./wire";
 import "server-only";
 import type { Mt5Device } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -29,11 +31,11 @@ const SILENT_MS = 120_000;
 const conflict = (msg: string) => new HttpError(409, msg, "CONFLICT");
 
 /** Live price for a symbol as written; `futures` when the only feed is a futures contract (offset from spot). */
-export type MarketPriceOf = (symbol: string) => Promise<{ price: number; futures: boolean } | null>;
+type MarketPriceOf = (symbol: string) => Promise<{ price: number; futures: boolean } | null>;
 
 interface Deps { channel?: Channel | null; now?: Date; priceOf?: MarketPriceOf }
 
-export const livePriceOf: MarketPriceOf = async (symbol) => {
+const livePriceOf: MarketPriceOf = async (symbol) => {
   const catalog = catalogSymbolFor(symbol);
   const asset = catalog ? findAsset(catalog) : undefined;
   const quote = asset ? await getQuote(asset).catch(() => null) : null;
@@ -50,7 +52,8 @@ export async function claimJobs(device: Mt5Device, now = new Date()): Promise<Jo
   });
   for (const c of commands) {
     const r = await prisma.tradeSignal.updateMany({ where: { id: c.id, pendingCommand: c.pendingCommand }, data: { pendingCommand: null } });
-    if (r.count === 1) jobs.push({ kind: "CMD", id: c.id, command: c.pendingCommand as "CLOSE_ALL" | "BREAKEVEN" });
+    const cmd = decodeCommand(c.pendingCommand!);
+    if (r.count === 1 && cmd) jobs.push({ kind: "CMD", id: c.id, ...cmd });
   }
 
   const pending = await prisma.tradeSignal.findMany({
@@ -86,6 +89,10 @@ export async function recordReport(device: Mt5Device, signalId: string, e: Repor
       const { leg, ...data } = t.legUpdate;
       await tx.tradeSignalLeg.update({ where: { signalId_leg: { signalId, leg } }, data: { ...data, closedAt: now } });
     }
+    if (t.legPatch) {
+      const { leg, realizedR: _r, realizedVolume: _v, ...data } = t.legPatch;
+      await tx.tradeSignalLeg.update({ where: { signalId_leg: { signalId, leg } }, data });
+    }
     await tx.tradeSignal.update({
       where: { id: signalId },
       data: {
@@ -109,7 +116,7 @@ export async function recordReport(device: Mt5Device, signalId: string, e: Repor
   }
 }
 
-export type SignalCommand = "CANCEL" | "CLOSE_ALL" | "BREAKEVEN";
+export type SignalCommand = { command: "CANCEL" } | Command;
 
 /**
  * A new signal from the desk form: validated against the owner's most recently seen terminal, stored, then posted.
@@ -160,16 +167,35 @@ export async function createSignal(userId: string, raw: unknown, deps: Deps = {}
   return { signal, warnings };
 }
 
-/** CANCEL a signal no terminal has taken yet, or queue CLOSE_ALL / BREAKEVEN for the terminal holding an open one. */
-export async function queueCommand(userId: string, id: string, command: SignalCommand): Promise<void> {
-  const r = command === "CANCEL"
-    ? await prisma.tradeSignal.updateMany({ where: { id, userId, status: "PENDING" }, data: { status: "CANCELLED", statusReason: "cancelled from the desk" } })
-    : await prisma.tradeSignal.updateMany({ where: { id, userId, status: "OPEN" }, data: { pendingCommand: command } });
-  if (r.count === 1) return;
-  const s = await prisma.tradeSignal.findFirst({ where: { id, userId }, select: { status: true } });
+/**
+ * CANCEL a signal no terminal has taken yet, or queue a management command for the terminal holding an open one:
+ * CLOSE_ALL, BREAKEVEN, MOVE_SL (tightening only, checked here against the signal's stop and the fills; the EA
+ * checks again against the market), MOVE_TP (one open leg), CLOSE_PARTIAL (a fraction of every open leg).
+ */
+export async function queueCommand(userId: string, id: string, cmd: SignalCommand): Promise<void> {
+  if (cmd.command === "CANCEL") {
+    const r = await prisma.tradeSignal.updateMany({ where: { id, userId, status: "PENDING" }, data: { status: "CANCELLED", statusReason: "cancelled from the desk" } });
+    if (r.count === 1) return;
+    const s = await prisma.tradeSignal.findFirst({ where: { id, userId }, select: { status: true } });
+    if (!s) throw notFound("signal not found");
+    if (s.status === "SENT" || s.status === "OPEN") throw conflict("already sent to the terminal; use Close all");
+    throw conflict(`the signal is already ${s.status.toLowerCase()}`);
+  }
+  const s = await prisma.tradeSignal.findFirst({ where: { id, userId }, include: { legs: { where: { status: "OPEN" } } } });
   if (!s) throw notFound("signal not found");
-  if (command === "CANCEL" && (s.status === "SENT" || s.status === "OPEN")) throw conflict("already sent to the terminal; use Close all");
-  throw conflict(command === "CANCEL" ? `the signal is already ${s.status.toLowerCase()}` : "only an open signal takes this command");
+  if (s.status !== "OPEN") throw conflict("only an open signal takes this command");
+  const side = s.side as "BUY" | "SELL";
+  if (cmd.command === "MOVE_SL") {
+    if (!tightens(side, s.stop, cmd.price)) throw badRequest(`a stop only moves toward the price (signal stop ${s.stop})`, "BAD_LEVEL");
+    for (const l of s.legs) if (l.tp != null && !tightens(side, cmd.price, l.tp)) throw badRequest(`stop ${cmd.price} would sit beyond leg ${l.leg}'s target ${l.tp}`, "BAD_LEVEL");
+  }
+  if (cmd.command === "MOVE_TP") {
+    const l = s.legs.find((x) => x.leg === cmd.leg);
+    if (!l) throw badRequest(`leg ${cmd.leg} is not open`, "BAD_LEVEL");
+    if (!tightens(side, s.stop, cmd.price) || !tightens(side, l.openPrice, cmd.price)) throw badRequest(`target ${cmd.price} must be beyond the entry ${l.openPrice} on the winning side`, "BAD_LEVEL");
+  }
+  const r = await prisma.tradeSignal.updateMany({ where: { id, userId, status: "OPEN", pendingCommand: null }, data: { pendingCommand: encodeCommand(cmd) } });
+  if (r.count !== 1) throw conflict("a command is already waiting for the terminal");
 }
 
 /** Scheduler step: PENDING past expiry → EXPIRED; SENT without a word for 2 min → UNKNOWN plus one alert to the owner. */

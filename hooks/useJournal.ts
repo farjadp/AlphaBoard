@@ -3,10 +3,8 @@
 import { useCallback } from "react";
 import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
 import { withDerivedPnl } from "@/lib/journal/derive";
-import { computePnl, DEFAULT_FEE_RATE_PERCENT } from "@/lib/journal/pnl";
 import type { JournalEntry, PostMortemAnalysis, TradeEmotion, TradePosition } from "@/lib/types/userData";
 
-export { computePnl, DEFAULT_FEE_RATE_PERCENT };
 export type { JournalEntry, PostMortemAnalysis, TradeEmotion, TradePosition };
 
 const EMPTY: JournalEntry[] = [];

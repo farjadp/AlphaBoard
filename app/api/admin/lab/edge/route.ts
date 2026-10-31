@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
+import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
-import { route } from "@/lib/http/route";
 import { badRequest, readJson } from "@/lib/http/errors";
-import { enforceRateLimit } from "@/lib/http/rateLimit";
-import { requireAdmin } from "@/lib/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { loadDataset } from "@/lib/lab/data/store";
 import { edgeCheck } from "@/lib/lab/edge";
@@ -17,9 +15,7 @@ const Body = z.object({
 }).strict();
 
 /** Do the imported MT5 trades of a symbol beat random entries on a Lab dataset of the same market? */
-export const POST = route(async (req) => {
-  const admin = await requireAdmin();
-  enforceRateLimit(req, "api");
+export const POST = adminRoute(async (req, admin) => {
   const parsed = Body.safeParse(await readJson(req, 2_000));
   if (!parsed.success) throw badRequest(parsed.error.issues.map((i) => i.message).join("; "));
   const { symbol, datasetId, who } = parsed.data;

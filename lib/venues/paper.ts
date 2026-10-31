@@ -1,4 +1,5 @@
 import "server-only";
+import { grossPnl } from "@/lib/trading/math";
 import { prisma } from "@/lib/prisma";
 import { applySlippage, FEE_RATE, SLIPPAGE } from "@/lib/paper/engine";
 import type { PriceOf } from "@/lib/paper/account";
@@ -6,7 +7,7 @@ import type { MarketRules } from "@/lib/risk/verdict";
 import { VenueError, type CloseIntent, type OpenIntent, type Venue } from "./types";
 
 /** Paper fills never have exchange minimums beyond this dust guard. */
-export const PAPER_RULES = { minQty: 1e-8, qtyStep: 1e-8, minCost: 1 } as const;
+const PAPER_RULES = { minQty: 1e-8, qtyStep: 1e-8, minCost: 1 } as const;
 
 const entryAction = (side: "LONG" | "SHORT") => (side === "LONG" ? "BUY" : "SELL");
 const exitAction = (side: "LONG" | "SHORT") => (side === "LONG" ? "SELL" : "BUY");
@@ -91,7 +92,7 @@ export function paperVenue(priceOf: PriceOf): Venue {
       const full = fraction >= 1 - 1e-9;
       const qty = full ? pos.qty : pos.qty * fraction;
       const marginPart = full ? pos.margin : pos.margin * fraction;
-      const gross = Math.max(-marginPart, (pos.side === "LONG" ? price - pos.entryPrice : pos.entryPrice - price) * qty);
+      const gross = Math.max(-marginPart, grossPnl({ side: pos.side, qty, entry: pos.entryPrice }, price));
       const exitFee = qty * price * FEE_RATE;
 
       return prisma.$transaction(async (tx) => {
@@ -126,6 +127,9 @@ export function paperVenue(priceOf: PriceOf): Venue {
     async setStop(positionId: string, stopLoss: number) {
       await prisma.sessionPosition.updateMany({ where: { id: positionId, closedAt: null }, data: { stopLoss } });
       return null;
+    },
+    async setTakeProfit(positionId: string, takeProfit: number | null) {
+      await prisma.sessionPosition.updateMany({ where: { id: positionId, closedAt: null }, data: { takeProfit } });
     },
   };
 }

@@ -8,6 +8,6 @@ export const dynamic = "force-dynamic";
 
 export const GET = route(async (req) => {
   await requireUser();
-  enforceRateLimit(req, "api");
+  await enforceRateLimit(req, "api");
   return NextResponse.json({ global: await getGlobalMarket() });
 });

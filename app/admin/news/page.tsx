@@ -1,3 +1,4 @@
+import { signedPct as signedPctOf } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { PROVIDERS } from "@/lib/news/sources";
@@ -11,7 +12,7 @@ import { RevertButton, RunWeightsButton, WeightEditor } from "@/components/admin
 export const dynamic = "force-dynamic";
 
 const pct = (n: number | null) => (n == null ? "—" : `${Math.round(n * 100)}%`);
-const signedPct = (n: number | null) => (n == null ? "—" : `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(2)}%`);
+const signedPct = (n: number | null) => (n == null ? "—" : signedPctOf(n));
 const when = (d: Date | string | null) => (d ? new Date(d).toISOString().slice(0, 16).replace("T", " ") + " UTC" : "—");
 const th = "p-2 font-medium";
 const Hit = ({ a }: { a: Accuracy }) => (

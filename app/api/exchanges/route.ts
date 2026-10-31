@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import { NextResponse } from "next/server";
 import { userRoute } from "@/lib/http/userRoute";
 import { readJson } from "@/lib/http/errors";
@@ -16,7 +17,7 @@ export const GET = userRoute(async (_req, user) => {
   return NextResponse.json({
     enabled,
     allowed,
-    reason: !process.env.LIVE_TRADING_ENABLED ? "LIVE_TRADING_ENABLED is not set" : !secretsConfigured() ? "EXCHANGE_KEY_SECRET is missing or invalid" : user.role !== "ADMIN" ? "Only the owner (admin) can connect exchanges" : null,
+    reason: !env().LIVE_TRADING_ENABLED ? "LIVE_TRADING_ENABLED is not 1" : !secretsConfigured() ? "EXCHANGE_KEY_SECRET is missing or invalid" : user.role !== "ADMIN" ? "Only the owner (admin) can connect exchanges" : null,
     popular: POPULAR,
     connections: allowed ? await listConnections(user.id) : [],
   });

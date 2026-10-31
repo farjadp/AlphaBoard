@@ -12,7 +12,7 @@ export const STALE_MS = 90_000;
 
 export const SEATS = SEAT_CAST;
 
-export type SeatState = "idle" | "thinking" | "speaking" | "waiting" | "done";
+type SeatState = "idle" | "thinking" | "speaking" | "waiting" | "done";
 
 export interface Seat extends CastMember {
   state: SeatState;

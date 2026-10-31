@@ -1,4 +1,5 @@
 "use client";
+import { hhmm, rText } from "@/lib/format";
 
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
@@ -6,7 +7,7 @@ import NavBar from "@/components/NavBar";
 import DeskTable from "@/components/sessions/DeskTable";
 import DeskRoundTable from "@/components/sessions/DeskRoundTable";
 import { CAST } from "@/lib/agents/cast";
-import { useRoom, useSessionReport, useSessionView } from "@/hooks/useSessions";
+import { useRoom, useSessionReport, useSessionView, type PositionAction } from "@/hooks/useSessions";
 import { price as fmtPrice, qty as fmtQty } from "@/components/paper/format";
 import type { Mandate } from "@/lib/sessions/mandate";
 import type { SessionMessageDto, SessionPositionDto, SessionViewDto } from "@/lib/types/sessions";
@@ -31,7 +32,6 @@ const useNow = () => useSyncExternalStore(clock.subscribe, () => clock.now, () =
 
 // ─── Room ────────────────────────────────────────────────────────────────────
 
-const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 function bubbleTone(m: SessionMessageDto) {
   const kind = (m.data as { kind?: string } | null)?.kind;
@@ -147,8 +147,44 @@ function Room({ id, mandate }: { id: string; mandate: Mandate }) {
 
 const pnlTone = (n: number | null) => (n == null || n === 0 ? "text-ink-2" : n > 0 ? "text-up" : "text-down");
 
-function PositionCard({ p, onAction, busy }: { p: SessionPositionDto; onAction: (id: string, a: "close" | "close_half" | "breakeven") => void; busy: boolean }) {
+function ExitsEditor({ p, onSave, onCancel }: { p: SessionPositionDto; onSave: (a: PositionAction) => void; onCancel: () => void }) {
+  const [sl, setSl] = useState(p.stopLoss == null ? "" : String(p.stopLoss));
+  const [tp, setTp] = useState(p.takeProfit == null ? "" : String(p.takeProfit));
+  const [trail, setTrail] = useState(p.trailAtr == null ? "" : String(p.trailAtr));
+  const num = (s: string) => (s.trim() === "" ? null : Number.parseFloat(s.replace(",", ".")));
+  const input = "w-24 rounded border border-line bg-wash px-2 py-1 text-xs tabular-nums text-ink";
+  return (
+    <form
+      className="mt-2 flex flex-wrap items-center gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const body: Extract<PositionAction, { action: "set_exits" }> = { action: "set_exits" };
+        const nsl = num(sl), ntp = num(tp), ntr = num(trail);
+        if (nsl != null && nsl !== p.stopLoss) body.stopLoss = nsl;
+        if (ntp !== p.takeProfit) body.takeProfit = ntp;
+        if (ntr !== p.trailAtr) body.trailAtr = ntr;
+        onSave(body);
+      }}
+    >
+      <label className="text-[11px] text-ink-3">Stop <input aria-label="Stop" className={input} value={sl} onChange={(e) => setSl(e.target.value)} /></label>
+      <label className="text-[11px] text-ink-3">Target <input aria-label="Target" placeholder="none" className={input} value={tp} onChange={(e) => setTp(e.target.value)} /></label>
+      <label className="text-[11px] text-ink-3">Trail ×ATR <input aria-label="Trail in ATR multiples" placeholder="off" className={input} value={trail} onChange={(e) => setTrail(e.target.value)} /></label>
+      <button type="submit" className="rounded bg-accent-soft px-2 py-1 text-xs text-accent">Save</button>
+      <button type="button" onClick={onCancel} className="px-1 text-xs text-ink-3">Cancel</button>
+    </form>
+  );
+}
+
+function PositionCard({ p, onAction, busy }: { p: SessionPositionDto; onAction: (id: string, a: PositionAction) => void; busy: boolean }) {
   const btn = "rounded-md border border-line px-2 py-1 text-xs font-medium text-ink-2 hover:border-line-2 hover:text-ink disabled:opacity-50";
+  const [editing, setEditing] = useState(false);
+  const closePart = () => {
+    const v = window.prompt(`Close what percent of ${p.symbol}? (1–100)`, "50");
+    if (v == null) return;
+    const pctv = Number(v.replace(",", "."));
+    if (!(pctv > 0 && pctv <= 100)) return;
+    if (window.confirm(`Close ${pctv}% of ${p.side} ${p.symbol} at market?`)) onAction(p.id, pctv >= 100 ? "close" : { action: "close", fraction: pctv / 100 });
+  };
   return (
     <li className="rounded-xl border border-line p-3">
       <div className="flex items-center justify-between gap-2">
@@ -165,12 +201,17 @@ function PositionCard({ p, onAction, busy }: { p: SessionPositionDto; onAction: 
         <div><dt className="text-ink-3">Stop</dt><dd className="text-down">{fmtPrice(p.stopLoss)}</dd></div>
         <div><dt className="text-ink-3">Target</dt><dd className="text-up">{fmtPrice(p.takeProfit)}</dd></div>
         <div><dt className="text-ink-3">Horizon</dt><dd className="text-ink">{p.horizonMin ? durationText(p.horizonMin) : "—"}</dd></div>
+        <div><dt className="text-ink-3">R now</dt><dd className={pnlTone(p.r)}>{rText(p.r)}</dd></div>
+        <div><dt className="text-ink-3">Best / worst</dt><dd className="text-ink">{p.mfeR == null || p.maeR == null ? "—" : `${p.mfeR.toFixed(2)}R / −${p.maeR.toFixed(2)}R`}</dd></div>
+        <div><dt className="text-ink-3">Trailing</dt><dd className="text-ink">{p.trailAtr == null ? "off" : `${p.trailAtr}× ATR`}</dd></div>
       </dl>
+      {editing && <ExitsEditor p={p} onCancel={() => setEditing(false)} onSave={(a) => { setEditing(false); onAction(p.id, a); }} />}
       {p.invalidation && <p className="mt-2 text-[11px] text-ink-3"><span className="font-semibold text-ink-2">Invalidation:</span> {p.invalidation}</p>}
       <div className="mt-3 flex flex-wrap gap-1.5">
         <button type="button" disabled={busy} className={btn} onClick={() => window.confirm(`Close ${p.side} ${p.symbol} at market?`) && onAction(p.id, "close")}>Close</button>
-        <button type="button" disabled={busy} className={btn} onClick={() => window.confirm(`Close half of ${p.symbol} at market?`) && onAction(p.id, "close_half")}>Close 50%</button>
+        <button type="button" disabled={busy} className={btn} onClick={closePart}>Close part…</button>
         <button type="button" disabled={busy} className={btn} onClick={() => onAction(p.id, "breakeven")}>Stop → breakeven</button>
+        <button type="button" disabled={busy} className={btn} onClick={() => setEditing((v) => !v)}>{editing ? "Hide" : "Stop / target / trail…"}</button>
       </div>
     </li>
   );

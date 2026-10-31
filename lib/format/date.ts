@@ -1,3 +1,5 @@
+/** Date and duration formatting. Pure. */
+
 /** "4 min ago", "3 h ago", "2 d ago". */
 export function timeAgo(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return "recently";
@@ -8,14 +10,9 @@ export function timeAgo(iso: string | null | undefined, now = Date.now()): strin
   return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
 }
 
-/** Decimal places that keep a price readable at its magnitude. */
-export function pricePrecision(price: number | null | undefined): number {
-  if (!price || !Number.isFinite(price)) return 2;
-  if (price >= 1) return 2;
-  if (price >= 0.01) return 4;
-  return 8;
-}
+/** "14:05" in the viewer's zone. */
+export const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 
-export function signedPct(value: number, digits = 2): string {
-  return `${value >= 0 ? "+" : "−"}${Math.abs(value).toFixed(digits)}%`;
-}
+/** "Oct 31, 14:05". */
+export const when = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });

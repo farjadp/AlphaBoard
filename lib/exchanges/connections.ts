@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import "server-only";
 import type { ExchangeConnection } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -7,8 +8,8 @@ import { exchangeFor, forgetExchange, supportedExchanges } from "@/lib/venues/cc
 import { venueForConnection } from "@/lib/venues/registry";
 
 /** Exchange trading is on only with LIVE_TRADING_ENABLED=1 and a valid EXCHANGE_KEY_SECRET (spec E6/E7). */
-export const exchangeTradingEnabled = () => process.env.LIVE_TRADING_ENABLED === "1" && secretsConfigured();
-export const tradingHalted = () => process.env.TRADING_HALT === "1";
+export const exchangeTradingEnabled = () => env().LIVE_TRADING_ENABLED && secretsConfigured();
+export const tradingHalted = () => env().TRADING_HALT;
 
 export function requireExchangeAccess(user: { role: string }) {
   if (!exchangeTradingEnabled()) throw forbidden("Exchange trading is off on this server (set LIVE_TRADING_ENABLED=1 and EXCHANGE_KEY_SECRET)");
@@ -31,7 +32,7 @@ export interface ConnectionDto {
   createdAt: string;
 }
 
-export const connectionToDto = (c: ExchangeConnection): ConnectionDto => ({
+const connectionToDto = (c: ExchangeConnection): ConnectionDto => ({
   id: c.id, provider: c.provider === "oanda" ? "oanda" : "ccxt", accountId: c.accountId, exchange: c.exchange, label: c.label, marketType: c.marketType === "swap" ? "swap" : "spot", quote: c.quote, sandbox: c.sandbox,
   keyLast4: c.keyLast4, status: c.status, lastCheckedAt: c.lastCheckedAt?.toISOString() ?? null, lastError: c.lastError, createdAt: c.createdAt.toISOString(),
 });

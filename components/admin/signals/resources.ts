@@ -42,7 +42,7 @@ export const devicesRes = createResource<DeviceDto[]>("/api/signal-desk/devices"
 export const signalsRes = createResource<SignalDto[]>("/api/signal-desk", { fallback: [], select: (j) => (j as { signals: SignalDto[] }).signals });
 
 /** A terminal counts as online when it polled within this window (it polls every few seconds). */
-export const ONLINE_MS = 60_000;
+const ONLINE_MS = 60_000;
 
 export const isOnline = (d: Pick<DeviceDto, "lastSeenAt">, now = Date.now()) => d.lastSeenAt != null && now - Date.parse(d.lastSeenAt) <= ONLINE_MS;
 

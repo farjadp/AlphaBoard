@@ -1,3 +1,4 @@
+import { appUrl } from "@/lib/env";
 import { createHash, randomBytes } from "node:crypto";
 
 export type InviteState = "valid" | "used" | "expired" | "invalid";
@@ -20,13 +21,13 @@ export function inviteState(
   return "valid";
 }
 
-export const INVITE_TTL_DAYS = 14;
+const INVITE_TTL_DAYS = 14;
 
 export function inviteExpiry(from: Date = new Date(), days = INVITE_TTL_DAYS): Date {
   return new Date(from.getTime() + days * 86_400_000);
 }
 
-export function inviteUrl(token: string, base = process.env.APP_URL ?? "http://localhost:3000"): string {
+export function inviteUrl(token: string, base = appUrl()): string {
   const u = new URL("/register", base);
   u.searchParams.set("token", token);
   return u.toString();

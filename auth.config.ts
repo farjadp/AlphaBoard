@@ -2,7 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 import { disclaimerGate } from "./lib/legal/gate";
 
 /** Paths reachable without a session. Everything else requires login. */
-export const PUBLIC_PATHS = ["/", "/login", "/register", "/legal", "/api/health"];
+const PUBLIC_PATHS = ["/", "/login", "/register", "/legal", "/api/health"];
 
 export function isPublicPath(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true;

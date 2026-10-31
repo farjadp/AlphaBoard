@@ -6,7 +6,7 @@ import type { OandaFetch } from "@/lib/venues/oanda";
 
 interface Trade {
   id: string; instrument: string; price: string; initialUnits: string; currentUnits: string; state: "OPEN" | "CLOSED";
-  clientExtensions?: { id: string }; stopLossOrder?: { id: string; price: string; state: string };
+  clientExtensions?: { id: string }; stopLossOrder?: { id: string; price: string; state: string }; takeProfitOrder?: { id: string; price: string; state: string };
   realizedPL: string; averageClosePrice?: string; financing: string; closingTransactionIDs: string[];
 }
 
@@ -50,6 +50,7 @@ export function fakeOanda() {
       t.averageClosePrice = String(px);
       t.closingTransactionIDs.push(id);
       if (t.stopLossOrder) t.stopLossOrder.state = reason === "STOP_LOSS_ORDER" ? "FILLED" : "CANCELLED";
+      if (t.takeProfitOrder) t.takeProfitOrder.state = reason === "TAKE_PROFIT_ORDER" ? "FILLED" : "CANCELLED";
     }
     return { id, units: leg.units, pl: leg.realizedPL, commission: "0", financing: "0", ...(rest > 0 ? { tradeReduced: leg } : { tradesClosed: [leg] }) };
   };
@@ -83,6 +84,7 @@ export function fakeOanda() {
       const trade: Trade = {
         id: tradeId, instrument: o.instrument, price: String(px), initialUnits: o.units, currentUnits: o.units, state: "OPEN", realizedPL: "0", financing: "0",
         clientExtensions: o.tradeClientExtensions, closingTransactionIDs: [], stopLossOrder: o.stopLossOnFill ? { id: nextTx(), price: o.stopLossOnFill.price, state: "PENDING" } : undefined,
+        takeProfitOrder: o.takeProfitOnFill ? { id: nextTx(), price: o.takeProfitOnFill.price, state: "PENDING" } : undefined,
       };
       state.trades.push(trade);
       const rate = Number((instruments[o.instrument] as { marginRate: string }).marginRate);
@@ -107,8 +109,9 @@ export function fakeOanda() {
         return json({ orderCreateTransaction: {}, orderFillTransaction: closeTrade(t, units, "MARKET_ORDER_TRADE_CLOSE") });
       }
       if (tradeMatch[2] === "/orders") {
-        t.stopLossOrder = { id: nextTx(), price: body.stopLoss.price, state: "PENDING" };
-        return json({ stopLossOrderTransaction: { id: t.stopLossOrder.id } });
+        if (body.stopLoss) t.stopLossOrder = { id: nextTx(), price: body.stopLoss.price, state: "PENDING" };
+        if ("takeProfit" in body) t.takeProfitOrder = body.takeProfit ? { id: nextTx(), price: body.takeProfit.price, state: "PENDING" } : undefined;
+        return json({ stopLossOrderTransaction: t.stopLossOrder ? { id: t.stopLossOrder.id } : undefined, takeProfitOrderTransaction: t.takeProfitOrder ? { id: t.takeProfitOrder.id } : undefined });
       }
       return json({ trade: t });
     }
@@ -122,13 +125,19 @@ export function fakeOanda() {
     return json({ errorMessage: `unhandled ${method} ${path}` }, 404);
   };
 
-  /** Fire resting broker stops the current price has crossed. */
+  /** Fire resting broker stops and targets the current price has crossed. */
   const trigger = () => {
-    for (const t of state.trades.filter((x) => x.state === "OPEN" && x.stopLossOrder?.state === "PENDING")) {
+    for (const t of state.trades.filter((x) => x.state === "OPEN")) {
       const p = state.prices[t.instrument];
       const long = Number(t.initialUnits) > 0;
-      const stop = Number(t.stopLossOrder!.price);
-      if (long ? p.bid <= stop : p.ask >= stop) closeTrade(t, Math.abs(Number(t.currentUnits)), "STOP_LOSS_ORDER");
+      if (t.stopLossOrder?.state === "PENDING") {
+        const stop = Number(t.stopLossOrder.price);
+        if (long ? p.bid <= stop : p.ask >= stop) { closeTrade(t, Math.abs(Number(t.currentUnits)), "STOP_LOSS_ORDER"); continue; }
+      }
+      if (t.takeProfitOrder?.state === "PENDING") {
+        const tp = Number(t.takeProfitOrder.price);
+        if (long ? p.bid >= tp : p.ask <= tp) closeTrade(t, Math.abs(Number(t.currentUnits)), "TAKE_PROFIT_ORDER");
+      }
     }
   };
   return { fetch, state, trigger };

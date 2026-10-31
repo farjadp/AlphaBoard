@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
+import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
-import { route } from "@/lib/http/route";
 import { badRequest, readJson } from "@/lib/http/errors";
-import { enforceRateLimit } from "@/lib/http/rateLimit";
-import { requireAdmin } from "@/lib/auth/dal";
 import { findAsset } from "@/lib/assetCatalog";
 import { getCandles } from "@/lib/market/candles";
 import { catalogSymbolFor, suggestLevels } from "@/lib/signals/levels";
@@ -13,9 +11,7 @@ export const dynamic = "force-dynamic";
 const Body = z.object({ symbol: z.string().trim().min(1).max(32), side: z.enum(["BUY", "SELL"]), entry: z.number().positive().nullable().default(null) });
 
 /** Stop and Fibonacci targets from live 1H candles for a symbol + side (see lib/signals/levels.ts). */
-export const POST = route(async (req) => {
-  await requireAdmin();
-  enforceRateLimit(req, "api");
+export const POST = adminRoute(async (req, _admin) => {
   const { symbol, side, entry } = Body.parse(await readJson(req, 10_000));
   const catalog = catalogSymbolFor(symbol);
   const asset = catalog ? findAsset(catalog) : undefined;

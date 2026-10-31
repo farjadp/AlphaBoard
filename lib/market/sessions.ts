@@ -3,7 +3,7 @@
  * Pure: the caller passes "now" and the start of the viewer's local day.
  */
 
-export interface SessionSpec {
+interface SessionSpec {
   key: "sydney" | "tokyo" | "london" | "newyork";
   city: string;
   tz: string;
@@ -11,7 +11,7 @@ export interface SessionSpec {
   hours: [number, number, number, number];
 }
 
-export const SESSIONS: SessionSpec[] = [
+const SESSIONS: SessionSpec[] = [
   { key: "sydney", city: "Sydney", tz: "Australia/Sydney", hours: [10, 0, 16, 0] },
   { key: "tokyo", city: "Tokyo", tz: "Asia/Tokyo", hours: [9, 0, 15, 30] },
   { key: "london", city: "London", tz: "Europe/London", hours: [8, 0, 16, 30] },

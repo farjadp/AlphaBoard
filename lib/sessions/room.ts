@@ -18,7 +18,7 @@ export async function post(
   });
 }
 
-export const messageToDto = (m: SessionMessage): SessionMessageDto => ({
+const messageToDto = (m: SessionMessage): SessionMessageDto => ({
   id: m.id, role: m.role, kind: m.kind, body: m.body, data: m.data, costUsd: m.costUsd, cycle: m.cycle, createdAt: m.createdAt.toISOString(),
 });
 

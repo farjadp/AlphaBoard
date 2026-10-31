@@ -77,6 +77,13 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
+/// Shared rate-limit buckets (P13b): one row per tier:ip, so limits hold across Vercel instances.
+model RateLimitBucket {
+  key       String   @id
+  tokens    Float
+  updatedAt DateTime
+}
+
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
@@ -344,6 +351,11 @@ model PaperPosition {
   margin        Float
   stopLoss      Float?
   takeProfit    Float?
+  /// The stop at entry (P14a): R, MFE and MAE are measured against it, not a later tightened stop.
+  initialStop   Float?
+  /// Best and worst price seen while open (tick, from candle ranges) — MFE / MAE (P14a).
+  bestPrice     Float?
+  worstPrice    Float?
   signalId      String?
   signal        Signal?           @relation(fields: [signalId], references: [id], onDelete: SetNull)
   /// Entry + exit taker fees charged so far.
@@ -643,6 +655,8 @@ model SessionPosition {
   /// Best and worst price seen while open (monitor, every 15 s) — MFE / MAE for the journal (P10).
   bestPrice      Float?
   worstPrice     Float?
+  /// Candles that started before this time have already been scanned for stop / target (P14a); reset when the stop moves.
+  lastCheckedAt  DateTime            @default(now())
 
   orders SessionOrder[]
 

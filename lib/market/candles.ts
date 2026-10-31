@@ -2,35 +2,20 @@ import YahooFinance from "yahoo-finance2";
 import type { Asset } from "@/lib/assetCatalog";
 import type { Candle } from "@/lib/candlestickPatterns";
 import { marketMemo } from "./cache";
-import { fetchJson } from "./http";
+import { binanceJson } from "./http";
 import { aggregateCandlesByTime } from "./indicators";
 import { TIMEFRAMES, type TimeframeKey } from "./timeframes";
 
 export const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
-// data-api.binance.vision serves public market data without the geo-blocks that hit api.binance.com
-// from US cloud regions; the others are fallbacks.
-const BINANCE_HOSTS = [
-  "https://data-api.binance.vision",
-  "https://api.binance.com",
-  "https://api1.binance.com",
-  "https://api2.binance.com",
-];
-
 type KlineRow = [number, string, string, string, string, ...unknown[]];
 
 async function fetchBinanceCandles(symbol: string, interval: string, limit: number): Promise<Candle[]> {
-  let lastError = "no host tried";
-  for (const host of BINANCE_HOSTS) {
-    try {
-      const rows = await fetchJson<KlineRow[]>(`${host}/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
-      if (!Array.isArray(rows) || rows.length === 0) throw new Error("empty klines");
-      return rows.map((r) => ({ time: r[0], open: +r[1], high: +r[2], low: +r[3], close: +r[4] }));
-    } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
-    }
-  }
-  throw new Error(`binance klines failed: ${lastError}`);
+  const rows = await binanceJson<KlineRow[]>(
+    `/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`,
+    (b) => (!Array.isArray(b) || b.length === 0 ? "empty klines" : null),
+  );
+  return rows.map((r) => ({ time: r[0], open: +r[1], high: +r[2], low: +r[3], close: +r[4] }));
 }
 
 type YahooQuote = { date: Date; open?: number | null; high?: number | null; low?: number | null; close?: number | null };

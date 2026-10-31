@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
-import { route } from "@/lib/http/route";
-import { enforceRateLimit } from "@/lib/http/rateLimit";
-import { requireAdmin } from "@/lib/auth/dal";
+import { adminRoute } from "@/lib/http/userRoute";
 import { deleteDataset } from "@/lib/lab/data/store";
 
 export const dynamic = "force-dynamic";
 
-export const DELETE = route<{ params: Promise<{ id: string }> }>(async (req, { params }) => {
-  const admin = await requireAdmin();
-  enforceRateLimit(req, "api");
+export const DELETE = adminRoute(async (req, admin, { params }) => {
   const { id } = await params;
   await deleteDataset(admin.id, id);
   return NextResponse.json({ ok: true });

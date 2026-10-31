@@ -1,4 +1,5 @@
 /** OpenAI, OpenRouter and DeepSeek share the Chat Completions wire format. */
+import { appUrl, secretByName } from "@/lib/env";
 import { AiError } from "../errors";
 import { findModel } from "../catalog";
 import type { CompletionRequest, CompletionResult, FinishReason, Provider, ProviderId } from "./types";
@@ -68,9 +69,9 @@ export function normalizeOpenAiResponse(raw: RawCompletion, requestedModel = "")
 export function openAiCompatibleProvider(id: Exclude<ProviderId, "anthropic">): Provider {
   return {
     id,
-    configured: () => !!process.env[KEY_ENV[id]],
+    configured: () => !!secretByName(KEY_ENV[id]),
     async complete(model, req) {
-      const key = process.env[KEY_ENV[id]];
+      const key = secretByName(KEY_ENV[id]);
       if (!key) throw new AiError("AI_NOT_CONFIGURED", `${id} key missing`);
       let res: Response;
       try {
@@ -79,7 +80,7 @@ export function openAiCompatibleProvider(id: Exclude<ProviderId, "anthropic">): 
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${key}`,
-            ...(id === "openrouter" ? { "HTTP-Referer": process.env.APP_URL ?? "http://localhost:3000", "X-Title": "AlphaBoard" } : {}),
+            ...(id === "openrouter" ? { "HTTP-Referer": appUrl(), "X-Title": "AlphaBoard" } : {}),
           },
           body: JSON.stringify(buildOpenAiBody(id, model, req)),
           signal: AbortSignal.timeout(req.timeoutMs ?? 90_000),

@@ -10,7 +10,7 @@ export const PROVIDER_STATE_KEY = "news.providers";
 const MAX_AGE_MS = 7 * 86_400_000;
 const TITLE_DEDUPE_MS = 48 * 3_600_000;
 
-export interface ProviderState {
+interface ProviderState {
   day: string;
   count: number;
   lastCallAt: string | null;

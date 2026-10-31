@@ -1,6 +1,6 @@
 /** Paper-trading DTOs shared by the API and the client. Nullable numbers mean "unavailable", never zero. */
 export type PaperSide = "LONG" | "SHORT";
-export type PaperCloseReason = "MANUAL" | "STOP_LOSS" | "TAKE_PROFIT" | "LIQUIDATION";
+type PaperCloseReason = "MANUAL" | "STOP_LOSS" | "TAKE_PROFIT" | "LIQUIDATION";
 
 export interface PaperPositionDto {
   id: string;
@@ -12,6 +12,14 @@ export interface PaperPositionDto {
   margin: number;
   stopLoss: number | null;
   takeProfit: number | null;
+  /** The stop at entry; R, MFE and MAE are measured against it (null on positions opened without a stop). */
+  initialStop: number | null;
+  bestPrice: number | null;
+  worstPrice: number | null;
+  /** R at the mark (open) or at the close (closed); null without an initial stop or a price. */
+  r: number | null;
+  mfeR: number | null;
+  maeR: number | null;
   liquidationPrice: number;
   signalId: string | null;
   fees: number;
@@ -39,7 +47,7 @@ export interface PaperOrderDto {
   createdAt: string;
 }
 
-export interface PaperAccountDto {
+interface PaperAccountDto {
   startingBalance: number;
   cash: number;
   currency: string;

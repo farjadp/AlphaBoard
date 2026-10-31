@@ -1,7 +1,7 @@
 export type TradePosition = "LONG" | "SHORT" | "SPOT";
 
 /** Default taker fee per side (Binance/Bybit futures ≈ 0.05%). Round-trip cost = 2 × this × leverage. */
-export const DEFAULT_FEE_RATE_PERCENT = 0.05;
+const DEFAULT_FEE_RATE_PERCENT = 0.05;
 
 /**
  * Net PnL as % of margin after round-trip taker fees.

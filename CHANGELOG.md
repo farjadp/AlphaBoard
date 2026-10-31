@@ -4,6 +4,33 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P14c · Sessions: native targets, trailing, honest monitor
+- **Targets rest at the broker:** OANDA trades carry `takeProfitOnFill`, and moving or clearing the target edits the trade; swap exchanges that support a take-profit trigger get a reduce-only take-profit order next to the stop. The software monitor gives a resting target the same room it gives a resting stop. Spot exchanges keep software targets (two resting sells would lock the balance twice).
+- **A position reduced in OANDA's own app** is now booked as a partial close instead of being ignored, and the final close books only what was left.
+- **Trailing stop per position:** set an ATR multiple in the room (Stop / target / trail…); the monitor trails the stop at that distance behind the 1H ATR, tightening only, and posts each move.
+- **Monitor says when it is blind:** three checks without a price post one alert in the room instead of a silent skip; failures to restore an exchange stop or target after a close, and reconciler calls that fail, are recorded in Admin → System instead of being swallowed.
+- **Room:** edit stop / target / trailing in place, close any percentage (Close part…), breakeven uses the shared rule.
+
+### P14a · One position core (paper + agent sessions)
+- `lib/trading/positions`: exits over candles or a spot price (liquidation, stop, target), MFE/MAE and R against the **initial** stop, and management rules (breakeven with a buffer, ATR trailing, manual levels that only tighten, take-profit ladders). Pure, tested, used by both worlds.
+- **Agent sessions:** the 15-second monitor now also scans the 5-minute candles since its last check, so a wick between two polls no longer slips through; a moved stop resets that window. Positions show **R now** and best/worst excursion in the room; `/api/sessions/positions/[id]` takes `set_exits` (stop and/or target, stop only tightening) and any close `fraction`.
+- **Paper trading:** positions record the stop at entry and best/worst price from candle ranges; open and closed tables show R. (Partial close, trailing and ladders in the paper UI come with P14b.)
+- Migration `20261031150000_p14a_position_tracking`.
+
+### P14d · SignalCopier 1.13 + Signal Desk commands
+- **New commands from Admin → Signals** on an open signal: *Move stop…* (`MOVE_SL`, tightening only, checked on the server against the signal's stop and the open targets, and again by the expert against the market), *Move target…* (`MOVE_TP`, one leg), *Close part…* (`CLOSE_PARTIAL`, a fraction of every open leg). One command waits at a time.
+- **Expert 1.13:** breakeven can sit a few points past the entry (`InpBEBufferPts`, covers spread and commission); after TP2 the remaining legs' stop moves to the TP1 price (`InpStepUpAfterTP2`); optional ATR trailing (`InpTrailAtr` × ATR on `InpTrailTf`, by default only once the stop is at or beyond the entry; trailing steps are local and not posted); `BE` reports carry the real level; new reports `SL_MOVED`, `TP_MOVED`, `PARTIAL` (volume closed and volume left) are posted as replies under the signal.
+- The expert compiles with 0 errors and 0 warnings; it has not been attached to a terminal yet.
+
+### P13b · Shared foundations (no behaviour change, one new table)
+- `lib/trading/math.ts`: one definition of direction, R-multiple, gross P&L and stop/target side rules, used by paper trading, sessions, the signal evaluator, the Signal Desk and the Lab.
+- `lib/format/`: one number/money/date module replaces about twenty local helpers; a true minus sign and "Unavailable" for missing values everywhere.
+- `lib/market/symbols.ts` (broker suffixes, aliases, USD/USDT) and one Binance host failover (`binanceJson`).
+- `lib/env.ts`: every server environment read goes through one validated module; flags are on only when set to `1`.
+- Routes: `adminRoute()` and `deviceRoute()` wrappers (nine admin routes gained the rate limit they were missing), size-capped JSON on the Signal Desk routes, an `audit()` helper.
+- **Rate limits are shared through Postgres** (`RateLimitBucket`, migration `20261031120000`), so they hold across Vercel instances; the per-instance bucket remains as a 30-second fallback when the database is unreachable.
+- Two Postgres tests no longer fail on weekends (they pin a weekday clock).
+
 ### P12 · Signal Desk (admin)
 - **Admin → Signals:** write a trade once (symbol, long/short, entry or market, a mandatory stop, up to four targets, risk % of balance up to 1 %, an optional note). It is posted to your Telegram channel and executed in MetaTrader 5 by the new `SignalCopier` expert. The form checks every rule while you type and shows the exact channel post before you send it.
 - **Channel posts** go out through a separate bot (`SIGNAL_BOT_TOKEN`, `SIGNAL_CHANNEL_ID`; it only sends, never polls). Targets, stops and closes are posted as replies under the signal, with the result in R. Account money never appears. Execution never waits on Telegram: a failed post is shown on the signal.
@@ -21,14 +48,14 @@ All notable changes to AlphaBoard are documented here.
 - **Channel post template:** Admin → Signals has a template editor with field buttons (`{symbol}`, `{entry}`, `{stop}`, `{targets}`, `{rr}`, `{note}`, `{channel}`, …) and a live preview. A line whose fields are all empty is left out. The default matches the channel's existing posts (Entry / Risk / Stop-Loss / TARGETS with 🎯 lines and the Persian footer). Templates missing the symbol, side or stop are refused.
 - **Market entry for post-only signals:** a blank entry is filled with the live price when the post is sent (Binance for crypto). Gold and silver ask for the broker price, because their feed is futures.
 - **Source:** an optional field for where the idea came from. It is shown in the list and never posted, so results can later be compared by source. 1 migration (`TradeSignal.source`).
-- Plan: `docs/superpowers/plans/2026-10-21-p12-signal-desk.md`. 2 migrations (`Mt5Device`, `TradeSignal`, `TradeSignalLeg`; `TradeSignal.breakevenAt`).
+- Plan: `docs/archive/plans/2026-10-21-p12-signal-desk.md`. 2 migrations (`Mt5Device`, `TradeSignal`, `TradeSignalLeg`; `TradeSignal.breakevenAt`).
 
 ### P11a · Money-management guards and an honest drawdown
 - **Stop after losses in a row:** a session refuses new entries for the rest of the UTC day after `maxConsecLosses` losing trades in a row (default 2, 0 = off). A winning or breakeven close resets the count.
 - **Pause after any loss:** no new entry on any symbol for `lossCooldownMin` minutes after a losing close (default 30, 0 = off). The existing per-symbol cooldown after a stop-out stays.
 - Exits are never blocked. The strategist sees the streak and is told when entries are closed, so it holds instead of proposing trades the risk engine will refuse. Both settings are in the mandate form and in the room's mandate box. Sessions started before this change keep both guards off.
 - **Drawdown with open positions included:** the monitor records the equity peak and the deepest fall from it every pass (`TradingSession.equityPeak`, `maxDrawdownMtm`). The report leads with that figure, keeps the closed-trades-only figure next to it, and says so when most of the fall happened in positions that were still open. Until now the report counted closed trades only, which hides losses a strategy never closes.
-- Background: the 2026-10-20 research (plan `docs/superpowers/plans/2026-10-20-p11-honest-numbers-and-strategy-lab.md`).
+- Background: the 2026-10-20 research (plan `docs/archive/plans/2026-10-20-p11-honest-numbers-and-strategy-lab.md`).
 
 ### P11b · Strategy Lab (admin)
 - **Admin → Lab:** test a trading rule and its money management on real past prices before real money touches it. Every figure counts open positions, includes costs, and shows how much of the result is luck (random re-runs on half the entries).

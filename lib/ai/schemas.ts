@@ -20,8 +20,8 @@ const text = (max: number) => z.coerce.string().transform((s) => s.trim().slice(
 const textList = (maxItems: number, maxLen = 300) =>
   z.array(z.coerce.string()).default([]).transform((a) => a.slice(0, maxItems).map((s) => s.trim().slice(0, maxLen)));
 
-export const Signal = z.preprocess(upper, z.enum(["BUY", "SELL", "HOLD"]));
-export const Bias = z.preprocess(titleCase, z.enum(["Bullish", "Bearish", "Neutral"]));
+const Signal = z.preprocess(upper, z.enum(["BUY", "SELL", "HOLD"]));
+const Bias = z.preprocess(titleCase, z.enum(["Bullish", "Bearish", "Neutral"]));
 const confidence = z.preprocess(toNumberOrNull, z.number()).transform((n) => Math.round(Math.min(100, Math.max(0, n))));
 
 // ─── Strategy report (/api/analyze) ──────────────────────────────────────────
@@ -86,7 +86,6 @@ export const TradeScreenshotSchema = z.object({
   pnlPercent: nullableNumber.default(null),
   pnlUsd: nullableNumber.default(null),
 });
-export type TradeScreenshot = z.output<typeof TradeScreenshotSchema>;
 
 // ─── Post-mortem (/api/post-mortem) ──────────────────────────────────────────
 
@@ -98,7 +97,6 @@ export const PostMortemSchema = z.object({
   lesson: text(800),
   tags: textList(8, 40),
 });
-export type PostMortem = z.output<typeof PostMortemSchema>;
 
 // ─── Chart academy (/api/chart-academy) ──────────────────────────────────────
 
@@ -134,4 +132,3 @@ export const ChartAcademySchema = z.object({
       .transform((items) => items.flatMap((a) => { const p = Annotation.safeParse(a); return p.success ? [p.data] : []; }).slice(0, 25)),
   })).min(1).max(3),
 });
-export type ChartAcademy = z.output<typeof ChartAcademySchema>;

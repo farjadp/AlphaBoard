@@ -1,3 +1,4 @@
+import { rMultiple } from "@/lib/trading/math";
 import { num } from "./num";
 import type { ReportEvent } from "./wire";
 
@@ -6,13 +7,15 @@ import type { ReportEvent } from "./wire";
  * Pure and idempotent: a repeated report (the EA retries failed sends) changes nothing and posts nothing.
  * Every leg shares the signal's original stop, so R = (close − open) · side / |open − stop|.
  */
-export interface LegView { leg: number; status: "OPEN" | "TP" | "SL" | "CLOSED"; openPrice: number; volume: number; r: number | null }
+export interface LegView { leg: number; status: "OPEN" | "TP" | "SL" | "CLOSED"; openPrice: number; volume: number; r: number | null; tp?: number | null }
 export interface SignalView { status: string; side: "BUY" | "SELL"; stop: number; legs: LegView[]; breakevenDone: boolean }
 export interface Transition {
   status: string;
   reason?: string;
   legCreate?: { leg: number; ticket: string; volume: number; openPrice: number; tp: number | null };
   legUpdate?: { leg: number; status: "TP" | "SL" | "CLOSED"; closePrice: number; r: number };
+  /** A partial close or a moved target changes an open leg without closing it. */
+  legPatch?: { leg: number; volume?: number; tp?: number | null; realizedR?: number; realizedVolume?: number };
   breakeven?: true;
   reply: string | null;
 }
@@ -25,8 +28,7 @@ const round2 = (x: number) => Math.round(x * 100) / 100 || 0;
 export const fmtR = (r: number) => `${r > 0 ? "+" : r < 0 ? "−" : ""}${num(Math.abs(r))}R`;
 
 function rOf(s: SignalView, openPrice: number, closePrice: number) {
-  const risk = Math.abs(openPrice - s.stop);
-  return risk > 0 ? round2(((closePrice - openPrice) * (s.side === "BUY" ? 1 : -1)) / risk) : 0;
+  return round2(rMultiple({ side: s.side, entry: openPrice, stop: s.stop, price: closePrice }) ?? 0);
 }
 
 function legLine(e: { event: "TP" | "SL" | "CLOSED"; leg: number; price: number }, r: number) {
@@ -50,6 +52,19 @@ export function applyReport(s: SignalView, e: ReportEvent): Transition {
       return s.legs.length ? same : { status: "CLOSED", reason: `dry run: ${e.reason}`, reply: null };
     case "BE":
       return s.breakevenDone ? same : { status: s.status, breakeven: true, reply: "🔒 Stop moved to entry" };
+    case "SL_MOVED":
+      return { status: s.status, reply: `🔒 Stop moved to ${num(e.price)}` };
+    case "TP_MOVED": {
+      const l = s.legs.find((x) => x.leg === e.leg);
+      if (!l || l.status !== "OPEN" || l.tp === e.price) return same;
+      return { status: s.status, legPatch: { leg: e.leg, tp: e.price }, reply: `🎯 TP${e.leg} moved to ${num(e.price)}` };
+    }
+    case "PARTIAL": {
+      const l = s.legs.find((x) => x.leg === e.leg);
+      if (!l || l.status !== "OPEN" || e.left >= l.volume) return same; // already applied (the EA retries sends)
+      const r = rOf(s, l.openPrice, e.price);
+      return { status: s.status, legPatch: { leg: e.leg, volume: e.left, realizedR: r, realizedVolume: e.volume }, reply: `✂️ Closed ${num(e.volume)} of leg ${e.leg} at ${num(e.price)} (${fmtR(r)})` };
+    }
   }
 
   const leg = s.legs.find((l) => l.leg === e.leg);

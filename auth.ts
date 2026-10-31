@@ -10,7 +10,7 @@ const credentialsSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
-export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
+export const { auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
   session: { strategy: "jwt", maxAge: 7 * 24 * 3600 },
   callbacks: {

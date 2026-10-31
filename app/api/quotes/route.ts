@@ -12,7 +12,7 @@ const MAX_SYMBOLS = 60;
 /** Batch quotes for Yahoo-sourced assets (crypto streams over the Binance websocket client-side). */
 export const GET = route(async (req) => {
   await requireUser();
-  enforceRateLimit(req, "api");
+  await enforceRateLimit(req, "api");
   const symbols = (new URL(req.url).searchParams.get("symbols") ?? "")
     .split(",").map((s) => s.trim()).filter(Boolean).slice(0, MAX_SYMBOLS);
 

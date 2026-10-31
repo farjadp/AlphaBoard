@@ -1,3 +1,4 @@
+import { BINANCE_HOSTS } from "@/lib/market/http";
 import "server-only";
 import { makeBars, type Bars } from "../bars";
 import { LabDataError } from "./encode";
@@ -6,7 +7,7 @@ import { LabDataError } from "./encode";
  * Strategy Lab — Binance spot klines over a range, paged 1000 at a time. data-api.binance.vision serves
  * public market data without the geo-blocks of api.binance.com from US cloud regions.
  */
-const HOSTS = ["https://data-api.binance.vision", "https://api.binance.com"];
+const HOSTS = BINANCE_HOSTS;
 const STEP: Record<string, number> = { "1m": 60_000, "15m": 900_000, "1h": 3_600_000 };
 export type BinanceInterval = keyof typeof STEP;
 

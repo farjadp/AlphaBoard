@@ -42,7 +42,7 @@ Sign in as the admin, accept the risk disclaimer, then invite traders from **Adm
 | --- | --- | --- |
 | `DATABASE_URL` | yes | PostgreSQL connection string |
 | `AUTH_SECRET` | yes | Session secret (`openssl rand -base64 32`) |
-| `AUTH_TRUST_HOST` | production | `true` behind Railway or another proxy |
+| `AUTH_TRUST_HOST` | production | `true` behind Vercel or another proxy |
 | `APP_URL` | yes | Public base URL — invite links, sitemap, Open Graph |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | first boot | Bootstraps the first admin (idempotent) |
 | `OPENAI_API_KEY` | one AI key | Default provider (default model `gpt-5.4-mini`, images `gpt-4o`) |
@@ -74,7 +74,7 @@ Sign in as the admin, accept the risk disclaimer, then invite traders from **Adm
 docker compose --profile full up --build     # app + postgres
 ```
 
-The image runs as a non-root user, applies migrations at boot and exposes `GET /api/health` (database and scheduler status).
+The image runs as a non-root user and exposes `GET /api/health` (database and scheduler status). In production the same image is the Fly worker (`node worker.mjs`).
 
 ## How it is built
 
@@ -86,14 +86,16 @@ The image runs as a non-root user, applies migrations at boot and exposes `GET /
 - **Agent sessions:** `lib/sessions` (mandate, lifecycle, cycle, monitor, report), `lib/agents` (context block, prompts, runners), `lib/risk` (deterministic risk engine), `lib/venues` (venue interface; paper today, exchanges next).
 - **Observability:** pino JSON logs with a request id on every response; server errors stored for **Admin → System**.
 
-Project docs: `docs/HANDOFF.md` (current state, conventions, deploy checklist), `docs/superpowers/specs/` (design spec), `docs/audits/` (accessibility and UI audit), `PRODUCT.md` (product brief).
+Project docs: `docs/HANDOFF.md` (current state, conventions, production runbook), `docs/ARCHITECTURE.md` (folder map and data flow), `docs/superpowers/specs/` (design spec), `docs/archive/plans/` (finished phase plans), `docs/audits/` (accessibility and UI audit), `PRODUCT.md` (product brief).
 
-## Deploying (Railway)
+## Deploying (Vercel + Neon + Fly.io)
 
-1. Use a fresh PostgreSQL database (migrations must own the schema; do not `db push`).
-2. Set the environment variables above (`AUTH_SECRET`, `AUTH_TRUST_HOST=true`, `APP_URL`, `ADMIN_*`, AI keys).
-3. Keep **one** replica — the scheduler runs in-process.
-4. After the first boot: sign in as the admin, accept the disclaimer, check **Admin → System** shows the scheduler running.
+- **Web** on Vercel, Git-linked to this repo; merging to `main` deploys. `scripts/vercel-build.sh` applies migrations on production builds only (over the direct Neon URL `DATABASE_URL_UNPOOLED`), then builds. Set `WORKER_MODE=separate` there.
+- **Database** on Neon via the Vercel Marketplace integration (pooled `DATABASE_URL` for the app, unpooled for migrations). Migrations must own the schema; do not `db push`.
+- **Worker** on Fly.io (`fly.toml`): one machine running `node worker.mjs` from the same image, with the unpooled `DATABASE_URL`. Keep exactly one worker machine; a database lease prevents two from ticking at once.
+- Environment variables: the list above plus `AUTH_TRUST_HOST=true` and `APP_URL=https://<your domain>`. After the first boot sign in as the admin, accept the disclaimer, and check **Admin → System** shows the tick running.
+
+Full runbook, ids and gotchas: `docs/HANDOFF.md` § Production.
 
 ---
 

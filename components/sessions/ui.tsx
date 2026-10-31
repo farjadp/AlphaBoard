@@ -1,7 +1,7 @@
 /** Small shared pieces for the agent-session screens. */
 import type { SessionStatus } from "@/lib/types/sessions";
 
-export const STATUS_LABEL: Record<SessionStatus, string> = {
+const STATUS_LABEL: Record<SessionStatus, string> = {
   RUNNING: "Running", PAUSED: "Paused", AWAITING_EXTENSION: "Waiting for you", ENDING: "Ending", ENDED: "Ended", HALTED: "Halted",
 };
 
@@ -41,11 +41,7 @@ export function timeLeft(ms: number) {
   return h ? `${h}h ${String(m).padStart(2, "0")}m` : `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export const usd = (n: number | null | undefined, signed = false) => {
-  if (n == null || !Number.isFinite(n)) return "Unavailable";
-  const s = `$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  return signed ? `${n > 0 ? "+" : n < 0 ? "−" : ""}${s}` : n < 0 ? `−${s}` : s;
-};
+export { usd } from "@/lib/format";
 
 /** Horizontal meter; `danger` flips the colour as the bar fills (loss used, cost used). */
 export function Meter({ label, value, max, text, danger = false }: { label: string; value: number | null; max: number; text: string; danger?: boolean }) {

@@ -6,12 +6,13 @@
 import { findAsset } from "@/lib/assetCatalog";
 import { minutesToWeeklyClose, tradesWeekdaysOnly } from "@/lib/market/hours";
 import { liquidationPrice } from "@/lib/paper/engine";
+import { favourMove, riskPerUnit, tightens } from "@/lib/trading/math";
 import type { Mandate } from "@/lib/sessions/mandate";
 import { floorToStep, fmt, money } from "./limits";
 
-export type ProposalAction = "OPEN_LONG" | "OPEN_SHORT" | "CLOSE" | "TIGHTEN_STOP" | "HOLD";
+type ProposalAction = "OPEN_LONG" | "OPEN_SHORT" | "CLOSE" | "TIGHTEN_STOP" | "HOLD";
 
-export interface ExitPlan {
+interface ExitPlan {
   takeProfit: number | null;
   stopLoss: number | null;
   invalidation: string;
@@ -27,7 +28,7 @@ export interface Proposal {
   positionId: string | null;
 }
 
-export interface RiskPosition {
+interface RiskPosition {
   id: string;
   symbol: string;
   side: "LONG" | "SHORT";
@@ -92,17 +93,17 @@ export type Verdict =
   | { kind: "hold"; reasons: string[] };
 
 /** Target must pay the round trip (fees + slippage both ways) with this margin of safety. */
-export const FEE_HURDLE = 1.5;
+const FEE_HURDLE = 1.5;
 /** An entry's stop must sit at least this many 1H ATRs from the price — tighter stops are noise. */
 export const MIN_STOP_ATR = 1.5;
 /** A stop may only be tightened after the trade has moved this many R in its favour… */
-export const TIGHTEN_AFTER_R = 1;
+const TIGHTEN_AFTER_R = 1;
 /** …and the new stop must stay at least this many 1H ATRs from the price. */
-export const TIGHTEN_MIN_ATR = 1;
+const TIGHTEN_MIN_ATR = 1;
 /** No new entries on weekday-only markets this close to the Friday close. */
 export const NO_ENTRY_BEFORE_CLOSE_MIN = 60;
 /** Entries below this conviction are refused: "the best of the allowed symbols" is not a setup. */
-export const MIN_ENTRY_CONVICTION = 0.7;
+const MIN_ENTRY_CONVICTION = 0.7;
 /** The market analyst must read the symbol in the entry's direction with at least this confidence. */
 export const MIN_ANALYST_CONFIDENCE = 0.6;
 /** Float tolerance for price-distance comparisons (1.103 − 1.102 is 0.000999…). */
@@ -150,12 +151,12 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
     if (next == null) return reject("tighten needs a new stop level");
     const long = pos.side === "LONG";
     if (long ? next >= price : next <= price) return reject(`new stop ${fmt(next)} must stay ${long ? "below" : "above"} the price ${fmt(price)}`);
-    if (pos.stopLoss != null && (long ? next <= pos.stopLoss : next >= pos.stopLoss))
+    if (pos.stopLoss != null && !tightens(pos.side, pos.stopLoss, next))
       return reject(`stops only move toward the price (current ${fmt(pos.stopLoss)}, proposed ${fmt(next)})`);
     const initial = pos.initialStop ?? pos.stopLoss;
     if (initial != null) {
-      const r1 = Math.abs(pos.entryPrice - initial);
-      const progress = long ? price - pos.entryPrice : pos.entryPrice - price;
+      const r1 = riskPerUnit(pos.entryPrice, initial);
+      const progress = favourMove(pos.side, pos.entryPrice, price);
       if (r1 > 0 && progress < TIGHTEN_AFTER_R * r1 - price * EPS)
         return reject(`stops tighten only after the trade has moved ${TIGHTEN_AFTER_R}R in its favour (now ${(progress / r1).toFixed(2)}R) — an early tight stop gets taken by noise`);
     }

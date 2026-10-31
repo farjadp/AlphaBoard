@@ -23,11 +23,11 @@ export function guardWeight(from: number, proposed: number): { to: number; clamp
   return { to, clamped: to !== round2(proposed) };
 }
 
-export const WeightProposalSchema = z.object({
+const WeightProposalSchema = z.object({
   summary: z.string().min(1).max(2_000),
   changes: z.array(z.object({ publisher: z.string().min(1).max(80), weight: z.number(), reason: z.string().min(1).max(800) })).max(100),
 });
-export const WEIGHT_PROPOSAL_JSON_SCHEMA = {
+const WEIGHT_PROPOSAL_JSON_SCHEMA = {
   type: "object", additionalProperties: false, required: ["summary", "changes"],
   properties: {
     summary: { type: "string" },

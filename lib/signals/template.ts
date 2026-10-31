@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -5,7 +6,7 @@ import { badRequest } from "@/lib/http/errors";
 import { DEFAULT_POST_TEMPLATE, templateProblems } from "./format";
 
 /** The channel post template (Admin → Signals), one for the whole desk since there is one channel. */
-export const TEMPLATE_KEY = "signalDesk.postTemplate";
+const TEMPLATE_KEY = "signalDesk.postTemplate";
 
 export async function getPostTemplate(): Promise<{ template: string; isDefault: boolean }> {
   const row = await prisma.appSetting.findUnique({ where: { key: TEMPLATE_KEY } });
@@ -24,4 +25,4 @@ export async function resetPostTemplate(): Promise<void> {
   await prisma.appSetting.deleteMany({ where: { key: TEMPLATE_KEY } });
 }
 
-export const channelUsername = () => process.env.SIGNAL_CHANNEL_USERNAME?.trim().replace(/^@/, "") || null;
+export const channelUsername = () => env().SIGNAL_CHANNEL_USERNAME ?? null;

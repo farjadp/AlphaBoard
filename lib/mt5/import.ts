@@ -1,3 +1,4 @@
+import { money as fmtMoney } from "@/lib/format";
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { badRequest } from "@/lib/http/errors";
@@ -12,7 +13,7 @@ export interface Mt5TradeDto {
   stop: number | null; openedAt: string; closedAt: string; net: number; currency: string; magic: number; manual: boolean;
 }
 
-const money = (n: number, ccy: string) => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(2)} ${ccy}`;
+const money = (n: number, ccy: string) => fmtMoney(n, { currency: ccy, signed: true });
 
 export async function importDeals(userId: string, text: string) {
   let parsed;

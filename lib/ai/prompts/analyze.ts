@@ -28,8 +28,8 @@ const ChartLesson = z.object({
   patterns: z.array(clip(40)).optional().transform((a) => a?.slice(0, 6)),
   tags: z.array(clip(30)).optional().transform((a) => a?.slice(0, 6)),
 });
-export type SanitizedPastLesson = z.output<typeof PastLesson>;
-export type SanitizedChartLesson = z.output<typeof ChartLesson>;
+type SanitizedPastLesson = z.output<typeof PastLesson>;
+type SanitizedChartLesson = z.output<typeof ChartLesson>;
 
 const keepValid = <S extends z.ZodType>(schema: S, items: unknown, max: number): z.output<S>[] =>
   (Array.isArray(items) ? items : [])
