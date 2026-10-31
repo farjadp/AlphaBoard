@@ -31,7 +31,7 @@ export function canonicalTicker(raw: string): string {
 }
 
 /** USD and USDT count as the same quote; a bare coin ("OP") may be quoted in either. */
-export function quoteVariants(ticker: string): string[] {
+function quoteVariants(ticker: string): string[] {
   return [...new Set([ticker, ticker.replace(/USDT$/, "USD"), ticker.replace(/USD$/, "USDT"), `${ticker}USD`, `${ticker}USDT`])];
 }
 

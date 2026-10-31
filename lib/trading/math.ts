@@ -3,8 +3,8 @@
  * Pure. One definition of direction, R-multiple, gross P&L and exit-side rules, so the three position
  * worlds (P14) and the four graders agree to the last digit.
  */
-export type LongShort = "LONG" | "SHORT";
-export type BuySell = "BUY" | "SELL";
+type LongShort = "LONG" | "SHORT";
+type BuySell = "BUY" | "SELL";
 export type AnySide = LongShort | BuySell;
 export type Dir = 1 | -1;
 
