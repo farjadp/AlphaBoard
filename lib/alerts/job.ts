@@ -1,3 +1,4 @@
+import { qty as fmt } from "@/lib/format";
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notify/notifications";
@@ -6,7 +7,6 @@ import type { PriceOf } from "@/lib/paper/account";
 import type { Bar } from "@/lib/paper/engine";
 import { alertHit } from "./evaluate";
 
-const fmt = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n >= 100 ? 2 : 6 });
 
 /**
  * Server-side price alerts (replaces the old "only while /alerts is open" check): each active alert

@@ -4,6 +4,7 @@
  * is the grid fallback for narrow viewports, shown alongside this one and switched by CSS, not JS,
  * so there is no hydration mismatch from measuring the viewport on the client.
  */
+import { hhmm } from "@/lib/format";
 import type { Mandate } from "@/lib/sessions/mandate";
 import { deriveSeats, speakOrder, SEAT_STAGE, STAGE_LABEL, type Seat } from "@/lib/sessions/seats";
 import type { SeatRole } from "@/lib/agents/cast";
@@ -34,7 +35,6 @@ function trimmed(a: { x: number; y: number }, b: { x: number; y: number }, ra: n
   return { x1: a.x + (dx * ra) / len, y1: a.y + (dy * ra) / len, x2: b.x - (dx * rb) / len, y2: b.y - (dy * rb) / len };
 }
 
-const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 function Seat({ s }: { s: Seat }) {
   const dashed = s.state === "idle" || s.state === "waiting";

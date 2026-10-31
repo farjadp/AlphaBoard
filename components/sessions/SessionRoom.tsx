@@ -1,4 +1,5 @@
 "use client";
+import { hhmm } from "@/lib/format";
 
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
@@ -31,7 +32,6 @@ const useNow = () => useSyncExternalStore(clock.subscribe, () => clock.now, () =
 
 // ─── Room ────────────────────────────────────────────────────────────────────
 
-const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 function bubbleTone(m: SessionMessageDto) {
   const kind = (m.data as { kind?: string } | null)?.kind;

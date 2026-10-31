@@ -3,6 +3,7 @@
  * candle as an entry, per-set statistics, the money-management account on the full entry list, and the
  * same account on K random halves so luck shows up as a range. The verdict leads with plain sentences.
  */
+import { signedPct } from "@/lib/format";
 import { z } from "zod";
 import { runAccount, type AccountRun, type MoneyRules } from "./account";
 import { bucketStarts, holeAfter, medianRange, noHoles, trendH4, type Bars } from "./bars";
@@ -57,7 +58,7 @@ export interface LadderStudyResult {
   verdict: string[];
 }
 
-const pct = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(d)}%`;
+const pct = (x: number, d = 1) => signedPct(x, d);
 
 function downsample(curve: Array<[number, number]>, max = 300): Array<[number, number]> {
   if (curve.length <= max) return curve;

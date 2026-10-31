@@ -1,3 +1,4 @@
+import { hhmm } from "@/lib/format";
 import type { Mandate } from "@/lib/sessions/mandate";
 import { deriveSeats, type Seat } from "@/lib/sessions/seats";
 import type { SeatRole } from "@/lib/agents/cast";
@@ -18,7 +19,6 @@ const POS: Record<SeatRole, string> = {
 /** AI spend is fractions of a cent per call, so the shared usd() 2-decimal format would read $0.00. */
 const ai = (n: number) => `$${n.toFixed(4)}`;
 
-const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
 
 /** The seat's third line: what it found, or what it is doing while it has nothing to report. */
 function stateLine(s: Seat) {

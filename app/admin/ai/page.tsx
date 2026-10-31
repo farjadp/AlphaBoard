@@ -1,3 +1,4 @@
+import { usdCost as usd } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth/dal";
 import { MODELS, PROVIDERS } from "@/lib/ai/catalog";
 import { configuredProviders } from "@/lib/ai/configured";
@@ -7,7 +8,6 @@ import AiSettingsForm from "@/components/admin/AiSettingsForm";
 
 export const dynamic = "force-dynamic";
 
-const usd = (n: number) => `$${n.toFixed(n < 1 ? 4 : 2)}`;
 
 export default async function AdminAiPage() {
   await requireAdmin();
