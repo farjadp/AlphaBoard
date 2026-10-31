@@ -2,20 +2,20 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/shell/NavBar";
 import AssetTabs from "./AssetTabs";
 import SessionBand from "./SessionBand";
 import PriceChart, { type ChartLevel } from "./PriceChart";
 import TradeTicket, { type AlertState, type PlanSource } from "./TradeTicket";
 import TimeframeLadder from "./TimeframeLadder";
 import { FundamentalsStrip, FuturesPanel, MarketStatsPanel, NewsPanel, PatternsPanel } from "./EvidencePanels";
-import { useWatchlist } from "@/hooks/useWatchlist";
-import { useBinanceTickers } from "@/hooks/useBinanceTickers";
-import { useTradfiQuotes } from "@/hooks/useTradfiQuotes";
-import { useCandles } from "@/hooks/useCandles";
-import { invalidateSignals, useSignalHistory } from "@/hooks/useSignalHistory";
+import { useWatchlist } from "@/lib/client/hooks/useWatchlist";
+import { useBinanceTickers } from "@/lib/client/hooks/useBinanceTickers";
+import { useTradfiQuotes } from "@/lib/client/hooks/useTradfiQuotes";
+import { useCandles } from "@/lib/client/hooks/useCandles";
+import { invalidateSignals, useSignalHistory } from "@/lib/client/hooks/useSignalHistory";
 import { trackRecord } from "@/lib/eval/trackRecord";
-import { useAlerts } from "@/hooks/useAlerts";
+import { useAlerts } from "@/lib/client/hooks/useAlerts";
 import { formatPrice, formatVolume } from "@/lib/format";
 import { findAsset } from "@/lib/market/catalog";
 import { hasLegacyData, useHydrated } from "@/lib/import/client";
@@ -25,7 +25,7 @@ import { REPORT_TIMEFRAMES, type TimeframeKey } from "@/lib/market/timeframes";
 import type { IndicatorReport } from "@/lib/market/report";
 import type { FuturesSnapshot } from "@/lib/market/futures";
 import type { BalanceSheet, Cashflow, GlobalMarket } from "@/lib/market/fundamentals";
-import { AI_ERROR_HINTS, type AnalysisResult } from "@/lib/types/analysis";
+import { AI_ERROR_HINTS, type AnalysisResult } from "@/lib/ai/analysisTypes";
 
 const TF_LABEL: Record<TimeframeKey, string> = { "1M": "1Mo", "1W": "1W", "1D": "1D", "4H": "4H", "1H": "1H", "15M": "15m", "5M": "5m" };
 // Shortest first, the way traders read a timeframe switcher.

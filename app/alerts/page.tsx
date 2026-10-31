@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import NavBar from "@/components/NavBar";
-import { useAlerts } from "@/hooks/useAlerts";
-import { useWatchlist } from "@/hooks/useWatchlist";
-import { useBinanceTickers } from "@/hooks/useBinanceTickers";
-import { useTradfiQuotes } from "@/hooks/useTradfiQuotes";
+import NavBar from "@/components/shell/NavBar";
+import { useAlerts } from "@/lib/client/hooks/useAlerts";
+import { useWatchlist } from "@/lib/client/hooks/useWatchlist";
+import { useBinanceTickers } from "@/lib/client/hooks/useBinanceTickers";
+import { useTradfiQuotes } from "@/lib/client/hooks/useTradfiQuotes";
 import { formatPrice } from "@/lib/format";
 import { findAsset } from "@/lib/market/catalog";
 

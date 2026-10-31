@@ -6,7 +6,7 @@ import type {
 import type {
   Annotation, ArchivedSignal, ChartLesson, JournalEntry, PostMortemAnalysis, PriceAlert,
   TimeframeChart, TradeLesson,
-} from "@/lib/types/userData";
+} from "@/lib/db/types";
 
 export const attachmentUrl = (id: string) => `/api/attachments/${id}`;
 

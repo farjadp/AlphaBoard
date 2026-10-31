@@ -3,7 +3,7 @@
 import { useCallback } from "react";
 import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
 import { withDerivedPnl } from "@/lib/journal/derive";
-import type { JournalEntry, PostMortemAnalysis, TradeEmotion, TradePosition } from "@/lib/types/userData";
+import type { JournalEntry, PostMortemAnalysis, TradeEmotion, TradePosition } from "@/lib/db/types";
 
 export type { JournalEntry, PostMortemAnalysis, TradeEmotion, TradePosition };
 

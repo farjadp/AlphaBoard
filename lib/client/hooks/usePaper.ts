@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
-import type { PaperOverview, PaperSide } from "@/lib/types/paper";
+import type { PaperOverview, PaperSide } from "@/lib/paper/types";
 
 const paperResource = createResource<PaperOverview | null>("/api/paper/account", {
   fallback: null,

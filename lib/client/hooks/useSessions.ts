@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { createResource, jsonRequest, useResource, type Resource } from "@/lib/client/resource";
-import type { DailyUsageDto, SessionMessageDto, SessionReportDto, SessionSummaryDto, SessionViewDto } from "@/lib/types/sessions";
+import type { DailyUsageDto, SessionMessageDto, SessionReportDto, SessionSummaryDto, SessionViewDto } from "@/lib/sessions/types";
 
 // ─── List + daily usage ──────────────────────────────────────────────────────
 

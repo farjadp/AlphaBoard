@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/shell/NavBar";
 import LineChart from "@/components/charts/LineChart";
 import FilterBar from "@/components/performance/FilterBar";
 import CalibrationChart from "@/components/performance/CalibrationChart";

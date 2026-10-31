@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect } from "react";
 import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
-import type { PriceAlert } from "@/lib/types/userData";
+import type { PriceAlert } from "@/lib/db/types";
 
 export type { PriceAlert };
 

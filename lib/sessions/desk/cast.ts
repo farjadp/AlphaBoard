@@ -3,7 +3,7 @@
  * Names are archetypes, not people — and the two deterministic engines say so in their title,
  * so nobody reads "The Gatekeeper" as an AI that chose the size.
  */
-import type { SessionRole } from "@/lib/types/sessions";
+import type { SessionRole } from "@/lib/sessions/types";
 
 export type SeatRole = "MARKET" | "NEWS" | "BULL" | "BEAR" | "STRATEGIST" | "RISK" | "EXECUTOR" | "JOURNAL";
 

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/shell/NavBar";
 import { collectLegacyImages, parseLegacyData } from "@/lib/import/legacy";
 import { clearLegacyStorage, readLegacyStorage, useHydrated } from "@/lib/import/client";
 import { compressImage } from "@/lib/client/image";

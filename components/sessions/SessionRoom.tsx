@@ -3,14 +3,14 @@ import { hhmm, rText } from "@/lib/format";
 
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/shell/NavBar";
 import DeskTable from "@/components/sessions/DeskTable";
 import DeskRoundTable from "@/components/sessions/DeskRoundTable";
 import { CAST } from "@/lib/sessions/desk/cast";
-import { useRoom, useSessionReport, useSessionView, type PositionAction } from "@/hooks/useSessions";
+import { useRoom, useSessionReport, useSessionView, type PositionAction } from "@/lib/client/hooks/useSessions";
 import { price as fmtPrice, qty as fmtQty } from "@/components/paper/format";
 import type { Mandate } from "@/lib/sessions/mandate";
-import type { SessionMessageDto, SessionPositionDto, SessionViewDto } from "@/lib/types/sessions";
+import type { SessionMessageDto, SessionPositionDto, SessionViewDto } from "@/lib/sessions/types";
 import { END_REASON, Meter, StatusPill, durationText, timeLeft, usd } from "./ui";
 
 // ─── Clock (1 s) without setState in effects ─────────────────────────────────

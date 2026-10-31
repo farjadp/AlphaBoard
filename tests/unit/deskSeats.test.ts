@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { SEATS, deriveSeats, speakOrder, STALE_MS } from "@/lib/sessions/seats";
-import type { SessionMessageDto, SessionRole } from "@/lib/types/sessions";
+import type { SessionMessageDto, SessionRole } from "@/lib/sessions/types";
 
 const T0 = Date.parse("2026-09-29T12:00:00.000Z");
 let n = 0;

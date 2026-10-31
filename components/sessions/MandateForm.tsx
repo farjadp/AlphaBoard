@@ -3,10 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/shell/NavBar";
 import { ASSET_CATALOG, CATEGORY_LABELS, type AssetCategory } from "@/lib/market/catalog";
 import { createResource, useResource } from "@/lib/client/resource";
-import { startSessionRequest } from "@/hooks/useSessions";
+import { startSessionRequest } from "@/lib/client/hooks/useSessions";
 import { durationText } from "./ui";
 import { exchangesResource } from "@/components/settings/ExchangeSettings";
 

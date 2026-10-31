@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { userIdRoute } from "@/lib/http/userRoute";
 import { notFound } from "@/lib/http/errors";
 import { prisma } from "@/lib/db/client";
-import type { SessionMetrics, SessionReportDto } from "@/lib/types/sessions";
+import type { SessionMetrics, SessionReportDto } from "@/lib/sessions/types";
 
 export const dynamic = "force-dynamic";
 

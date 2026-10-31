@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma, SessionMessage } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { notFound } from "@/lib/http/errors";
-import type { SessionMessageDto, SessionMessageKind, SessionRole } from "@/lib/types/sessions";
+import type { SessionMessageDto, SessionMessageKind, SessionRole } from "@/lib/sessions/types";
 
 /** Append a message to a session's room (agents, risk, executor, system and the owner all speak here). */
 export async function post(

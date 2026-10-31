@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import NavBar from "@/components/NavBar";
-import { useSignalHistory, ArchivedSignal } from "@/hooks/useSignalHistory";
+import NavBar from "@/components/shell/NavBar";
+import { useSignalHistory, ArchivedSignal } from "@/lib/client/hooks/useSignalHistory";
 import { formatPrice } from "@/lib/format";
 import OutcomeBadge from "@/components/performance/OutcomeBadge";
 

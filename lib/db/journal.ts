@@ -4,7 +4,7 @@ import type { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { notFound } from "@/lib/http/errors";
 import { withDerivedPnl } from "@/lib/journal/derive";
-import type { JournalEntry } from "@/lib/types/userData";
+import type { JournalEntry } from "@/lib/db/types";
 import type { JournalCreateInput, JournalPatchInput } from "./inputs";
 import { journalToDto } from "./mappers";
 import { attachmentIdFromUrl, createAttachment, deleteAttachments } from "./attachments";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import NavBar from "@/components/NavBar";
+import NavBar from "@/components/shell/NavBar";
 import TelegramSettings from "@/components/settings/TelegramSettings";
 import ExchangeSettings from "@/components/settings/ExchangeSettings";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";

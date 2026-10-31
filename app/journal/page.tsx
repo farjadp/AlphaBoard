@@ -2,11 +2,11 @@
 
 import { useState, useRef, useMemo, useId, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import NavBar from "@/components/NavBar";
-import { useJournal, TradePosition, TradeEmotion, JournalEntry } from "@/hooks/useJournal";
-import { useWatchlist } from "@/hooks/useWatchlist";
+import NavBar from "@/components/shell/NavBar";
+import { useJournal, TradePosition, TradeEmotion, JournalEntry } from "@/lib/client/hooks/useJournal";
+import { useWatchlist } from "@/lib/client/hooks/useWatchlist";
 import { findAsset } from "@/lib/market/catalog";
-import TradePostMortem from "@/components/TradePostMortem";
+import TradePostMortem from "@/components/journal/TradePostMortem";
 import { compressImage } from "@/lib/client/image";
 import { apiErrorMessage } from "@/lib/client/apiError";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PatternMiniVisual from "@/components/PatternMiniVisual";
+import PatternMiniVisual from "@/components/market/PatternMiniVisual";
 import { formatPrice, formatSupply, formatVolume } from "@/lib/format";
 import { findAsset } from "@/lib/market/catalog";
 import { timeAgo } from "@/lib/format";

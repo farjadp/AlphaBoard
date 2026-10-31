@@ -1,8 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { JournalEntry, PostMortemAnalysis } from "@/hooks/useJournal";
-import { useTradeLessons } from "@/hooks/useTradeLessons";
+import { JournalEntry, PostMortemAnalysis } from "@/lib/client/hooks/useJournal";
+import { useTradeLessons } from "@/lib/client/hooks/useTradeLessons";
 import { compressImage } from "@/lib/client/image";
 import { apiErrorMessage } from "@/lib/client/apiError";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
-import { Annotation } from "@/hooks/useChartAcademy";
+import { Annotation } from "@/lib/client/hooks/useChartAcademy";
 import { compressImage } from "@/lib/client/image";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

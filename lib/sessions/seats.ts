@@ -5,7 +5,7 @@
  * agent timeout is reported as `waiting` rather than a seat that pretends to still be thinking.
  */
 import { SEAT_CAST, type CastMember, type SeatRole } from "@/lib/sessions/desk/cast";
-import type { SessionMessageDto } from "@/lib/types/sessions";
+import type { SessionMessageDto } from "@/lib/sessions/types";
 
 /** Matches TIMEOUT_MS in lib/agents/run.ts: past this, a pending call is not coming back. */
 export const STALE_MS = 90_000;

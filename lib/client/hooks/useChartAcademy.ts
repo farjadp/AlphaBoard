@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
-import type { Annotation, ChartLesson, Timeframe } from "@/lib/types/userData";
+import type { Annotation, ChartLesson, Timeframe } from "@/lib/db/types";
 
 export type { Annotation, ChartLesson, Timeframe };
 

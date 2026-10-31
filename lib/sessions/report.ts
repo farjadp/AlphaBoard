@@ -1,6 +1,6 @@
 /** Session report: metrics computed in code (pure) + an AI-written narrative (spec §4.8). */
 import { usd } from "@/lib/format";
-import type { SessionMetrics } from "@/lib/types/sessions";
+import type { SessionMetrics } from "@/lib/sessions/types";
 
 export interface ClosedTrade {
   symbol: string;

@@ -3,7 +3,7 @@ import "server-only";
 import type { SessionPosition, TradingSession } from "@prisma/client";
 import { markPosition } from "@/lib/paper/engine";
 import type { PriceOf } from "@/lib/paper/account";
-import type { SessionPositionDto, SessionSummaryDto, SessionViewDto } from "@/lib/types/sessions";
+import type { SessionPositionDto, SessionSummaryDto, SessionViewDto } from "@/lib/sessions/types";
 import type { Mandate } from "./mandate";
 
 export const mandateOf = (s: Pick<TradingSession, "mandate">) => s.mandate as unknown as Mandate;

@@ -14,7 +14,7 @@ import { formatMandate } from "@/lib/sessions/desk/context";
 import { minutesToWeeklyClose, tradesWeekdaysOnly } from "@/lib/market/hours";
 import { NO_ENTRY_BEFORE_CLOSE_MIN } from "@/lib/risk/verdict";
 import { fmt, money } from "@/lib/risk/limits";
-import type { SessionSummaryDto } from "@/lib/types/sessions";
+import type { SessionSummaryDto } from "@/lib/sessions/types";
 import { canTransition, isActive } from "./lifecycle";
 import { dailyUsage } from "./limits";
 import { MandateError, parseMandate, type Mandate } from "./mandate";

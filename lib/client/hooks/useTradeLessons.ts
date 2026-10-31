@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { createResource, jsonRequest, tempId, useResource } from "@/lib/client/resource";
-import type { TradeLesson } from "@/lib/types/userData";
+import type { TradeLesson } from "@/lib/db/types";
 
 export type { TradeLesson };
 

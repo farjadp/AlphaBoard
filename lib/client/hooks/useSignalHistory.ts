@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { createResource, jsonRequest, useResource } from "@/lib/client/resource";
-import type { ArchivedSignal } from "@/lib/types/userData";
+import type { ArchivedSignal } from "@/lib/db/types";
 
 export type { ArchivedSignal };
 
