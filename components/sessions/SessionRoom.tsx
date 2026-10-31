@@ -1,5 +1,5 @@
 "use client";
-import { hhmm } from "@/lib/format";
+import { hhmm, rText } from "@/lib/format";
 
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
@@ -165,6 +165,8 @@ function PositionCard({ p, onAction, busy }: { p: SessionPositionDto; onAction: 
         <div><dt className="text-ink-3">Stop</dt><dd className="text-down">{fmtPrice(p.stopLoss)}</dd></div>
         <div><dt className="text-ink-3">Target</dt><dd className="text-up">{fmtPrice(p.takeProfit)}</dd></div>
         <div><dt className="text-ink-3">Horizon</dt><dd className="text-ink">{p.horizonMin ? durationText(p.horizonMin) : "—"}</dd></div>
+        <div><dt className="text-ink-3">R now</dt><dd className={pnlTone(p.r)}>{rText(p.r)}</dd></div>
+        <div><dt className="text-ink-3">Best / worst</dt><dd className="text-ink">{p.mfeR == null || p.maeR == null ? "—" : `${p.mfeR.toFixed(2)}R / −${p.maeR.toFixed(2)}R`}</dd></div>
       </dl>
       {p.invalidation && <p className="mt-2 text-[11px] text-ink-3"><span className="font-semibold text-ink-2">Invalidation:</span> {p.invalidation}</p>}
       <div className="mt-3 flex flex-wrap gap-1.5">

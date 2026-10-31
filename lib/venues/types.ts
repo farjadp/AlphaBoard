@@ -64,6 +64,8 @@ export interface Venue {
   closePosition(i: CloseIntent): Promise<CloseResult | null>;
   /** Move the stop. Returns a booked exit when the old exchange stop had already fired. */
   setStop(positionId: string, stopLoss: number): Promise<CloseResult | null>;
+  /** Move or clear the target (P14a). Venues without native targets only update the ledger; the monitor watches it. */
+  setTakeProfit?(positionId: string, takeProfit: number | null): Promise<void>;
   /** Book exchange stops that fired since the last check (native-stop venues). */
   syncStops?(sessionId: string): Promise<Array<{ positionId: string; result: CloseResult }>>;
 }

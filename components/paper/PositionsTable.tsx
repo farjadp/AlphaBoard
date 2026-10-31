@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { PaperPositionDto } from "@/lib/types/paper";
+import { rText } from "@/lib/format";
 import { money, pct, price, qty, tone, when } from "./format";
 
 const th = "px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-ink-3";
@@ -80,7 +81,7 @@ export function OpenPositions({ positions, onClose, onExits }: {
                         <span className="ml-2 text-[11px] text-ink-3">edit</span>
                       </button>}
                 </td>
-                <td className={`${td} text-right ${tone(p.unrealizedPnl)}`}>{money(p.unrealizedPnl, true)}<div className="text-[11px]">{pct(upct)}</div></td>
+                <td className={`${td} text-right ${tone(p.unrealizedPnl)}`}>{money(p.unrealizedPnl, true)}<div className="text-[11px]">{pct(upct)}{p.r != null && <> · {rText(p.r)}</>}</div></td>
                 <td className={`${td} text-right`}>
                   <button
                     type="button" disabled={closing === p.id}
@@ -119,7 +120,7 @@ export function ClosedPositions({ positions }: { positions: PaperPositionDto[] }
               <td className={td}>{price(p.closePrice)}</td>
               <td className={td}>{p.closeReason ? REASON[p.closeReason] : "—"}</td>
               <td className={td}>{p.closedAt ? when(p.closedAt) : "—"}</td>
-              <td className={`${td} text-right ${tone(p.realizedPnl)}`}>{money(p.realizedPnl, true)}<div className="text-[11px]">{pct(p.realizedPnl == null ? null : (p.realizedPnl / p.margin) * 100)}</div></td>
+              <td className={`${td} text-right ${tone(p.realizedPnl)}`}>{money(p.realizedPnl, true)}<div className="text-[11px]">{pct(p.realizedPnl == null ? null : (p.realizedPnl / p.margin) * 100)}{p.r != null && <> · {rText(p.r)}</>}</div></td>
             </tr>
           ))}
         </tbody>

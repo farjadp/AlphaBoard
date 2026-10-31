@@ -128,5 +128,8 @@ export function paperVenue(priceOf: PriceOf): Venue {
       await prisma.sessionPosition.updateMany({ where: { id: positionId, closedAt: null }, data: { stopLoss } });
       return null;
     },
+    async setTakeProfit(positionId: string, takeProfit: number | null) {
+      await prisma.sessionPosition.updateMany({ where: { id: positionId, closedAt: null }, data: { takeProfit } });
+    },
   };
 }

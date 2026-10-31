@@ -1,3 +1,4 @@
+import { nextExtremes } from "@/lib/trading/positions";
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -82,6 +83,11 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
     const bars = m.price != null ? [...m.bars, { time: t, open: m.price, high: m.price, low: m.price, close: m.price }] : m.bars;
     if (bars.length === 0) continue;
     try {
+      const seen = bars.filter((b) => b.time >= pos.lastCheckedAt.getTime());
+      if (seen.length) {
+        const ext = nextExtremes(pos, { high: Math.max(...seen.map((b) => b.high)), low: Math.min(...seen.map((b) => b.low)) });
+        if (ext) await prisma.paperPosition.updateMany({ where: { id: pos.id, closedAt: null }, data: ext });
+      }
       const exit = scanExit(pos, bars, pos.lastCheckedAt.getTime());
       if (exit) {
         const r = await settlePosition(pos, exit.reason, exit.level, now());

@@ -9,7 +9,7 @@ export const SLIPPAGE = 0.0005;
 export const MAX_LEVERAGE = 20;
 
 export type PaperSide = "LONG" | "SHORT";
-export type ExitReason = "STOP_LOSS" | "TAKE_PROFIT" | "LIQUIDATION";
+export type { ExitReason } from "@/lib/trading/positions";
 
 export interface OpenPositionState {
   side: PaperSide;
@@ -21,7 +21,7 @@ export interface OpenPositionState {
   takeProfit: number | null;
 }
 
-export interface Bar { time: number; open: number; high: number; low: number; close: number }
+export type { Bar } from "@/lib/trading/positions";
 
 export class PaperRuleError extends Error {
   constructor(message: string, public readonly code: string) {
@@ -76,36 +76,7 @@ export function closePosition(p: OpenPositionState, price: number, entryFee: num
   };
 }
 
-/** Price at which the loss equals the margin (maintenance margin ignored). */
-export function liquidationPrice(side: PaperSide, entry: number, leverage: number): number {
-  return side === "LONG" ? Math.max(0, entry * (1 - 1 / leverage)) : entry * (1 + 1 / leverage);
-}
-
-/**
- * First SL / TP / liquidation hit, walking bars in time order from `fromTime` (bars that started
- * earlier are skipped: their extremes may predate the entry). Same-bar SL+TP → the stop (conservative).
- * A stop gapped through at the open fills at the open.
- */
-export function scanExit(p: OpenPositionState, bars: Bar[], fromTime: number): { reason: ExitReason; level: number; at: number } | null {
-  const long = p.side === "LONG";
-  const liq = liquidationPrice(p.side, p.entryPrice, p.leverage);
-  // The stop that triggers first on the way against the position.
-  const stopIsLiq = p.stopLoss == null || (long ? p.stopLoss <= liq : p.stopLoss >= liq);
-  const stop = stopIsLiq ? liq : p.stopLoss!;
-  const stopReason: ExitReason = stopIsLiq ? "LIQUIDATION" : "STOP_LOSS";
-
-  for (const b of [...bars].filter((x) => x.time >= fromTime).sort((a, z) => a.time - z.time)) {
-    const stopHit = long ? stop > 0 && b.low <= stop : b.high >= stop;
-    if (stopHit) {
-      const gapped = long ? b.open < stop : b.open > stop;
-      return { reason: stopReason, level: gapped ? b.open : stop, at: b.time };
-    }
-    if (p.takeProfit != null && (long ? b.high >= p.takeProfit : b.low <= p.takeProfit)) {
-      return { reason: "TAKE_PROFIT", level: p.takeProfit, at: b.time };
-    }
-  }
-  return null;
-}
+export { liquidationPrice, scanExit } from "@/lib/trading/positions";
 
 /** Unrealized PnL at a mark price (no slippage), floored at −margin. */
 export function markPosition(p: Pick<OpenPositionState, "side" | "qty" | "entryPrice" | "margin">, mark: number): number {
