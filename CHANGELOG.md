@@ -4,6 +4,13 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P14c · Sessions: native targets, trailing, honest monitor
+- **Targets rest at the broker:** OANDA trades carry `takeProfitOnFill`, and moving or clearing the target edits the trade; swap exchanges that support a take-profit trigger get a reduce-only take-profit order next to the stop. The software monitor gives a resting target the same room it gives a resting stop. Spot exchanges keep software targets (two resting sells would lock the balance twice).
+- **A position reduced in OANDA's own app** is now booked as a partial close instead of being ignored, and the final close books only what was left.
+- **Trailing stop per position:** set an ATR multiple in the room (Stop / target / trail…); the monitor trails the stop at that distance behind the 1H ATR, tightening only, and posts each move.
+- **Monitor says when it is blind:** three checks without a price post one alert in the room instead of a silent skip; failures to restore an exchange stop or target after a close, and reconciler calls that fail, are recorded in Admin → System instead of being swallowed.
+- **Room:** edit stop / target / trailing in place, close any percentage (Close part…), breakeven uses the shared rule.
+
 ### P14a · One position core (paper + agent sessions)
 - `lib/trading/positions`: exits over candles or a spot price (liquidation, stop, target), MFE/MAE and R against the **initial** stop, and management rules (breakeven with a buffer, ATR trailing, manual levels that only tighten, take-profit ladders). Pure, tested, used by both worlds.
 - **Agent sessions:** the 15-second monitor now also scans the 5-minute candles since its last check, so a wick between two polls no longer slips through; a moved stop resets that window. Positions show **R now** and best/worst excursion in the room; `/api/sessions/positions/[id]` takes `set_exits` (stop and/or target, stop only tightening) and any close `fraction`.

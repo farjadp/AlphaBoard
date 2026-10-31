@@ -122,6 +122,44 @@ describe.skipIf(!run)("OANDA venue (Postgres, fake v20 server)", () => {
     expect(pb.realizedPnl).toBeCloseTo((2610 - 2600.6) * 4, 6);
   });
 
+  it("a target rides on the trade, can be moved or cleared, and its fill is booked as TAKE_PROFIT (P14c)", async () => {
+    const a = await venue().openPosition({ sessionId, clientOrderId: `ab-oa-tp-${++n}`, symbol: "XAU/USD", side: "LONG", qty: 2, leverage: 5, stopLoss: 2580, takeProfit: 2620.1239, exitPlan: {} });
+    expect(fake.state.trades[0].takeProfitOrder?.price).toBe("2620.123");
+    expect(await prisma.sessionOrder.count({ where: { positionId: a.positionId, purpose: "TAKE_PROFIT", status: "OPEN" } })).toBe(1);
+    await venue().setTakeProfit!(a.positionId, 2615);
+    expect(fake.state.trades[0].takeProfitOrder?.price).toBe("2615.000");
+    expect((await prisma.sessionPosition.findUniqueOrThrow({ where: { id: a.positionId } })).takeProfit).toBe(2615);
+    await venue().setTakeProfit!(a.positionId, null);
+    expect(fake.state.trades[0].takeProfitOrder).toBeUndefined();
+    expect(await prisma.sessionOrder.count({ where: { positionId: a.positionId, purpose: "TAKE_PROFIT", status: "OPEN" } })).toBe(0);
+    await venue().setTakeProfit!(a.positionId, 2612);
+    fake.state.prices.XAU_USD = { bid: 2612.5, ask: 2613.1 };
+    fake.trigger();
+    const booked = await venue().syncStops!(sessionId);
+    expect(booked).toHaveLength(1);
+    const p = await prisma.sessionPosition.findUniqueOrThrow({ where: { id: a.positionId } });
+    expect(p).toMatchObject({ closeReason: "TAKE_PROFIT", closePrice: 2612.5 });
+    expect(await prisma.sessionOrder.findFirst({ where: { positionId: a.positionId, purpose: "TAKE_PROFIT" }, orderBy: { createdAt: "desc" } })).toMatchObject({ status: "FILLED" });
+  });
+
+  it("a trade reduced in OANDA's own app is booked as a partial, and the final close books only the rest (P14c)", async () => {
+    const a = await open({ qty: 4 });
+    const t = fake.state.trades[0];
+    fake.state.prices.XAU_USD = { bid: 2610, ask: 2610.6 };
+    // Someone closed half in the OANDA app: the trade shrinks but stays open.
+    Object.assign(t, { currentUnits: "2", realizedPL: String((2610 - 2600.6) * 2), averageClosePrice: "2610" });
+    expect(await venue().syncStops!(sessionId)).toHaveLength(1);
+    const mid = await prisma.sessionPosition.findUniqueOrThrow({ where: { id: a.positionId } });
+    expect(mid.closedAt).toBeNull();
+    expect(mid.qty).toBe(2);
+    expect(mid.realizedPnl).toBeCloseTo((2610 - 2600.6) * 2, 6);
+    fake.state.prices.XAU_USD = { bid: 2620, ask: 2620.6 };
+    const rest = await venue().closePosition({ sessionId, clientOrderId: "ab-oa-rd", positionId: a.positionId, reason: "MANUAL" });
+    expect(rest).toMatchObject({ closed: true, fill: { qty: 2 } });
+    const done = await prisma.sessionPosition.findUniqueOrThrow({ where: { id: a.positionId } });
+    expect(done.realizedPnl).toBeCloseTo((2610 - 2600.6) * 2 + (2620 - 2600.6) * 2, 6);
+  });
+
   it("a close refused at the weekly close is retried with a new order id once the market reopens", async () => {
     const a = await open();
     const s = await prisma.tradingSession.findUniqueOrThrow({ where: { id: sessionId } });

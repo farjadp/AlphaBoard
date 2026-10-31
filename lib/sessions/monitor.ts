@@ -3,7 +3,9 @@ import type { SessionCloseReason, SessionPosition, TradingSession } from "@prism
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/http/logger";
 import { liquidationPrice } from "@/lib/paper/engine";
-import { exitAtPrice, nextExtremes, scanExit, type Bar } from "@/lib/trading/positions";
+import { exitAtPrice, nextExtremes, scanExit, trailingStop, type Bar } from "@/lib/trading/positions";
+import { computeAtr } from "@/lib/market/indicators";
+import { fmt } from "@/lib/risk/limits";
 import { findAsset } from "@/lib/assetCatalog";
 import { env } from "@/lib/env";
 import { getCandles } from "@/lib/market/candles";
@@ -31,6 +33,8 @@ export interface MonitorDeps {
   priceOf?: PriceOf;
   /** 5-minute candles for the stop/target scan; defaults to the market data layer, or to none when a test injects prices. */
   barsOf?: BarsOf;
+  /** 1H ATR(14) for trailing stops; same defaulting rule as barsOf. */
+  atrOf?: (symbol: string) => Promise<number | null>;
   ai?: AiFn;
   telegram?: Telegram | null;
   /** Tests await the background work (cycles, journal, report); the worker fires and forgets. */
@@ -65,6 +69,16 @@ const liveBars: BarsOf = async (symbol) => {
   return (await getCandles(asset, "5M")).flatMap((c) => (c.time == null ? [] : [{ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close }]));
 };
 
+const liveAtr = async (symbol: string) => {
+  const asset = findAsset(symbol);
+  if (!asset) return null;
+  return computeAtr(await getCandles(asset, "1H"));
+};
+
+/** Consecutive passes without a price, per position; an alert goes to the room after MISSING_PRICE_ALERT_AFTER. */
+const missingPrice = new Map<string, number>();
+const MISSING_PRICE_ALERT_AFTER = 3;
+
 /** Per-pass candle cache; a failed fetch counts as no candles (the spot price still gets checked). */
 function cachedBars(barsOf: BarsOf): BarsOf {
   const cache = new Map<string, Promise<Bar[]>>();
@@ -91,7 +105,9 @@ export async function monitorSessions(deps: MonitorDeps = {}): Promise<MonitorRe
   const now = deps.now ?? new Date();
   const priceOf = cachedPrices(deps.priceOf ?? livePrice);
   // Tests inject prices (or a fake exchange) and never want the market data layer; production always does.
-  const barsOf = cachedBars(deps.barsOf ?? (deps.priceOf || env().NODE_ENV === "test" ? async () => [] : liveBars));
+  const offline = !!deps.priceOf || env().NODE_ENV === "test";
+  const barsOf = cachedBars(deps.barsOf ?? (offline ? async () => [] : liveBars));
+  const atrOf = deps.atrOf ?? (offline ? async () => null : liveAtr);
   // Exchange sessions act on the exchange's own ticker unless a price source is injected (tests).
   const priceFor = async (s: { venue: string; connectionId: string | null }) =>
     (deps.priceOf || s.venue !== "exchange" ? priceOf : cachedPrices(await sessionPriceOf(s, priceOf)));
@@ -122,7 +138,7 @@ export async function monitorSessions(deps: MonitorDeps = {}): Promise<MonitorRe
   for (const s of sessions) {
     try {
       const sp = await priceFor(s);
-      await monitorOne(s, now, sp, barsOf, { ...exitDeps, priceOf: sp }, result);
+      await monitorOne(s, now, sp, barsOf, atrOf, { ...exitDeps, priceOf: sp }, result);
       // Exchange sessions: compare the venue with the ledger every 30 s while active or holding positions.
       if (s.venue === "exchange" && (!s.lastReconciledAt || now.getTime() - s.lastReconciledAt.getTime() >= RECONCILE_EVERY_MS)) {
         const latest = await prisma.tradingSession.findUniqueOrThrow({ where: { id: s.id }, include: { positions: { where: { closedAt: null }, select: { id: true } } } });
@@ -152,20 +168,23 @@ export async function monitorSessions(deps: MonitorDeps = {}): Promise<MonitorRe
 
 type Loaded = TradingSession & { positions: SessionPosition[] };
 
-async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, barsOf: BarsOf, exitDeps: { priceOf: PriceOf; telegram: Telegram | null; now: Date }, result: MonitorResult) {
+async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, barsOf: BarsOf, atrOf: (symbol: string) => Promise<number | null>, exitDeps: { priceOf: PriceOf; telegram: Telegram | null; now: Date }, result: MonitorResult) {
   const m = mandateOf(s);
 
   // 0. Exchange stops that fired since the last pass (native-stop venues).
   const nativelyProtected = new Set<string>();
+  const nativelyTargeted = new Set<string>();
   if (s.venue === "exchange" && s.positions.some((p) => !p.closedAt)) {
     const venue = await venueFor(s);
     for (const b of (await venue.syncStops?.(s.id)) ?? []) {
       const pos = s.positions.find((p) => p.id === b.positionId)!;
-      await announceExit(s, pos, "STOP_LOSS", b.result, { telegram: exitDeps.telegram, onExchange: true });
-      result.exits.push({ positionId: pos.id, reason: "STOP_LOSS" });
+      const fresh = await prisma.sessionPosition.findUnique({ where: { id: pos.id }, select: { closeReason: true } });
+      const reason = fresh?.closeReason === "TAKE_PROFIT" ? "TAKE_PROFIT" : "STOP_LOSS";
+      await announceExit(s, pos, reason, b.result, { telegram: exitDeps.telegram, onExchange: true });
+      result.exits.push({ positionId: pos.id, reason });
     }
-    const resting = await prisma.sessionOrder.findMany({ where: { sessionId: s.id, purpose: "STOP", status: "OPEN" }, select: { positionId: true } });
-    for (const r of resting) if (r.positionId) nativelyProtected.add(r.positionId);
+    const resting = await prisma.sessionOrder.findMany({ where: { sessionId: s.id, purpose: { in: ["STOP", "TAKE_PROFIT"] }, status: "OPEN" }, select: { positionId: true, purpose: true } });
+    for (const r of resting) if (r.positionId) (r.purpose === "STOP" ? nativelyProtected : nativelyTargeted).add(r.positionId);
   }
 
   // 1. Software stops / targets / liquidation — in every state, including after the end (KEEP_WITH_STOPS).
@@ -174,7 +193,14 @@ async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, barsOf: BarsOf
   const open = await prisma.sessionPosition.findMany({ where: { sessionId: s.id, closedAt: null } });
   for (const p of open) {
     const [price, bars] = await Promise.all([priceOf(p.symbol), barsOf(p.symbol)]);
-    if (price == null && bars.length === 0) continue;
+    if (price == null && bars.length === 0) {
+      // No price at all: say so in the room after a few passes instead of staying silent (P14c).
+      const misses = (missingPrice.get(p.id) ?? 0) + 1;
+      missingPrice.set(p.id, misses);
+      if (misses === MISSING_PRICE_ALERT_AFTER) await alertOnce(s.id, `No price for ${p.symbol}`, `No price for ${p.symbol} for ${misses} checks: the stop and target cannot be watched until a price comes back.`, now);
+      continue;
+    }
+    missingPrice.delete(p.id);
     const since = p.lastCheckedAt.getTime();
     const seen = bars.filter((b) => b.time >= since);
     const hi = Math.max(price ?? -Infinity, ...seen.map((b) => b.high));
@@ -182,12 +208,14 @@ async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, barsOf: BarsOf
     const ext = nextExtremes(p, { high: hi, low: lo });
     if (ext) await prisma.sessionPosition.updateMany({ where: { id: p.id, closedAt: null }, data: ext });
     const slack = nativelyProtected.has(p.id) && p.stopLoss != null ? p.stopLoss * NATIVE_STOP_SLACK * (p.side === "LONG" ? -1 : 1) : 0;
-    const judged = { ...p, stopLoss: p.stopLoss == null ? null : p.stopLoss + slack };
+    const tpSlack = nativelyTargeted.has(p.id) && p.takeProfit != null ? p.takeProfit * NATIVE_STOP_SLACK * (p.side === "LONG" ? 1 : -1) : 0;
+    const judged = { ...p, stopLoss: p.stopLoss == null ? null : p.stopLoss + slack, takeProfit: p.takeProfit == null ? null : p.takeProfit + tpSlack };
     const spot = price == null ? null : exitFor(judged, price);
     const hit = spot ?? scanExit(judged, seen, since)?.reason ?? null;
     if (!hit) {
       const latestStart = Math.max(...seen.map((b) => b.time), 0);
       if (latestStart > since) await prisma.sessionPosition.updateMany({ where: { id: p.id, closedAt: null }, data: { lastCheckedAt: new Date(latestStart) } });
+      if (price != null) await trailOne(s, p, price, atrOf, now, exitDeps);
       continue;
     }
     const level = hit === "LIQUIDATION" ? liquidationPrice(p.side, p.entryPrice, p.leverage) : undefined;
@@ -244,6 +272,29 @@ async function monitorOne(s: Loaded, now: Date, priceOf: PriceOf, barsOf: BarsOf
     await resolveExtensionPrompt(latest, `no answer in ${m.extensionTimeoutMin} min — session ended${m.onEnd === "CLOSE_ALL" ? ", positions closed" : ", positions kept with stops"}.`, exitDeps.telegram);
     result.ended.push(s.id);
   }
+}
+
+/** Trailing stop for one position when its plan asks for it (P14c): mult × 1H ATR behind the price, tightening only. */
+async function trailOne(s: Loaded, p: SessionPosition, price: number, atrOf: (symbol: string) => Promise<number | null>, now: Date, exitDeps: { telegram: Telegram | null; priceOf: PriceOf }) {
+  const plan = (p.exitPlan ?? {}) as { trailAtr?: number | null; initialStop?: number | null };
+  if (!plan.trailAtr) return;
+  const d = trailingStop({ side: p.side, entryPrice: p.entryPrice, stopLoss: p.stopLoss, initialStop: plan.initialStop ?? null }, { price, atr: await atrOf(p.symbol), mult: plan.trailAtr, minStep: undefined });
+  if (!d) return;
+  if ("problem" in d) {
+    if (d.problem.code === "NO_ATR") await alertOnce(s.id, `Trailing paused on ${p.symbol}`, `Trailing paused on ${p.symbol}: no 1H ATR available.`, now);
+    return;
+  }
+  // Move only by a visible step (a tenth of the trail distance) so the room is not flooded.
+  const atr = await atrOf(p.symbol);
+  if (p.stopLoss != null && atr && Math.abs(d.stop - p.stopLoss) < atr * plan.trailAtr * 0.1) return;
+  const venue = await venueFor(s, exitDeps.priceOf);
+  const fired = await venue.setStop(p.id, d.stop);
+  if (fired) {
+    await announceExit(s, p, "STOP_LOSS", fired, { telegram: exitDeps.telegram, onExchange: true });
+    return;
+  }
+  await prisma.sessionPosition.updateMany({ where: { id: p.id, closedAt: null }, data: { lastCheckedAt: now } });
+  await post(s.id, "EXECUTOR", "ORDER", `${p.symbol} stop trailed ${p.stopLoss == null ? "" : `${fmt(p.stopLoss)} → `}${fmt(d.stop)} (${plan.trailAtr}× ATR).`, { positionId: p.id, stopLoss: d.stop, trail: true });
 }
 
 /**

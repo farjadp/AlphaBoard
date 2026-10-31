@@ -2,6 +2,7 @@ import "server-only";
 import type { ExchangeConnection, SessionPosition } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/http/logger";
+import { recordEvent } from "@/lib/ops/events";
 import type { MarketRules } from "@/lib/risk/verdict";
 import { tradingHalted } from "@/lib/exchanges/connections";
 import { exchangeFor, exchangeSymbol, type CcxtMarket, type CcxtOrder, type ExchangeLike } from "./ccxtClient";
@@ -191,6 +192,8 @@ export function ccxtVenue(conn: Conn, deps: CcxtVenueDeps = {}): Venue {
       const fill: VenueFill = { orderId: row.id, clientOrderId: i.clientOrderId, price: avg, qty: held, fee: fee.quote };
       // Protect the position on the exchange itself when the venue supports it.
       const stop = nativeStops(ex) ? await placeStop(opened, i.stopLoss, ex, m, contract) : { mode: "software" as const };
+      // The target too, on swap venues that take a take-profit trigger (spot would lock the balance twice).
+      if (i.takeProfit != null && nativeTargets(ex)) await placeTrigger("TAKE_PROFIT", opened, i.takeProfit, ex, m, contract);
       return { positionId: opened.id, replayed: false, fill, stop };
     },
 
@@ -201,11 +204,16 @@ export function ccxtVenue(conn: Conn, deps: CcxtVenueDeps = {}): Venue {
       const fraction = Math.min(1, Math.max(0, i.fraction ?? 1));
       const { ex, m, contract } = await ctx(pos.symbol);
 
-      // A resting exchange stop goes first: it locks the balance, and it may already have fired.
+      // Resting exchange triggers go first: they lock the balance, and one may already have fired.
       const stopRow = await openStop(pos.id);
       if (stopRow) {
         const c = await cancelStop(stopRow, ex, m.symbol);
         if (c.filled) return bookExit(pos, stopRow.id, c.filled, "STOP_LOSS", 1, m, contract);
+      }
+      const tpRow = await openTrigger(pos.id, "TAKE_PROFIT");
+      if (tpRow) {
+        const c = await cancelStop(tpRow, ex, m.symbol);
+        if (c.filled) return bookExit(pos, tpRow.id, c.filled, "TAKE_PROFIT", 1, m, contract);
       }
 
       let qty = fraction >= 1 - 1e-9 ? pos.qty : pos.qty * fraction;
@@ -227,19 +235,19 @@ export function ccxtVenue(conn: Conn, deps: CcxtVenueDeps = {}): Venue {
         order = await execute(row.id, ex, m.symbol, exitSide, amount, i.clientOrderId, swap ? { reduceOnly: true } : {});
       } catch (e) {
         // The close failed: put the protection back before giving up.
-        if (stopRow && pos.stopLoss != null) await placeStop(pos, pos.stopLoss, ex, m, contract).catch(() => undefined);
+        await restoreTriggers(pos, !!stopRow, !!tpRow, ex, m, contract);
         throw e;
       }
       const { filledBase, avg } = fillOf(order, contract);
       if (!(filledBase > 0) || !(avg > 0)) {
         await prisma.sessionOrder.update({ where: { id: row.id }, data: { status: "REJECTED", venueOrderId: order.id, error: `not filled (${order.status})` } });
-        if (stopRow && pos.stopLoss != null) await placeStop(pos, pos.stopLoss, ex, m, contract).catch(() => undefined);
+        await restoreTriggers(pos, !!stopRow, !!tpRow, ex, m, contract);
         throw new VenueError(`Close not filled (${order.status ?? "unknown"})`, "BAD_ORDER");
       }
       const r = await bookExit(pos, row.id, order, i.reason, fraction, m, contract);
-      if (!r.closed && stopRow && pos.stopLoss != null) {
+      if (!r.closed) {
         const rest = await prisma.sessionPosition.findUniqueOrThrow({ where: { id: pos.id } });
-        await placeStop(rest, pos.stopLoss, ex, m, contract);
+        await restoreTriggers(rest, !!stopRow, !!tpRow, ex, m, contract);
       }
       return r;
     },
@@ -260,19 +268,33 @@ export function ccxtVenue(conn: Conn, deps: CcxtVenueDeps = {}): Venue {
       return null;
     },
 
+    async setTakeProfit(positionId: string, takeProfit: number | null) {
+      const pos = await prisma.sessionPosition.findUnique({ where: { id: positionId } });
+      if (!pos || pos.closedAt) return;
+      await prisma.sessionPosition.updateMany({ where: { id: positionId, closedAt: null }, data: { takeProfit } });
+      const { ex, m, contract } = await ctx(pos.symbol);
+      const row = await openTrigger(pos.id, "TAKE_PROFIT");
+      if (row) {
+        const c = await cancelStop(row, ex, m.symbol);
+        if (c.filled) { await bookExit(pos, row.id, c.filled, "TAKE_PROFIT", 1, m, contract); return; }
+      }
+      if (takeProfit != null && nativeTargets(ex)) await placeTrigger("TAKE_PROFIT", pos, takeProfit, ex, m, contract);
+    },
+
     async syncStops(sessionId: string) {
-      const rows = await prisma.sessionOrder.findMany({ where: { sessionId, purpose: "STOP", status: "OPEN", position: { closedAt: null } }, include: { position: true } });
+      const rows = await prisma.sessionOrder.findMany({ where: { sessionId, purpose: { in: ["STOP", "TAKE_PROFIT"] }, status: "OPEN", position: { closedAt: null } }, include: { position: true } });
       const booked: Array<{ positionId: string; result: CloseResult }> = [];
       for (const row of rows) {
         const pos = row.position!;
         try {
           const { ex, m, contract } = await ctx(pos.symbol);
           const o = await ex.fetchOrder(row.venueOrderId ?? "", m.symbol);
+          const isTp = row.purpose === "TAKE_PROFIT";
           if ((o.filled ?? 0) > 0 && o.status === "closed") {
-            booked.push({ positionId: pos.id, result: await bookExit(pos, row.id, o, "STOP_LOSS", 1, m, contract) });
+            booked.push({ positionId: pos.id, result: await bookExit(pos, row.id, o, isTp ? "TAKE_PROFIT" : "STOP_LOSS", 1, m, contract) });
           } else if (o.status === "canceled" || o.status === "expired" || o.status === "rejected") {
-            await prisma.sessionOrder.update({ where: { id: row.id }, data: { status: "CANCELED", error: `stop ${o.status} on the exchange` } });
-            if (pos.stopLoss != null) await placeStop(pos, pos.stopLoss, ex, m, contract);
+            await prisma.sessionOrder.update({ where: { id: row.id }, data: { status: "CANCELED", error: `${isTp ? "target" : "stop"} ${o.status} on the exchange` } });
+            if (isTp ? pos.takeProfit != null : pos.stopLoss != null) await placeTrigger(isTp ? "TAKE_PROFIT" : "STOP", pos, isTp ? pos.takeProfit! : pos.stopLoss!, ex, m, contract);
           }
         } catch (e) {
           logger.warn({ positionId: pos.id, err: e instanceof Error ? e.message : String(e) }, "stop sync failed");
@@ -288,37 +310,59 @@ export function ccxtVenue(conn: Conn, deps: CcxtVenueDeps = {}): Venue {
     return !!(swap ? f?.swap?.linear?.createOrder?.stopLossPrice : f?.spot?.createOrder?.stopLossPrice);
   }
 
-  function openStop(positionId: string) {
-    return prisma.sessionOrder.findFirst({ where: { positionId, purpose: "STOP", status: "OPEN" }, orderBy: { createdAt: "desc" } });
+  /** Take-profit triggers rest on the exchange only on swap venues that support them (spot would lock the balance twice). */
+  function nativeTargets(ex: ExchangeLike) {
+    const f = ex.features as { swap?: { linear?: { createOrder?: { takeProfitPrice?: boolean } } } } | undefined;
+    return swap && !!f?.swap?.linear?.createOrder?.takeProfitPrice;
   }
 
+  function openTrigger(positionId: string, purpose: "STOP" | "TAKE_PROFIT") {
+    return prisma.sessionOrder.findFirst({ where: { positionId, purpose, status: "OPEN" }, orderBy: { createdAt: "desc" } });
+  }
+  function openStop(positionId: string) { return openTrigger(positionId, "STOP"); }
+
   /** Rest a reduce-only stop-market order for the whole position on the exchange. */
-  async function placeStop(pos: Pick<SessionPosition, "id" | "sessionId" | "symbol" | "side" | "qty">, stopPrice: number, ex: ExchangeLike, m: CcxtMarket, contract: number): Promise<{ mode: "native" | "software"; error?: string }> {
+  function placeStop(pos: Pick<SessionPosition, "id" | "sessionId" | "symbol" | "side" | "qty">, stopPrice: number, ex: ExchangeLike, m: CcxtMarket, contract: number) {
+    return placeTrigger("STOP", pos, stopPrice, ex, m, contract);
+  }
+
+  /** Rest a reduce-only triggered market order (stop or take-profit) for the whole position on the exchange. */
+  async function placeTrigger(purpose: "STOP" | "TAKE_PROFIT", pos: Pick<SessionPosition, "id" | "sessionId" | "symbol" | "side" | "qty">, triggerPrice: number, ex: ExchangeLike, m: CcxtMarket, contract: number): Promise<{ mode: "native" | "software"; error?: string }> {
+    const what = purpose === "STOP" ? "stop" : "target";
     const amount = Number(ex.amountToPrecision(m.symbol, pos.qty / contract));
-    if (!(amount > 0) || amount * contract < (m.limits.amount?.min ?? 0) * contract) return { mode: "software", error: "position below the exchange minimum for a stop order" };
-    const n = (await prisma.sessionOrder.count({ where: { positionId: pos.id, purpose: "STOP", type: "stop_market" } })) + 1;
-    const clientOrderId = `ab-${pos.sessionId.slice(-10)}-sl-${pos.id.slice(-6)}-${n}`;
+    if (!(amount > 0) || amount * contract < (m.limits.amount?.min ?? 0) * contract) return { mode: "software", error: `position below the exchange minimum for a ${what} order` };
+    const type = purpose === "STOP" ? "stop_market" : "take_profit_market";
+    const n = (await prisma.sessionOrder.count({ where: { positionId: pos.id, purpose, type } })) + 1;
+    const clientOrderId = `ab-${pos.sessionId.slice(-10)}-${purpose === "STOP" ? "sl" : "tp"}-${pos.id.slice(-6)}-${n}`;
     const exitSide = pos.side === "LONG" ? "sell" : "buy";
     const row = await prisma.sessionOrder.create({
-      data: { sessionId: pos.sessionId, positionId: pos.id, clientOrderId, symbol: pos.symbol, side: exitSide === "sell" ? "SELL" : "BUY", type: "stop_market", purpose: "STOP", reduceOnly: true, amount: amount * contract, price: stopPrice, status: "PENDING" },
+      data: { sessionId: pos.sessionId, positionId: pos.id, clientOrderId, symbol: pos.symbol, side: exitSide === "sell" ? "SELL" : "BUY", type, purpose, reduceOnly: true, amount: amount * contract, price: triggerPrice, status: "PENDING" },
     });
     try {
       let o: CcxtOrder | null;
       try {
-        o = await ex.createOrder(m.symbol, "market", exitSide, amount, undefined, { stopLossPrice: stopPrice, clientOrderId, ...(swap ? { reduceOnly: true } : {}) });
+        const trigger = purpose === "STOP" ? { stopLossPrice: triggerPrice } : { takeProfitPrice: triggerPrice };
+        o = await ex.createOrder(m.symbol, "market", exitSide, amount, undefined, { ...trigger, clientOrderId, ...(swap ? { reduceOnly: true } : {}) });
       } catch (e) {
         if (!isUnknownOutcome(e)) throw e;
         o = await lookup(ex, m.symbol, clientOrderId);
-        if (!o) throw new Error("stop order outcome unknown");
+        if (!o) throw new Error(`${what} order outcome unknown`);
       }
       await prisma.sessionOrder.update({ where: { id: row.id }, data: { status: "OPEN", venueOrderId: o.id } });
       return { mode: "native" };
     } catch (e) {
       const msg = e instanceof Error ? e.message.slice(0, 200) : String(e);
       await prisma.sessionOrder.update({ where: { id: row.id }, data: { status: "REJECTED", error: msg } });
-      logger.warn({ positionId: pos.id, err: msg }, "native stop rejected; software stop remains");
+      logger.warn({ positionId: pos.id, err: msg }, `native ${what} rejected; software ${what} remains`);
       return { mode: "software", error: msg };
     }
+  }
+
+  /** After a close attempt, put the exchange triggers back; a failure here is recorded, never swallowed. */
+  async function restoreTriggers(pos: SessionPosition, hadStop: boolean, hadTp: boolean, ex: ExchangeLike, m: CcxtMarket, contract: number) {
+    const note = (what: string, e: unknown) => recordEvent({ level: "warn", source: "venue", message: `${pos.symbol}: exchange ${what} not restored after a close attempt (${e instanceof Error ? e.message : String(e)}); the software ${what} protects position ${pos.id}` });
+    if (hadStop && pos.stopLoss != null) await placeStop(pos, pos.stopLoss, ex, m, contract).catch((e) => note("stop", e));
+    if (hadTp && pos.takeProfit != null) await placeTrigger("TAKE_PROFIT", pos, pos.takeProfit, ex, m, contract).catch((e) => note("target", e));
   }
 
   /** Cancel a resting stop. Returns the order when it had already filled (the caller books it). */
