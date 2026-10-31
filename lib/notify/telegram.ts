@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 /**
  * Minimal Telegram Bot API client (optional delivery, enabled by TELEGRAM_BOT_TOKEN). The worker
  * long-polls getUpdates (messages + inline-button callbacks), so no public webhook URL is needed.
@@ -103,6 +104,6 @@ export function createTelegram(token: string, fetcher: Fetch = fetch): Telegram 
 
 /** The configured bot, or null when TELEGRAM_BOT_TOKEN is unset (feature off). */
 export function telegramFromEnv(): Telegram | null {
-  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+  const token = env().TELEGRAM_BOT_TOKEN;
   return token ? createTelegram(token) : null;
 }

@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
@@ -81,7 +82,7 @@ export function startWorker() {
   leaseTimer.unref?.();
 
   const timers = [leaseTimer];
-  if (process.env.TICK_DISABLED !== "1") {
+  if (!env().TICK_DISABLED) {
     timers.push(loop("tick", TICK_MS, async () => (await import("@/lib/jobs/tick")).runTick(), isLeader, isStopped));
   }
   timers.push(loop("sessions", MONITOR_MS, async () => {
@@ -93,7 +94,7 @@ export function startWorker() {
   }, isLeader, isStopped));
 
   // News hub: providers keep their own intervals and budgets, so a short cadence costs nothing extra.
-  if (process.env.NEWS_DISABLED !== "1") {
+  if (!env().NEWS_DISABLED) {
     timers.push(loop("news", NEWS_MS, async () => {
       const r = await (await import("@/lib/news/job")).runNewsJob();
       if (r.errors.length) logger.warn({ errors: r.errors.slice(0, 5) }, "news job errors");
@@ -101,7 +102,7 @@ export function startWorker() {
   }
 
   // Strategy Lab: one queued download or study at a time (the loop never overlaps itself).
-  if (process.env.LAB_DISABLED !== "1") {
+  if (!env().LAB_DISABLED) {
     timers.push(loop("lab", LAB_MS, async () => (await import("@/lib/lab/jobs")).processNextLabJob(), isLeader, isStopped));
   }
 
@@ -133,6 +134,6 @@ export function startWorker() {
       g.__alphaboardWorker = undefined;
     },
   };
-  logger.info({ mode: process.env.WORKER_MODE ?? "inline", telegram: !!telegram, tick: process.env.TICK_DISABLED !== "1", news: process.env.NEWS_DISABLED !== "1" }, "worker started");
+  logger.info({ mode: env().WORKER_MODE ?? "inline", telegram: !!telegram, tick: !env().TICK_DISABLED, news: !env().NEWS_DISABLED }, "worker started");
   return g.__alphaboardWorker;
 }

@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import "server-only";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
@@ -19,8 +20,8 @@ export const AiSettingsInput = z.object({
 let cache: { value: AiSettings; at: number } | null = null;
 
 function envDefaults(): AiSettings {
-  const p = process.env.AI_DEFAULT_PROVIDER;
-  const m = process.env.AI_DEFAULT_MODEL;
+  const p = env().AI_DEFAULT_PROVIDER;
+  const m = env().AI_DEFAULT_MODEL;
   return p && m && findModel(p, m) ? { ...DEFAULT_AI_SETTINGS, provider: p as AiSettings["provider"], model: m } : DEFAULT_AI_SETTINGS;
 }
 

@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import "server-only";
 import { appVersion } from "@/lib/config/version";
 import { prisma } from "@/lib/prisma";
@@ -60,9 +61,9 @@ export async function systemOverview(now = new Date()) {
       version: appVersion(),
       uptimeSec: Math.round((Date.now() - startedAt) / 1000),
       node: process.version,
-      schedulerEnabled: process.env.TICK_DISABLED !== "1",
-      cronSecret: !!process.env.CRON_SECRET,
-      telegram: !!process.env.TELEGRAM_BOT_TOKEN?.trim(),
+      schedulerEnabled: !env().TICK_DISABLED,
+      cronSecret: !!env().CRON_SECRET,
+      telegram: !!env().TELEGRAM_BOT_TOKEN,
     },
     tick: { ...tick, last, history },
     people: { users, newUsers, admins, accepted, telegramLinked, pendingRequests, validInvites },

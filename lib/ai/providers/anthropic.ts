@@ -5,6 +5,7 @@
  *   and thinking tokens count against max_tokens, so the cap has headroom.
  * - Claude Opus 5 opts into server-side refusal fallbacks (routed by refusal category).
  */
+import { secretByName } from "@/lib/env";
 import Anthropic from "@anthropic-ai/sdk";
 import { AiError } from "../errors";
 import type { CompletionRequest, CompletionResult, FinishReason, Provider } from "./types";
@@ -69,9 +70,9 @@ export function normalizeAnthropicMessage(msg: RawMessage): CompletionResult {
 
 export const anthropicProvider: Provider = {
   id: "anthropic",
-  configured: () => !!process.env.ANTHROPIC_API_KEY,
+  configured: () => !!secretByName("ANTHROPIC_API_KEY"),
   async complete(model, req) {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = secretByName("ANTHROPIC_API_KEY");
     if (!apiKey) throw new AiError("AI_NOT_CONFIGURED", "anthropic key missing");
     // Explicit key only: a server must not silently pick up a developer's local CLI login.
     const client = new Anthropic({ apiKey, timeout: req.timeoutMs ?? 120_000, maxRetries: 1 });

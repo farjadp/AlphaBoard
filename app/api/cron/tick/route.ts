@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 import { route } from "@/lib/http/route";
@@ -8,7 +9,7 @@ import { runTick } from "@/lib/jobs/tick";
 export const dynamic = "force-dynamic";
 
 function hasCronSecret(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
+  const secret = env().CRON_SECRET;
   const given = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? "";
   if (!secret || !given) return false;
   const a = Buffer.from(given), b = Buffer.from(secret);

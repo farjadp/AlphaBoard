@@ -1,3 +1,4 @@
+import { env } from "@/lib/env";
 import { requireAdmin } from "@/lib/auth/dal";
 import SignalDesk from "@/components/admin/signals/SignalDesk";
 
@@ -6,8 +7,8 @@ export const metadata = { title: "Signal Desk" };
 
 export default async function SignalDeskPage() {
   await requireAdmin();
-  const channel = process.env.SIGNAL_CHANNEL_USERNAME?.trim().replace(/^@/, "") || null;
-  const channelOn = !!(process.env.SIGNAL_BOT_TOKEN?.trim() && process.env.SIGNAL_CHANNEL_ID?.trim());
+  const channel = env().SIGNAL_CHANNEL_USERNAME ?? null;
+  const channelOn = !!(env().SIGNAL_BOT_TOKEN && env().SIGNAL_CHANNEL_ID);
   return (
     <div className="space-y-6">
       <div>
