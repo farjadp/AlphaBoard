@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
+import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { route } from "@/lib/http/route";
 import { readJson } from "@/lib/http/errors";
-import { requireAdmin } from "@/lib/auth/dal";
 import { inviteState } from "@/lib/auth/invites";
 import { createInvite } from "@/lib/auth/createInvite";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route(async () => {
-  await requireAdmin();
+export const GET = adminRoute(async (_req, _admin) => {
   const invites = await prisma.invite.findMany({
     orderBy: { createdAt: "desc" },
     take: 100,
@@ -38,8 +36,7 @@ const createSchema = z.object({
 });
 
 /** Creates an invite. The raw token is returned ONCE here and never stored. */
-export const POST = route(async (req) => {
-  const admin = await requireAdmin();
+export const POST = adminRoute(async (req, admin) => {
   const data = createSchema.parse(await readJson(req, 5_000));
 
   const invite = await createInvite(admin.id, data);

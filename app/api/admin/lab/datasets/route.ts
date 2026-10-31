@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { route } from "@/lib/http/route";
+import { adminRoute } from "@/lib/http/userRoute";
 import { badRequest, payloadTooLarge } from "@/lib/http/errors";
-import { enforceRateLimit } from "@/lib/http/rateLimit";
-import { requireAdmin } from "@/lib/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { listDatasets, saveDataset } from "@/lib/lab/data/store";
 import { parseMt5Csv } from "@/lib/lab/data/mt5csv";
@@ -13,16 +11,12 @@ export const dynamic = "force-dynamic";
 /** An ExportM1 CSV of a year of M1 bars is ~26 MB. */
 const MAX_UPLOAD = 60 * 1024 * 1024;
 
-export const GET = route(async (req) => {
-  const admin = await requireAdmin();
-  enforceRateLimit(req, "api");
+export const GET = adminRoute(async (req, admin) => {
   return NextResponse.json({ datasets: await listDatasets(admin.id) });
 });
 
 /** Upload an MT5 ExportM1 CSV (multipart field "file", optional "symbol" to name it). */
-export const POST = route(async (req) => {
-  const admin = await requireAdmin();
-  enforceRateLimit(req, "api");
+export const POST = adminRoute(async (req, admin) => {
   const length = Number(req.headers.get("content-length") ?? 0);
   if (length > MAX_UPLOAD) throw payloadTooLarge(MAX_UPLOAD);
   const form = await req.formData().catch(() => null);

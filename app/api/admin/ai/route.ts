@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { route } from "@/lib/http/route";
-import { requireAdmin } from "@/lib/auth/dal";
+import { adminRoute } from "@/lib/http/userRoute";
 import { readJson } from "@/lib/http/errors";
 import { prisma } from "@/lib/prisma";
 import { MODELS, PROVIDERS } from "@/lib/ai/catalog";
@@ -10,8 +9,7 @@ import { adminUsageSummary } from "@/lib/ai/usageReport";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route(async () => {
-  await requireAdmin();
+export const GET = adminRoute(async (_req, _admin) => {
   const configured = configuredProviders();
   return NextResponse.json({
     settings: await getAiSettings(),
@@ -21,8 +19,7 @@ export const GET = route(async () => {
   });
 });
 
-export const PUT = route(async (req) => {
-  const admin = await requireAdmin();
+export const PUT = adminRoute(async (req, admin) => {
   const saved = await setAiSettings(AiSettingsInput.parse(await readJson(req, 2_000)));
   await prisma.auditLog.create({ data: { userId: admin.id, action: "admin.ai_settings", meta: { ...saved } } });
   return NextResponse.json({ settings: saved });

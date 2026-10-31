@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { route } from "@/lib/http/route";
-import { requireAdmin } from "@/lib/auth/dal";
+import { adminRoute } from "@/lib/http/userRoute";
 import { prisma } from "@/lib/prisma";
 import { startOfUtcDay } from "@/lib/ai/usage";
 
 export const dynamic = "force-dynamic";
 
-export const GET = route(async () => {
-  await requireAdmin();
+export const GET = adminRoute(async (_req, _admin) => {
   const [users, today] = await Promise.all([
     prisma.user.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, email: true, name: true, role: true, dailyTokenQuota: true, aiProvider: true, aiModel: true, createdAt: true } }),
     prisma.aiUsage.groupBy({ by: ["userId"], where: { createdAt: { gte: startOfUtcDay() } }, _sum: { inputTokens: true, outputTokens: true, costUsd: true } }),

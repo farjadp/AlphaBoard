@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
+import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
-import { route } from "@/lib/http/route";
-import { requireAdmin } from "@/lib/auth/dal";
 import { notFound, readJson } from "@/lib/http/errors";
 import { prisma } from "@/lib/prisma";
 
 const Body = z.object({ dailyTokenQuota: z.number().int().min(0).max(50_000_000) });
 
 /** Adjust a user's daily AI token allowance (0 disables AI for that user). */
-export const PATCH = route<{ params: Promise<{ id: string }> }>(async (req, { params }) => {
-  const admin = await requireAdmin();
+export const PATCH = adminRoute(async (req, admin, { params }) => {
   const { id } = await params;
   const { dailyTokenQuota } = Body.parse(await readJson(req, 500));
   const exists = await prisma.user.findUnique({ where: { id }, select: { id: true } });

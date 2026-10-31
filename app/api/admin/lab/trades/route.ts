@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
-import { route } from "@/lib/http/route";
+import { adminRoute } from "@/lib/http/userRoute";
 import { badRequest, payloadTooLarge } from "@/lib/http/errors";
-import { enforceRateLimit } from "@/lib/http/rateLimit";
-import { requireAdmin } from "@/lib/auth/dal";
 import { prisma } from "@/lib/prisma";
 import { importDeals, listMt5Trades } from "@/lib/mt5/import";
 
@@ -11,16 +9,12 @@ export const dynamic = "force-dynamic";
 /** A deal history CSV is small (years of deals ≈ 1 MB); stay well under the proxy's 10 MB buffer. */
 const MAX_UPLOAD = 8 * 1024 * 1024;
 
-export const GET = route(async (req) => {
-  const admin = await requireAdmin();
-  enforceRateLimit(req, "api");
+export const GET = adminRoute(async (req, admin) => {
   return NextResponse.json({ trades: await listMt5Trades(admin.id) });
 });
 
 /** Import an ExportDeals.mq5 CSV (multipart field "file"). */
-export const POST = route(async (req) => {
-  const admin = await requireAdmin();
-  enforceRateLimit(req, "api");
+export const POST = adminRoute(async (req, admin) => {
   if (Number(req.headers.get("content-length") ?? 0) > MAX_UPLOAD) throw payloadTooLarge(MAX_UPLOAD);
   const form = await req.formData().catch(() => null);
   const file = form?.get("file");

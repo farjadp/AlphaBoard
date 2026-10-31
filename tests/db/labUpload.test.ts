@@ -14,7 +14,7 @@ const post = async (body: string, extra: Record<string, string> = {}) => {
   const fd = new FormData();
   fd.set("file", new File([body], "M1_XAUUSD.csv", { type: "text/csv" }));
   for (const [k, v] of Object.entries(extra)) fd.set(k, v);
-  return POST(new Request("http://localhost/api/admin/lab/datasets", { method: "POST", body: fd }), {});
+  return POST(new Request("http://localhost/api/admin/lab/datasets", { method: "POST", body: fd }), { params: Promise.resolve({}) });
 };
 
 describe.skipIf(!run)("lab upload route (Postgres)", () => {

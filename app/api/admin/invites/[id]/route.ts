@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
+import { adminRoute } from "@/lib/http/userRoute";
 import { prisma } from "@/lib/prisma";
-import { route } from "@/lib/http/route";
-import { requireAdmin } from "@/lib/auth/dal";
 
 /** Revoke an unused invite. */
-export const DELETE = route<{ params: Promise<{ id: string }> }>(async (_req, { params }) => {
-  const admin = await requireAdmin();
+export const DELETE = adminRoute(async (_req, admin, { params }) => {
   const { id } = await params;
   const res = await prisma.invite.deleteMany({ where: { id, usedAt: null } });
   if (res.count === 1) {
