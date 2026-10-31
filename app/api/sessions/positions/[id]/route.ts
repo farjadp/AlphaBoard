@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { userIdRoute } from "@/lib/http/userRoute";
 import { readJson } from "@/lib/http/errors";
-import { prisma } from "@/lib/db/client";
 import { SessionPositionInput } from "@/lib/db/inputs";
-import { closeSessionPosition, moveStopToBreakeven, sessionView, setSessionExits } from "@/lib/sessions/service";
+import { closeSessionPosition, moveStopToBreakeven, sessionIdOfPosition, sessionView, setSessionExits } from "@/lib/sessions/service";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +12,5 @@ export const POST = userIdRoute(async (req, user, id) => {
   if (input.action === "breakeven") await moveStopToBreakeven(user.id, id);
   else if (input.action === "set_exits") await setSessionExits(user.id, id, { stopLoss: input.stopLoss, takeProfit: input.takeProfit, trailAtr: input.trailAtr });
   else await closeSessionPosition(user.id, id, input.action === "close_half" ? 0.5 : input.fraction ?? 1);
-  const pos = await prisma.sessionPosition.findUniqueOrThrow({ where: { id }, select: { sessionId: true } });
-  return NextResponse.json(await sessionView(user.id, pos.sessionId));
+  return NextResponse.json(await sessionView(user.id, await sessionIdOfPosition(user.id, id)));
 });

@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
-import { prisma } from "@/lib/db/client";
 import { readJson } from "@/lib/http/errors";
 import { inviteState } from "@/lib/auth/invites";
-import { createInvite } from "@/lib/auth/createInvite";
+import { createInvite, listInvites } from "@/lib/auth/inviteStore";
 
 export const dynamic = "force-dynamic";
 
 export const GET = adminRoute(async (_req, _admin) => {
-  const invites = await prisma.invite.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    include: { createdBy: { select: { email: true } }, usedBy: { select: { email: true } } },
-  });
+  const invites = await listInvites();
   return NextResponse.json({
     invites: invites.map((i) => ({
       id: i.id,

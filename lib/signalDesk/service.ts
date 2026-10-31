@@ -223,3 +223,8 @@ export async function sweepSignals(now = new Date(), deps: { telegram?: Telegram
   }
   return { expired: expired.count, unknown };
 }
+
+/** The user's latest signals with their legs, newest first. */
+export function listSignals(userId: string, take = 50) {
+  return prisma.tradeSignal.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take, include: { legs: { orderBy: { leg: "asc" } } } });
+}

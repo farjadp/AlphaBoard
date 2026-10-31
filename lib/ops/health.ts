@@ -29,3 +29,16 @@ export function fingerprint(source: string, message: string): string {
     .slice(0, 300);
   return createHash("sha1").update(`${source}|${normalized}`).digest("hex").slice(0, 16);
 }
+
+/** Database reachability and the last tick, for /api/health. Never throws. */
+export async function dbAndTick(): Promise<{ db: "ok" | "down"; tick: { at: string; ms: number; errors: number } | null }> {
+  try {
+    const { prisma } = await import("@/lib/db/client");
+    await prisma.$queryRaw`SELECT 1`;
+    const row = await prisma.appSetting.findUnique({ where: { key: "tick.last" } });
+    const t = row?.value as { at?: string; ms?: number; errors?: unknown[] } | undefined;
+    return { db: "ok", tick: t?.at ? { at: t.at, ms: t.ms ?? 0, errors: t.errors?.length ?? 0 } : null };
+  } catch {
+    return { db: "down", tick: null };
+  }
+}

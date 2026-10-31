@@ -1,14 +1,14 @@
+import { pendingAccessRequestCount } from "@/lib/access/requests";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/dal";
-import { prisma } from "@/lib/db/client";
 import AdminNav from "@/components/admin/AdminNav";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   if (!user) redirect("/login");
   if (user.role !== "ADMIN") redirect("/market");
-  const pendingRequests = await prisma.accessRequest.count({ where: { status: "PENDING" } });
+  const pendingRequests = await pendingAccessRequestCount();
 
   return (
     <div className="min-h-full bg-page text-ink">

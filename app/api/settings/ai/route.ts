@@ -1,8 +1,8 @@
+import { setUserAiPreference, userAiPreference } from "@/lib/auth/users";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { userRoute } from "@/lib/http/userRoute";
 import { badRequest, readJson } from "@/lib/http/errors";
-import { prisma } from "@/lib/db/client";
 import { MODELS, PROVIDERS, findModel, resolveModel } from "@/lib/ai/catalog";
 import { configuredProviders } from "@/lib/ai/configured";
 import { getAiSettings } from "@/lib/ai/settings";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 async function view(userId: string) {
   const [settings, user, usage] = await Promise.all([
     getAiSettings(),
-    prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { aiProvider: true, aiModel: true, dailyTokenQuota: true } }),
+    userAiPreference(userId),
     userUsageToday(userId),
   ]);
   const configured = configuredProviders();
@@ -50,6 +50,6 @@ export const PUT = userRoute(async (req, user) => {
     if (!m) throw badRequest("Unknown model", "BAD_MODEL");
     if (!configuredProviders().has(m.provider)) throw badRequest(`${PROVIDERS[m.provider].label} is not configured on this server`, "PROVIDER_UNAVAILABLE");
   }
-  await prisma.user.update({ where: { id: user.id }, data: { aiProvider: provider, aiModel: model } });
+  await setUserAiPreference(user.id, provider, model);
   return NextResponse.json(await view(user.id));
 });

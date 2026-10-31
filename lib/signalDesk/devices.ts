@@ -47,3 +47,16 @@ export async function recordHeartbeat(device: Mt5Device, form: URLSearchParams):
     data: { login: text("login"), server: text("server"), tradeMode: mode, balance, currency: text("currency"), symbols },
   });
 }
+
+const PUBLIC = { id: true, label: true, last4: true, login: true, server: true, tradeMode: true, balance: true, currency: true, symbols: true, lastSeenAt: true, createdAt: true } as const;
+
+/** The user's active terminals (never the token hash). */
+export function listDevices(userId: string) {
+  return prisma.mt5Device.findMany({ where: { userId, revokedAt: null }, orderBy: { createdAt: "desc" }, select: PUBLIC });
+}
+
+/** Market Watch symbols of the user's most recently seen terminal ([] when none). */
+export async function latestTerminalSymbols(userId: string): Promise<string[]> {
+  const d = await prisma.mt5Device.findFirst({ where: { userId, revokedAt: null }, orderBy: { lastSeenAt: { sort: "desc", nulls: "last" } }, select: { symbols: true } });
+  return d?.symbols ?? [];
+}

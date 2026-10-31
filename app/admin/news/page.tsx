@@ -1,10 +1,9 @@
 import { signedPct as signedPctOf } from "@/lib/format";
 import { requireAdmin } from "@/lib/auth/dal";
-import { prisma } from "@/lib/db/client";
 import { PROVIDERS } from "@/lib/news/sources";
 import { readProviderStates } from "@/lib/news/ingest";
 import { indexReport, publisherReport } from "@/lib/news/measure";
-import { NEWS_LAST_KEY, type NewsJobResult } from "@/lib/news/job";
+import { newsAdminData } from "@/lib/news/admin";
 import { WEIGHT_LIMITS } from "@/lib/news/weights";
 import type { Accuracy } from "@/lib/news/stats";
 import { RevertButton, RunWeightsButton, WeightEditor } from "@/components/admin/news/NewsActions";
@@ -27,16 +26,12 @@ const Hit = ({ a }: { a: Accuracy }) => (
 export default async function AdminNewsPage() {
   await requireAdmin();
   const now = new Date();
-  const [states, lastRow, pubs, index, runs, changes, articles24h] = await Promise.all([
+  const [states, pubs, index, { last, runs, changes, articles24h }] = await Promise.all([
     readProviderStates(),
-    prisma.appSetting.findUnique({ where: { key: NEWS_LAST_KEY } }),
     publisherReport(now, 30),
     indexReport(now, 30),
-    prisma.newsWeightRun.findMany({ orderBy: { at: "desc" }, take: 8 }),
-    prisma.publisherWeightChange.findMany({ orderBy: { createdAt: "desc" }, take: 40, include: { publisher: { select: { name: true } } } }),
-    prisma.newsArticle.count({ where: { fetchedAt: { gte: new Date(now.getTime() - 86_400_000) } } }),
+    newsAdminData(now),
   ]);
-  const last = lastRow?.value as NewsJobResult | undefined;
   const latestChange = new Map<string, string>();
   for (const c of changes) if (!latestChange.has(c.publisherKey)) latestChange.set(c.publisherKey, c.id);
   const today = now.toISOString().slice(0, 10);

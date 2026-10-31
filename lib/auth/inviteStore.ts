@@ -13,3 +13,18 @@ export async function createInvite(adminId: string, data: { email?: string; role
   });
   return { id: invite.id, url: inviteUrl(token), expiresAt: invite.expiresAt };
 }
+
+/** Latest invites with who created and who used them (admin list). */
+export function listInvites(take = 100) {
+  return prisma.invite.findMany({
+    orderBy: { createdAt: "desc" },
+    take,
+    include: { createdBy: { select: { email: true } }, usedBy: { select: { email: true } } },
+  });
+}
+
+/** Revoke an unused invite; true when one was revoked. */
+export async function revokeInvite(id: string): Promise<boolean> {
+  const res = await prisma.invite.deleteMany({ where: { id, usedAt: null } });
+  return res.count === 1;
+}

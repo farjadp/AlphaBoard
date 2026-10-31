@@ -3,16 +3,13 @@ import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
 import { badRequest, readJson } from "@/lib/http/errors";
-import { prisma } from "@/lib/db/client";
-import { createDevice, revokeDevice } from "@/lib/signalDesk/devices";
+import { createDevice, listDevices, revokeDevice } from "@/lib/signalDesk/devices";
 
 export const dynamic = "force-dynamic";
 
-const PUBLIC = { id: true, label: true, last4: true, login: true, server: true, tradeMode: true, balance: true, currency: true, symbols: true, lastSeenAt: true, createdAt: true } as const;
-
 /** The admin's active MT5 terminals (never the token hash). */
 export const GET = adminRoute(async (req, admin) => {
-  const devices = await prisma.mt5Device.findMany({ where: { userId: admin.id, revokedAt: null }, orderBy: { createdAt: "desc" }, select: PUBLIC });
+  const devices = await listDevices(admin.id);
   return NextResponse.json({ devices });
 });
 

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db/client";
+import { listInvites } from "@/lib/auth/inviteStore";
 import { requireAdmin } from "@/lib/auth/dal";
 import { inviteState } from "@/lib/auth/invites";
 import InviteCreator from "@/components/admin/InviteCreator";
@@ -10,11 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function InvitesPage() {
   await requireAdmin();
   const requests = await listAccessRequests();
-  const invites = await prisma.invite.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    include: { usedBy: { select: { email: true } } },
-  });
+  const invites = await listInvites();
 
   return (
     <div className="space-y-8">

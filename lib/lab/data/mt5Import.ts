@@ -59,3 +59,11 @@ export async function listMt5Trades(userId: string): Promise<Mt5TradeDto[]> {
     currency: r.currency, magic: r.magic, manual: r.manual,
   }));
 }
+
+/** Imported trades of one symbol, oldest first, for the edge check; `who` filters manual vs expert trades. */
+export function mt5TradesFor(userId: string, symbol: string, who: "all" | "manual" | "expert") {
+  return prisma.mt5Trade.findMany({
+    where: { userId, symbol, ...(who === "manual" ? { manual: true } : who === "expert" ? { manual: false } : {}) },
+    orderBy: { openedAt: "asc" },
+  });
+}

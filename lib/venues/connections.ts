@@ -131,3 +131,8 @@ export async function deleteConnection(userId: string, id: string) {
     await prisma.exchangeConnection.delete({ where: { id: c.id } });
   }
 }
+
+/** The user's OANDA connections as picker options (Strategy Lab data source). */
+export function listOandaConnectionOptions(userId: string) {
+  return prisma.exchangeConnection.findMany({ where: { userId, provider: "oanda" }, select: { id: true, label: true }, orderBy: { createdAt: "asc" } });
+}

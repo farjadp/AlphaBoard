@@ -1,8 +1,8 @@
+import { mt5TradesFor } from "@/lib/lab/data/mt5Import";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
 import { badRequest, readJson } from "@/lib/http/errors";
-import { prisma } from "@/lib/db/client";
 import { loadDataset } from "@/lib/lab/data/store";
 import { edgeCheck } from "@/lib/lab/edge";
 
@@ -20,10 +20,7 @@ export const POST = adminRoute(async (req, admin) => {
   if (!parsed.success) throw badRequest(parsed.error.issues.map((i) => i.message).join("; "));
   const { symbol, datasetId, who } = parsed.data;
   const ds = await loadDataset(admin.id, datasetId);
-  const rows = await prisma.mt5Trade.findMany({
-    where: { userId: admin.id, symbol, ...(who === "manual" ? { manual: true } : who === "expert" ? { manual: false } : {}) },
-    orderBy: { openedAt: "asc" },
-  });
+  const rows = await mt5TradesFor(admin.id, symbol, who);
   const result = edgeCheck(rows.map((r) => ({
     side: r.side as "LONG" | "SHORT", entryTime: r.openedAt.getTime(), entryPrice: r.entryPrice, stop: r.stop,
     exitTime: r.closedAt.getTime(), exitPrice: r.exitPrice,

@@ -1,10 +1,10 @@
+import { latestTerminalSymbols } from "@/lib/signalDesk/devices";
 import { NextResponse } from "next/server";
 import { enforceRateLimit } from "@/lib/http/rateLimit";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
 import { badRequest, readJson } from "@/lib/http/errors";
 import { parseImageDataUrl } from "@/lib/http/images";
-import { prisma } from "@/lib/db/client";
 import { aiJson, type ContentPart } from "@/lib/ai";
 import { draftFromExtract, SIGNAL_EXTRACT_JSON, SIGNAL_EXTRACT_PROMPT, SignalExtractSchema } from "@/lib/signalDesk/importDraft";
 
@@ -32,6 +32,5 @@ export const POST = adminRoute(async (req, admin) => {
     jsonSchema: SIGNAL_EXTRACT_JSON,
     maxTokens: 400,
   });
-  const device = await prisma.mt5Device.findFirst({ where: { userId: admin.id, revokedAt: null }, orderBy: { lastSeenAt: { sort: "desc", nulls: "last" } }, select: { symbols: true } });
-  return NextResponse.json(draftFromExtract(data, device?.symbols ?? []));
+  return NextResponse.json(draftFromExtract(data, await latestTerminalSymbols(admin.id)));
 });

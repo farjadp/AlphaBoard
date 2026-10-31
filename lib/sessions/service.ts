@@ -1,3 +1,4 @@
+import type { SessionMetrics, SessionReportDto } from "./types";
 import { breakevenStop, manualLevel } from "@/lib/trading/positions";
 import "server-only";
 import type { Prisma, TradingSession } from "@prisma/client";
@@ -288,4 +289,18 @@ export async function setSessionExits(userId: string, positionId: string, input:
   await prisma.sessionPosition.updateMany({ where: { id: pos.id, closedAt: null }, data: { lastCheckedAt: deps.now ?? new Date() } });
   await post(pos.sessionId, "USER", "TEXT", `Set ${pos.symbol} ${changes.join(", ")}.`);
   await post(pos.sessionId, "EXECUTOR", "ORDER", `${pos.symbol} ${changes.join(", ")}.`, { positionId: pos.id, stopLoss: input.stopLoss, takeProfit: input.takeProfit });
+}
+
+/** The final report of one of the user's sessions, or null before it is written. */
+export async function sessionReport(userId: string, id: string): Promise<SessionReportDto | null> {
+  const r = await prisma.sessionReport.findFirst({ where: { sessionId: id, session: { userId } } });
+  if (!r) return null;
+  return { summary: r.summary, lessons: Array.isArray(r.lessons) ? (r.lessons as string[]) : [], metrics: r.metrics as unknown as SessionMetrics, createdAt: r.createdAt.toISOString() };
+}
+
+/** The session a position belongs to (owner-checked). */
+export async function sessionIdOfPosition(userId: string, positionId: string): Promise<string> {
+  const pos = await prisma.sessionPosition.findFirst({ where: { id: positionId, session: { userId } }, select: { sessionId: true } });
+  if (!pos) throw notFound("Position not found");
+  return pos.sessionId;
 }

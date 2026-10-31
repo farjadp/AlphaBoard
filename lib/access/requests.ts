@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { prisma } from "@/lib/db/client";
-import { createInvite } from "@/lib/auth/createInvite";
+import { createInvite } from "@/lib/auth/inviteStore";
 import { badRequest, notFound } from "@/lib/http/errors";
 
 export const AccessRequestInput = z.object({
@@ -49,4 +49,8 @@ export async function inviteFromRequest(adminId: string, id: string) {
 export async function dismissAccessRequest(adminId: string, id: string) {
   const res = await prisma.accessRequest.updateMany({ where: { id, status: "PENDING" }, data: { status: "DISMISSED", handledAt: new Date() } });
   if (res.count) await prisma.auditLog.create({ data: { userId: adminId, action: "admin.access_request_dismissed", target: id } });
+}
+
+export function pendingAccessRequestCount() {
+  return prisma.accessRequest.count({ where: { status: "PENDING" } });
 }
