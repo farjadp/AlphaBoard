@@ -1,4 +1,5 @@
 import "server-only";
+import { grossPnl } from "@/lib/trading/math";
 import { prisma } from "@/lib/prisma";
 import { applySlippage, FEE_RATE, SLIPPAGE } from "@/lib/paper/engine";
 import type { PriceOf } from "@/lib/paper/account";
@@ -91,7 +92,7 @@ export function paperVenue(priceOf: PriceOf): Venue {
       const full = fraction >= 1 - 1e-9;
       const qty = full ? pos.qty : pos.qty * fraction;
       const marginPart = full ? pos.margin : pos.margin * fraction;
-      const gross = Math.max(-marginPart, (pos.side === "LONG" ? price - pos.entryPrice : pos.entryPrice - price) * qty);
+      const gross = Math.max(-marginPart, grossPnl({ side: pos.side, qty, entry: pos.entryPrice }, price));
       const exitFee = qty * price * FEE_RATE;
 
       return prisma.$transaction(async (tx) => {

@@ -5,6 +5,7 @@
  * trade's own stop distance), price-based on both sides so the comparison is like for like. The
  * average difference gets a bootstrap 95 % interval: an edge is claimed only when it excludes 0.
  */
+import { dirOf, rMultiple } from "@/lib/trading/math";
 import type { Bars } from "./bars";
 import { mulberry32 } from "./robust";
 
@@ -68,9 +69,9 @@ export function edgeCheck(trades: EdgeTrade[], b: Bars, opts: { samples?: number
     if (tr.stop == null || tr.stop === tr.entryPrice) { skippedNoStop++; continue; }
     const holdMs = Math.max(60_000, tr.exitTime - tr.entryTime);
     if (tr.entryTime < first || tr.exitTime > lastT) { skippedNoData++; continue; }
-    const dir: 1 | -1 = tr.side === "LONG" ? 1 : -1;
+    const dir = dirOf(tr.side);
     const dist = Math.abs(tr.entryPrice - tr.stop);
-    const r = ((tr.exitPrice - tr.entryPrice) * dir) / dist;
+    const r = rMultiple({ side: tr.side, entry: tr.entryPrice, stop: tr.stop, price: tr.exitPrice })!;
     // random entries in the same calendar month that still have the holding time inside the data
     const d = new Date(tr.entryTime);
     const m0 = at(b, Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1));
