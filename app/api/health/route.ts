@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { appVersion } from "@/lib/config/version";
 import { prisma } from "@/lib/prisma";
 import { route } from "@/lib/http/route";
 
@@ -21,7 +22,7 @@ export const GET = route(async () => {
     ok: db === "ok",
     db,
     tick,
-    version: process.env.APP_VERSION ?? (process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.RAILWAY_GIT_COMMIT_SHA)?.slice(0, 7) ?? "dev",
+    version: appVersion(),
     uptimeSec: Math.round((Date.now() - startedAt) / 1000),
     time: new Date().toISOString(),
   };
