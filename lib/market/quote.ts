@@ -2,7 +2,7 @@ import type { Asset } from "@/lib/assetCatalog";
 import { logger } from "@/lib/http/logger";
 import { marketMemo } from "./cache";
 import { yf } from "./candles";
-import { fetchJson } from "./http";
+import { binanceJson } from "./http";
 
 export interface Quote {
   price: number;
@@ -18,16 +18,8 @@ const fin = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n
 
 async function binanceQuote(symbol: string): Promise<Quote> {
   type T = { lastPrice: string; priceChangePercent: string; highPrice: string; lowPrice: string; quoteVolume: string; closeTime: number };
-  let last: unknown;
-  for (const host of ["https://data-api.binance.vision", "https://api.binance.com"]) {
-    try {
-      const t = await fetchJson<T>(`${host}/api/v3/ticker/24hr?symbol=${symbol}`);
-      const price = fin(t.lastPrice);
-      if (!price) throw new Error("no price");
-      return { price, changePct: fin(t.priceChangePercent), high: fin(t.highPrice), low: fin(t.lowPrice), volume: fin(t.quoteVolume), source: "binance", asOf: new Date(t.closeTime).toISOString() };
-    } catch (e) { last = e; }
-  }
-  throw last;
+  const t = await binanceJson<T>(`/api/v3/ticker/24hr?symbol=${symbol}`, (b) => (fin(b.lastPrice) ? null : "no price"));
+  return { price: fin(t.lastPrice)!, changePct: fin(t.priceChangePercent), high: fin(t.highPrice), low: fin(t.lowPrice), volume: fin(t.quoteVolume), source: "binance", asOf: new Date(t.closeTime).toISOString() };
 }
 
 async function yahooQuote(symbol: string): Promise<Quote> {

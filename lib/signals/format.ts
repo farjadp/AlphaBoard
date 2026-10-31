@@ -1,3 +1,4 @@
+import { stripBrokerSuffix } from "@/lib/market/symbols";
 import { num } from "./num";
 
 /**
@@ -8,7 +9,7 @@ import { num } from "./num";
 export interface PostView { symbol: string; side: "BUY" | "SELL"; entry: number | null; stop: number; tps: number[]; riskPct: number; note: string | null }
 
 /** Broker symbol → the name readers know: "XAUUSD.ec" / "XAUUSDm" → "XAUUSD". */
-export const displaySymbol = (symbol: string) => symbol.split(".")[0].replace(/[a-z]+$/, "");
+export const displaySymbol = stripBrokerSuffix;
 
 export const DEFAULT_POST_TEMPLATE = [
   "{symbol}",

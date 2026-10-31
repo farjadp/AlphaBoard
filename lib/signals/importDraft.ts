@@ -1,3 +1,4 @@
+import { canonicalTicker, matchBrokerSymbol } from "@/lib/market/symbols";
 import { z } from "zod";
 import { num } from "./num";
 
@@ -59,25 +60,8 @@ Return ONLY a JSON object with these keys:
 
 Read numbers exactly as printed. Ignore leverage, margin, profit claims, images of charts and disclaimers. If something is unclear, use null rather than guessing.`;
 
-/** "XAU/USD", "GOLD", "ETHUSDT.P", "BTCUSDT PERP" → bare upper-case ticker; "" for nothing usable. */
-function bare(raw: string) {
-  const s = raw.trim()
-    .replace(/(?<=[A-Z0-9])[a-z]{1,3}$/, "") // broker suffix glued on: XAUUSDm
-    .toUpperCase()
-    .replace(/\.P$|PERP(ETUAL)?$/g, "")
-    .replace(/\.[A-Z0-9]{1,5}$/, "") // broker suffix after a dot: XAUUSD.ec
-    .replace(/[^A-Z0-9]/g, "");
-  return ({ GOLD: "XAUUSD", SILVER: "XAGUSD" } as Record<string, string>)[s] ?? s;
-}
-
 /** The terminal symbol for a symbol as written in a post (USDT and USD count as the same quote), or null. */
-export function matchSymbol(raw: string, symbols: string[]): string | null {
-  const want = bare(raw);
-  if (!want) return null;
-  // A bare coin ("OP") is quoted in USD on CFD brokers and in USDT on exchanges.
-  const variants = new Set([want, want.replace(/USDT$/, "USD"), want.replace(/USD$/, "USDT"), `${want}USD`, `${want}USDT`]);
-  return symbols.find((s) => variants.has(s.split(".")[0].replace(/[a-z]+$/, "").toUpperCase())) ?? null;
-}
+export const matchSymbol = matchBrokerSymbol;
 
 export interface SignalDraft {
   symbol: string;
@@ -95,7 +79,7 @@ const MAX_TPS = 4;
 export function draftFromExtract(x: SignalExtract, symbols: string[]): { draft: SignalDraft; warnings: string[] } {
   const warnings: string[] = [];
   const matched = x.symbol ? matchSymbol(x.symbol, symbols) : null;
-  const symbol = matched ?? (x.symbol ? bare(x.symbol) : "");
+  const symbol = matched ?? (x.symbol ? canonicalTicker(x.symbol) : "");
   if (!symbol) warnings.push("No symbol found: pick one");
   else if (!matched) warnings.push(`${symbol} is not in your terminal's symbol list`);
 
