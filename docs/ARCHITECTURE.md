@@ -59,9 +59,9 @@ Kill switches: `TICK_DISABLED`, `NEWS_DISABLED`, `LAB_DISABLED`, `TRADING_HALT`,
 |---|---|---|---|
 | Model | `PaperPosition` | `SessionPosition` (+ `exitPlan` JSON, best/worst price) | `TradeSignal` + `TradeSignalLeg` (one leg per TP) |
 | Exit check | tick: candles + quote via `scanExit` | monitor: candles since `lastCheckedAt` + spot via `scanExit`/`exitAtPrice` | broker SL/TP on the terminal |
-| Manage | SL/TP edit, close (P14b adds partial/trail/ladder) | close any fraction, breakeven (buffered rule), set stop/target, AI tighten | buffered breakeven after TP1, step-up after TP2, ATR trailing, MOVE_SL / MOVE_TP / CLOSE_PARTIAL / CLOSE_ALL |
+| Manage | SL/TP edit, close (P14b adds partial/trail/ladder) | close any fraction, breakeven (buffered rule), set stop/target/trailing (ATR), AI tighten; targets rest at OANDA and on swap exchanges | buffered breakeven after TP1, step-up after TP2, ATR trailing, MOVE_SL / MOVE_TP / CLOSE_PARTIAL / CLOSE_ALL |
 
-`lib/trading/positions/` holds `scanExit`/`exitAtPrice`, `breakevenStop`, `trailingStop`, `manualLevel`, ladders and MFE/MAE/R; SignalCopier mirrors the same rules in MQL5. Still to come: native TP on OANDA/ccxt (P14c), paper partial/trail/ladder UI and one `/positions` page (P14b/e), a position snapshot in the MT5 heartbeat (P14d 1.14).
+`lib/trading/positions/` holds `scanExit`/`exitAtPrice`, `breakevenStop`, `trailingStop`, `manualLevel`, ladders and MFE/MAE/R; SignalCopier mirrors the same rules in MQL5. Still to come: paper partial/trail/ladder UI and one `/positions` page (P14b/e), a position snapshot in the MT5 heartbeat (P14d 1.14).
 
 ## Data
 

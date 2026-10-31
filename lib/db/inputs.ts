@@ -120,7 +120,7 @@ export const SessionPositionInput = z.discriminatedUnion("action", [
   z.object({ action: z.literal("close"), fraction: z.number().gt(0).lte(1).optional() }),
   z.object({ action: z.literal("close_half") }),
   z.object({ action: z.literal("breakeven") }),
-  z.object({ action: z.literal("set_exits"), stopLoss: z.number().finite().positive().optional(), takeProfit: z.number().finite().positive().nullable().optional() }),
+  z.object({ action: z.literal("set_exits"), stopLoss: z.number().finite().positive().optional(), takeProfit: z.number().finite().positive().nullable().optional(), trailAtr: z.number().min(0.5).max(10).nullable().optional() }),
 ]);
 
 export const TradingLimitsInput = z.object({

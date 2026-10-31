@@ -43,6 +43,8 @@ export interface SessionPositionDto {
   r: number | null;
   mfeR: number | null;
   maeR: number | null;
+  /** ATR multiple the monitor trails the stop at (null = no trailing). */
+  trailAtr: number | null;
   thesis: string;
   invalidation: string;
   horizonMin: number;

@@ -8,7 +8,7 @@ import type { Mandate } from "./mandate";
 
 export const mandateOf = (s: Pick<TradingSession, "mandate">) => s.mandate as unknown as Mandate;
 
-interface PlanJson { thesis?: string; invalidation?: string; horizonMin?: number; initialStop?: number | null }
+interface PlanJson { thesis?: string; invalidation?: string; horizonMin?: number; initialStop?: number | null; trailAtr?: number | null }
 const planOf = (p: Pick<SessionPosition, "exitPlan">) => (p.exitPlan ?? {}) as PlanJson;
 
 /** Live marks for open positions; unrealized is null for a position without a price. */
@@ -43,7 +43,7 @@ function positionToDto(p: SessionPosition, mark: number | null = null, unrealize
     id: p.id, symbol: p.symbol, side: p.side, qty: p.qty, entryPrice: p.entryPrice, leverage: p.leverage, margin: p.margin,
     stopLoss: p.stopLoss, takeProfit: p.takeProfit, initialStop, bestPrice: p.bestPrice, worstPrice: p.worstPrice,
     r: positionR({ side: p.side, entryPrice: p.entryPrice, initialStop, stopLoss: null }, p.closedAt ? p.closePrice : mark),
-    mfeR: x?.mfeR ?? null, maeR: x?.maeR ?? null,
+    mfeR: x?.mfeR ?? null, maeR: x?.maeR ?? null, trailAtr: plan.trailAtr ?? null,
     thesis: plan.thesis ?? "", invalidation: plan.invalidation ?? "", horizonMin: plan.horizonMin ?? 0,
     fees: p.fees, openedAt: p.openedAt.toISOString(), markPrice: p.closedAt ? null : mark, unrealizedPnl: p.closedAt ? null : unrealized,
     closedAt: p.closedAt?.toISOString() ?? null, closePrice: p.closePrice, realizedPnl: p.realizedPnl, closeReason: p.closeReason,

@@ -258,7 +258,7 @@ export async function moveStopToBreakeven(userId: string, positionId: string, de
  * Set the stop and/or the target of an open position by hand (P14a). Stops only tighten; both levels must
  * sit on the right side of the live price. A target is written to the ledger (and to venues that support it).
  */
-export async function setSessionExits(userId: string, positionId: string, input: { stopLoss?: number; takeProfit?: number | null }, deps: ServiceDeps = {}) {
+export async function setSessionExits(userId: string, positionId: string, input: { stopLoss?: number; takeProfit?: number | null; trailAtr?: number | null }, deps: ServiceDeps = {}) {
   const pos = await ownedOpenPosition(userId, positionId);
   const price = await (deps.priceOf ?? livePrice)(pos.symbol);
   if (price == null) throw new HttpError(503, `${pos.symbol} price unavailable`, "PRICE_UNAVAILABLE");
@@ -266,6 +266,11 @@ export async function setSessionExits(userId: string, positionId: string, input:
   if (problem) throw badRequest(problem.message, problem.code);
   const venue = await venueFor(pos.session, deps.priceOf);
   const changes: string[] = [];
+  if (input.trailAtr !== undefined) {
+    if (input.trailAtr != null && !(input.trailAtr >= 0.5 && input.trailAtr <= 10)) throw badRequest("Trail between 0.5 and 10 ATR", "BAD_LEVEL");
+    await prisma.sessionPosition.updateMany({ where: { id: pos.id, closedAt: null }, data: { exitPlan: { ...(pos.exitPlan as object), trailAtr: input.trailAtr } } });
+    changes.push(input.trailAtr == null ? "trailing off" : `trailing at ${input.trailAtr}× the 1H ATR`);
+  }
   if (input.stopLoss != null) {
     const fired = await venue.setStop(pos.id, input.stopLoss);
     if (fired) {
