@@ -1,3 +1,4 @@
+import { audit } from "@/lib/auth/audit";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
@@ -19,7 +20,7 @@ export const GET = adminRoute(async (req, admin) => {
 export const POST = adminRoute(async (req, admin) => {
   const { label } = z.object({ label: z.string().trim().min(1).max(60) }).parse(await readJson(req, 1_000));
   const { device, token } = await createDevice(admin.id, label);
-  await prisma.auditLog.create({ data: { userId: admin.id, action: "signal_desk.device_create", target: device.id } });
+  await audit(admin.id, "signal_desk.device_create", { target: device.id });
   return NextResponse.json({ device: { id: device.id, label: device.label, last4: device.last4 }, token }, { status: 201, headers: { "cache-control": "no-store" } });
 });
 
@@ -28,6 +29,6 @@ export const DELETE = adminRoute(async (req, admin) => {
   const id = new URL(req.url).searchParams.get("id");
   if (!id) throw badRequest("id is required");
   await revokeDevice(admin.id, id);
-  await prisma.auditLog.create({ data: { userId: admin.id, action: "signal_desk.device_revoke", target: id } });
+  await audit(admin.id, "signal_desk.device_revoke", { target: id });
   return NextResponse.json({ ok: true });
 });

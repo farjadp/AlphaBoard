@@ -1,7 +1,7 @@
+import { audit } from "@/lib/auth/audit";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { badRequest, payloadTooLarge } from "@/lib/http/errors";
-import { prisma } from "@/lib/prisma";
 import { listDatasets, saveDataset } from "@/lib/lab/data/store";
 import { parseMt5Csv } from "@/lib/lab/data/mt5csv";
 import { LabDataError } from "@/lib/lab/data/encode";
@@ -35,6 +35,6 @@ export const POST = adminRoute(async (req, admin) => {
   }
   const name = String(form?.get("symbol") ?? "").trim().slice(0, 30) || parsed.symbol;
   const ds = await saveDataset(admin.id, { symbol: name, source: "mt5csv", timeframe: "1m" }, parsed.bars, parsed.spread);
-  await prisma.auditLog.create({ data: { userId: admin.id, action: "admin.lab_upload", target: ds.id } });
+  await audit(admin.id, "admin.lab_upload", { target: ds.id });
   return NextResponse.json({ dataset: ds }, { status: 201 });
 });

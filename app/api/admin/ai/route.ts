@@ -1,7 +1,7 @@
+import { audit } from "@/lib/auth/audit";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { readJson } from "@/lib/http/errors";
-import { prisma } from "@/lib/prisma";
 import { MODELS, PROVIDERS } from "@/lib/ai/catalog";
 import { configuredProviders } from "@/lib/ai/configured";
 import { AiSettingsInput, getAiSettings, setAiSettings } from "@/lib/ai/settings";
@@ -21,6 +21,6 @@ export const GET = adminRoute(async (_req, _admin) => {
 
 export const PUT = adminRoute(async (req, admin) => {
   const saved = await setAiSettings(AiSettingsInput.parse(await readJson(req, 2_000)));
-  await prisma.auditLog.create({ data: { userId: admin.id, action: "admin.ai_settings", meta: { ...saved } } });
+  await audit(admin.id, "admin.ai_settings", { meta: { ...saved } });
   return NextResponse.json({ settings: saved });
 });

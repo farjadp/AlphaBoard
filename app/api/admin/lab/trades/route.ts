@@ -1,7 +1,7 @@
+import { audit } from "@/lib/auth/audit";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { badRequest, payloadTooLarge } from "@/lib/http/errors";
-import { prisma } from "@/lib/prisma";
 import { importDeals, listMt5Trades } from "@/lib/mt5/import";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +21,6 @@ export const POST = adminRoute(async (req, admin) => {
   if (!(file instanceof File)) throw badRequest("attach the ExportDeals CSV as the field \"file\"");
   if (file.size > MAX_UPLOAD) throw payloadTooLarge(MAX_UPLOAD);
   const r = await importDeals(admin.id, await file.text());
-  await prisma.auditLog.create({ data: { userId: admin.id, action: "admin.mt5_import", target: r.login } });
+  await audit(admin.id, "admin.mt5_import", { target: r.login });
   return NextResponse.json(r, { status: 201 });
 });

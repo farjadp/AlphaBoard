@@ -1,3 +1,4 @@
+import { audit } from "@/lib/auth/audit";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
@@ -13,6 +14,6 @@ export const PATCH = adminRoute(async (req, admin, { params }) => {
   const exists = await prisma.user.findUnique({ where: { id }, select: { id: true } });
   if (!exists) throw notFound("User not found");
   const user = await prisma.user.update({ where: { id }, data: { dailyTokenQuota }, select: { id: true, email: true, dailyTokenQuota: true } });
-  await prisma.auditLog.create({ data: { userId: admin.id, action: "admin.user_quota", target: user.email, meta: { dailyTokenQuota } } });
+  await audit(admin.id, "admin.user_quota", { target: user.email, meta: { dailyTokenQuota } });
   return NextResponse.json({ user });
 });
