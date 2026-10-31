@@ -6,7 +6,7 @@ import Link from "next/link";
 import NavBar from "@/components/NavBar";
 import DeskTable from "@/components/sessions/DeskTable";
 import DeskRoundTable from "@/components/sessions/DeskRoundTable";
-import { CAST } from "@/lib/agents/cast";
+import { CAST } from "@/lib/sessions/desk/cast";
 import { useRoom, useSessionReport, useSessionView, type PositionAction } from "@/hooks/useSessions";
 import { price as fmtPrice, qty as fmtQty } from "@/components/paper/format";
 import type { Mandate } from "@/lib/sessions/mandate";

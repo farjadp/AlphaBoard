@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/client";
 import { withDerivedPnl } from "@/lib/journal/derive";
 import type { LegacyData } from "@/lib/import/legacy";
 import type { JournalEntry } from "@/lib/types/userData";
-import { assertOwnedAttachments } from "./attachments";
+import { assertOwnedAttachments } from "@/lib/db/attachments";
 
 const json = (v: unknown) => (v === undefined || v === null ? undefined : (v as Prisma.InputJsonValue));
 

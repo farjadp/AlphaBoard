@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { userRoute } from "@/lib/http/userRoute";
 import { readJson } from "@/lib/http/errors";
 import { parseLegacyData } from "@/lib/import/legacy";
-import { importLegacyData } from "@/lib/db/importLegacy";
+import { importLegacyData } from "@/lib/import/store";
 
 /**
  * Import v1 browser data. Images must be uploaded first (POST /api/attachments) and referenced by

@@ -18,7 +18,7 @@ import { trackRecord } from "@/lib/eval/trackRecord";
 import { useAlerts } from "@/hooks/useAlerts";
 import { formatPrice, formatVolume } from "@/lib/format";
 import { findAsset } from "@/lib/market/catalog";
-import { hasLegacyData, useHydrated } from "@/lib/client/legacy";
+import { hasLegacyData, useHydrated } from "@/lib/import/client";
 import { pricePrecision, signedPct } from "@/lib/format";
 import { alertCondition } from "@/lib/market/tradePlan";
 import { REPORT_TIMEFRAMES, type TimeframeKey } from "@/lib/market/timeframes";

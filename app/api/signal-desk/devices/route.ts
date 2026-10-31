@@ -4,7 +4,7 @@ import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
 import { badRequest, readJson } from "@/lib/http/errors";
 import { prisma } from "@/lib/db/client";
-import { createDevice, revokeDevice } from "@/lib/mt5/devices";
+import { createDevice, revokeDevice } from "@/lib/signals/devices";
 
 export const dynamic = "force-dynamic";
 

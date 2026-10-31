@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { prisma } from "@/lib/db/client";
 import type { AiRequest } from "@/lib/ai";
-import type { AiFn } from "@/lib/agents/run";
+import type { AiFn } from "@/lib/sessions/desk/run";
 import { exitFor, monitorSessions } from "@/lib/sessions/monitor";
 import { startSession, endSession } from "@/lib/sessions/service";
 import { listMessages } from "@/lib/sessions/room";

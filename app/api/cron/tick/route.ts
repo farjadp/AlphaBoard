@@ -4,7 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 import { route } from "@/lib/http/route";
 import { requireAdmin } from "@/lib/auth/dal";
 import { enforceRateLimit } from "@/lib/http/rateLimit";
-import { runTick } from "@/lib/jobs/tick";
+import { runTick } from "@/lib/worker/tick";
 
 export const dynamic = "force-dynamic";
 

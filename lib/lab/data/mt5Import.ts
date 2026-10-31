@@ -2,7 +2,7 @@ import { money as fmtMoney } from "@/lib/format";
 import "server-only";
 import { prisma } from "@/lib/db/client";
 import { badRequest } from "@/lib/http/errors";
-import { DealsFileError, parseDealsCsv, positionsFromDeals } from "./deals";
+import { DealsFileError, parseDealsCsv, positionsFromDeals } from "@/lib/lab/data/mt5Deals";
 
 /**
  * Import an ExportDeals.mq5 CSV: every closed position becomes an Mt5Trade (the facts) plus a journal

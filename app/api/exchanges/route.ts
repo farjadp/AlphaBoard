@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { userRoute } from "@/lib/http/userRoute";
 import { readJson } from "@/lib/http/errors";
 import { ExchangeConnectionInput } from "@/lib/db/inputs";
-import { createConnection, exchangeTradingEnabled, listConnections, requireExchangeAccess } from "@/lib/exchanges/connections";
+import { createConnection, exchangeTradingEnabled, listConnections, requireExchangeAccess } from "@/lib/venues/connections";
 import { secretsConfigured } from "@/lib/secrets/crypto";
 
 export const dynamic = "force-dynamic";

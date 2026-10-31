@@ -7,7 +7,7 @@
 import { hhmm } from "@/lib/format";
 import type { Mandate } from "@/lib/sessions/mandate";
 import { deriveSeats, speakOrder, SEAT_STAGE, STAGE_LABEL, type Seat } from "@/lib/sessions/seats";
-import type { SeatRole } from "@/lib/agents/cast";
+import type { SeatRole } from "@/lib/sessions/desk/cast";
 import type { SessionMessageDto } from "@/lib/types/sessions";
 
 /** Logical box the seats and the connecting lines are laid out in; the container keeps this

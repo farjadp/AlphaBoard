@@ -83,7 +83,7 @@ export function startWorker() {
 
   const timers = [leaseTimer];
   if (!env().TICK_DISABLED) {
-    timers.push(loop("tick", TICK_MS, async () => (await import("@/lib/jobs/tick")).runTick(), isLeader, isStopped));
+    timers.push(loop("tick", TICK_MS, async () => (await import("@/lib/worker/tick")).runTick(), isLeader, isStopped));
   }
   timers.push(loop("sessions", MONITOR_MS, async () => {
     const { monitorSessions } = await import("@/lib/sessions/monitor");

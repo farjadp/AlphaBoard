@@ -6,7 +6,7 @@ import { adminUsageSummary } from "@/lib/ai/usageReport";
 import { configuredProviders } from "@/lib/ai/configured";
 import { findModel, PROVIDERS } from "@/lib/ai/catalog";
 import { getAiSettings } from "@/lib/ai/settings";
-import { TICK_HISTORY_KEY, TICK_KEY, type TickResult } from "@/lib/jobs/tick";
+import { TICK_HISTORY_KEY, TICK_KEY, type TickResult } from "@/lib/worker/tick";
 import { overallStatus, tickHealth } from "./health";
 import { recentEvents } from "./events";
 

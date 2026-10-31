@@ -3,8 +3,8 @@ import type { z } from "zod";
 import { prisma } from "@/lib/db/client";
 import { findAsset } from "@/lib/market/catalog";
 import { badRequest } from "@/lib/http/errors";
-import type { AlertInput } from "./inputs";
-import { alertToDto } from "./mappers";
+import type { AlertInput } from "@/lib/db/inputs";
+import { alertToDto } from "@/lib/db/mappers";
 
 export async function listAlerts(userId: string) {
   const rows = await prisma.priceAlert.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: 500 });

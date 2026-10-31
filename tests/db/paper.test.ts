@@ -5,7 +5,7 @@ import {
   closePaperPosition, getOrCreateAccount, openPaperPosition, paperOverview, resetPaperAccount, updatePositionExits,
 } from "@/lib/paper/account";
 import { FEE_RATE, SLIPPAGE } from "@/lib/paper/engine";
-import { runTick } from "@/lib/jobs/tick";
+import { runTick } from "@/lib/worker/tick";
 
 const run = !!process.env.TEST_DATABASE_URL;
 const prices: Record<string, number | null> = { "BTC/USDT": 100 };

@@ -3,7 +3,7 @@ import type { ExchangeConnection, SessionPosition } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import type { MarketRules } from "@/lib/risk/verdict";
-import { tradingHalted } from "@/lib/exchanges/connections";
+import { tradingHalted } from "@/lib/venues/connections";
 import { decryptSecret } from "@/lib/secrets/crypto";
 import { sessionFreeCapital } from "./paper";
 import { VenueError, type CloseIntent, type CloseResult, type OpenIntent, type Venue, type VenueFill } from "./types";

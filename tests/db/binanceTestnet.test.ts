@@ -10,7 +10,7 @@ import { encryptSecret } from "@/lib/secrets/crypto";
 import { parseMandate } from "@/lib/sessions/mandate";
 import { ccxtVenue } from "@/lib/venues/ccxt";
 import { setExchangeFactory } from "@/lib/venues/ccxtClient";
-import { reconcileSession } from "@/lib/exec/reconciler";
+import { reconcileSession } from "@/lib/venues/reconciler";
 
 const key = process.env.CCXT_TESTNET_KEY;
 const secret = process.env.CCXT_TESTNET_SECRET;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { AiRequest } from "@/lib/ai";
-import { formatContext, type ContextData } from "@/lib/agents/context";
-import { runAnalysts, runStrategist, type AiFn } from "@/lib/agents/run";
+import { formatContext, type ContextData } from "@/lib/sessions/desk/context";
+import { runAnalysts, runStrategist, type AiFn } from "@/lib/sessions/desk/run";
 import { parseMandate } from "@/lib/sessions/mandate";
 
 const mandate = parseMandate({ symbols: ["BTC/USDT", "ETH/USDT"], capital: 500, models: { analyst: { provider: "deepseek", model: "deepseek-flash" } } });

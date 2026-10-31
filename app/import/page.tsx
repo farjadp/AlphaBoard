@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import NavBar from "@/components/NavBar";
 import { collectLegacyImages, parseLegacyData } from "@/lib/import/legacy";
-import { clearLegacyStorage, readLegacyStorage, useHydrated } from "@/lib/client/legacy";
+import { clearLegacyStorage, readLegacyStorage, useHydrated } from "@/lib/import/client";
 import { compressImage } from "@/lib/client/image";
 import { apiErrorMessage } from "@/lib/client/apiError";
 import { resetAllResources } from "@/lib/client/resource";

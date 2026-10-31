@@ -7,7 +7,7 @@ import { FEE_RATE } from "@/lib/paper/engine";
 import { livePrice, type PriceOf } from "@/lib/paper/account";
 import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
-import { runSessionSummary, runTradeLesson, type AiFn } from "@/lib/agents/run";
+import { runSessionSummary, runTradeLesson, type AiFn } from "@/lib/sessions/desk/run";
 import { money } from "@/lib/risk/limits";
 import { excursionR } from "./excursion";
 import { computeMetrics, metricsText, type ClosedTrade } from "./report";

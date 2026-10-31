@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { userRoute } from "@/lib/http/userRoute";
 import { readJson } from "@/lib/http/errors";
 import { AlertInput } from "@/lib/db/inputs";
-import { createAlert, listAlerts } from "@/lib/db/alerts";
+import { createAlert, listAlerts } from "@/lib/alerts/store";
 
 export const dynamic = "force-dynamic";
 

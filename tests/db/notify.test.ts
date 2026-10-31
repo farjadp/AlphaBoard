@@ -6,7 +6,7 @@ import { listNotifications, markNotificationsRead, notify } from "@/lib/notify/n
 import { processTelegramUpdates, startTelegramLink, telegramStatus, unlinkTelegram } from "@/lib/notify/telegramLink";
 import type { Telegram } from "@/lib/notify/telegram";
 import { openPaperPosition } from "@/lib/paper/account";
-import { runTick } from "@/lib/jobs/tick";
+import { runTick } from "@/lib/worker/tick";
 
 const run = !!process.env.TEST_DATABASE_URL;
 

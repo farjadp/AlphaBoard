@@ -2,7 +2,7 @@ import { audit } from "@/lib/auth/audit";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { badRequest, payloadTooLarge } from "@/lib/http/errors";
-import { importDeals, listMt5Trades } from "@/lib/mt5/import";
+import { importDeals, listMt5Trades } from "@/lib/lab/data/mt5Import";
 
 export const dynamic = "force-dynamic";
 

@@ -1,7 +1,7 @@
 /** MT5 deal import against Postgres: positions → Mt5Trade + journal rows, idempotent, owner-only. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { prisma } from "@/lib/db/client";
-import { importDeals, listMt5Trades } from "@/lib/mt5/import";
+import { importDeals, listMt5Trades } from "@/lib/lab/data/mt5Import";
 
 const run = !!process.env.TEST_DATABASE_URL;
 const H = "deal,order,position,time_utc,type,entry,symbol,volume,price,sl,tp,commission,swap,profit,fee,magic,comment,login=22215882,currency=USD";

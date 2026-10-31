@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { userIdRoute } from "@/lib/http/userRoute";
-import { deleteAlert } from "@/lib/db/alerts";
+import { deleteAlert } from "@/lib/alerts/store";
 
 // Alerts are triggered only by the server tick (lib/alerts/job.ts); clients can create and delete them.
 

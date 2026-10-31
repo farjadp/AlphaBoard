@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import { recordEvent } from "@/lib/ops/events";
 import type { MarketRules } from "@/lib/risk/verdict";
-import { tradingHalted } from "@/lib/exchanges/connections";
+import { tradingHalted } from "@/lib/venues/connections";
 import { exchangeFor, exchangeSymbol, type CcxtMarket, type CcxtOrder, type ExchangeLike } from "./ccxtClient";
 import { sessionFreeCapital } from "./paper";
 import { VenueError, type CloseIntent, type CloseResult, type OpenIntent, type Venue, type VenueFill } from "./types";

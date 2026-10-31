@@ -7,7 +7,7 @@ import type { DatasetDto } from "@/lib/lab/data/store";
 import type { LabJobDto } from "@/lib/lab/jobs";
 import type { LadderStudyResult } from "@/lib/lab/study";
 import type { EdgeResult } from "@/lib/lab/edge";
-import type { Mt5TradeDto } from "@/lib/mt5/import";
+import type { Mt5TradeDto } from "@/lib/lab/data/mt5Import";
 import type { BasketDto } from "@/lib/lab/data/basket";
 import type { DcaStudyResult } from "@/lib/lab/dcaStudy";
 
