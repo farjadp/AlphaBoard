@@ -9,6 +9,7 @@ import DeskRoundTable from "@/components/sessions/DeskRoundTable";
 import { CAST } from "@/lib/sessions/desk/cast";
 import { useRoom, useSessionReport, useSessionView, type PositionAction } from "@/lib/client/hooks/useSessions";
 import { price as fmtPrice, qty as fmtQty } from "@/components/paper/format";
+import { ExitUnitToggle, convertExit, exitPrice, type ExitUnit } from "@/components/trade/ExitUnit";
 import type { Mandate } from "@/lib/sessions/mandate";
 import type { SessionMessageDto, SessionPositionDto, SessionViewDto } from "@/lib/sessions/types";
 import { END_REASON, Meter, StatusPill, durationText, timeLeft, usd } from "./ui";
@@ -151,7 +152,15 @@ function ExitsEditor({ p, onSave, onCancel }: { p: SessionPositionDto; onSave: (
   const [sl, setSl] = useState(p.stopLoss == null ? "" : String(p.stopLoss));
   const [tp, setTp] = useState(p.takeProfit == null ? "" : String(p.takeProfit));
   const [trail, setTrail] = useState(p.trailAtr == null ? "" : String(p.trailAtr));
+  const [unit, setUnit] = useState<ExitUnit>("price");
   const num = (s: string) => (s.trim() === "" ? null : Number.parseFloat(s.replace(",", ".")));
+  // Percent is measured from the entry price.
+  const slPrice = exitPrice(sl, unit, p.side, "stop", p.entryPrice, p.stopLoss), tpPrice = exitPrice(tp, unit, p.side, "target", p.entryPrice, p.takeProfit);
+  const switchUnit = (to: ExitUnit) => {
+    setSl(convertExit(sl, unit, to, p.side, "stop", p.entryPrice));
+    setTp(convertExit(tp, unit, to, p.side, "target", p.entryPrice));
+    setUnit(to);
+  };
   const input = "w-24 rounded border border-line bg-wash px-2 py-1 text-xs tabular-nums text-ink";
   return (
     <form
@@ -159,18 +168,22 @@ function ExitsEditor({ p, onSave, onCancel }: { p: SessionPositionDto; onSave: (
       onSubmit={(e) => {
         e.preventDefault();
         const body: Extract<PositionAction, { action: "set_exits" }> = { action: "set_exits" };
-        const nsl = num(sl), ntp = num(tp), ntr = num(trail);
+        const nsl = slPrice, ntp = tpPrice, ntr = num(trail);
         if (nsl != null && nsl !== p.stopLoss) body.stopLoss = nsl;
         if (ntp !== p.takeProfit) body.takeProfit = ntp;
         if (ntr !== p.trailAtr) body.trailAtr = ntr;
         onSave(body);
       }}
     >
-      <label className="text-[11px] text-ink-3">Stop <input aria-label="Stop" className={input} value={sl} onChange={(e) => setSl(e.target.value)} /></label>
-      <label className="text-[11px] text-ink-3">Target <input aria-label="Target" placeholder="none" className={input} value={tp} onChange={(e) => setTp(e.target.value)} /></label>
+      <ExitUnitToggle unit={unit} onChange={switchUnit} />
+      <label className="text-[11px] text-ink-3">Stop{unit === "pct" ? " %" : ""} <input aria-label={unit === "pct" ? "Stop, percent from entry" : "Stop"} className={input} value={sl} onChange={(e) => setSl(e.target.value)} /></label>
+      <label className="text-[11px] text-ink-3">Target{unit === "pct" ? " %" : ""} <input aria-label={unit === "pct" ? "Target, percent from entry" : "Target"} placeholder="none" className={input} value={tp} onChange={(e) => setTp(e.target.value)} /></label>
       <label className="text-[11px] text-ink-3">Trail ×ATR <input aria-label="Trail in ATR multiples" placeholder="off" className={input} value={trail} onChange={(e) => setTrail(e.target.value)} /></label>
       <button type="submit" className="rounded bg-accent-soft px-2 py-1 text-xs text-accent">Save</button>
       <button type="button" onClick={onCancel} className="px-1 text-xs text-ink-3">Cancel</button>
+      {unit === "pct" && (slPrice != null || tpPrice != null) && (
+        <span className="num w-full text-[11px] text-ink-3">From entry {fmtPrice(p.entryPrice)}: stop {fmtPrice(slPrice)} · target {fmtPrice(tpPrice)}</span>
+      )}
     </form>
   );
 }

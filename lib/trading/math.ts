@@ -65,3 +65,20 @@ export function tightens(side: AnySide, current: number | null | undefined, next
   if (current == null) return true;
   return dirOf(side) > 0 ? next > current : next < current;
 }
+
+export type ExitKind = "stop" | "target";
+
+/**
+ * Exit price `pct` percent away from `ref` on the losing (stop) or winning (target) side,
+ * e.g. a 2% stop on a LONG from 100 is 98. Lets forms take TP / SL as a distance instead of a price.
+ */
+export function exitFromPercent(side: AnySide, kind: ExitKind, ref: number, pct: number): number {
+  const sign = kind === "target" ? dirOf(side) : -dirOf(side);
+  return ref * (1 + (sign * pct) / 100);
+}
+
+/** Inverse of exitFromPercent: the distance of `price` from `ref` in percent (positive on the expected side). */
+export function percentFromExit(side: AnySide, kind: ExitKind, ref: number, price: number): number {
+  const sign = kind === "target" ? dirOf(side) : -dirOf(side);
+  return ((price - ref) / ref) * 100 * sign;
+}

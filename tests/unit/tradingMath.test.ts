@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dirOf, exitProblem, favourMove, grossPnl, pnlPct, rMultiple, tightens } from "@/lib/trading/math";
+import { dirOf, exitFromPercent, exitProblem, favourMove, grossPnl, percentFromExit, pnlPct, rMultiple, tightens } from "@/lib/trading/math";
 
 describe("trading math", () => {
   it("maps every side spelling to a direction", () => {
@@ -37,5 +37,21 @@ describe("trading math", () => {
     expect(tightens("LONG", 95, 90)).toBe(false);
     expect(tightens("SHORT", 110, 105)).toBe(true);
     expect(tightens("SHORT", null, 105)).toBe(true);
+  });
+});
+
+describe("exit percent", () => {
+  it("puts a long stop below and a long target above the reference", () => {
+    expect(exitFromPercent("LONG", "stop", 100, 2)).toBeCloseTo(98);
+    expect(exitFromPercent("LONG", "target", 100, 3)).toBeCloseTo(103);
+  });
+  it("mirrors the sides for a short", () => {
+    expect(exitFromPercent("SHORT", "stop", 100, 2)).toBeCloseTo(102);
+    expect(exitFromPercent("SHORT", "target", 100, 3)).toBeCloseTo(97);
+  });
+  it("round-trips through percentFromExit", () => {
+    for (const side of ["LONG", "SHORT"] as const) for (const kind of ["stop", "target"] as const) {
+      expect(percentFromExit(side, kind, 2650, exitFromPercent(side, kind, 2650, 1.25))).toBeCloseTo(1.25);
+    }
   });
 });

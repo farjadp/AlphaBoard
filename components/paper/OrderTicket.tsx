@@ -6,6 +6,7 @@ import { FEE_RATE, MAX_LEVERAGE, SLIPPAGE, liquidationPrice } from "@/lib/paper/
 import type { PaperSide } from "@/lib/paper/types";
 import type { OrderTicket as Ticket } from "@/lib/client/hooks/usePaper";
 import { money, price as fmtPrice, qty as fmtQty } from "./format";
+import { ExitUnitToggle, convertExit, exitPrice, type ExitUnit } from "@/components/trade/ExitUnit";
 
 export interface TicketPrefill {
   signalId: string;
@@ -34,6 +35,7 @@ export default function OrderTicket({ cash, livePrice, prefill, onSymbol, onSubm
   const [leverage, setLeverage] = useState(String(prefill?.leverage ?? 1));
   const [stopLoss, setStopLoss] = useState(prefill?.stopLoss != null ? String(prefill.stopLoss) : "");
   const [takeProfit, setTakeProfit] = useState(prefill?.takeProfit != null ? String(prefill.takeProfit) : "");
+  const [unit, setUnit] = useState<ExitUnit>("price");
   const [signalId, setSignalId] = useState(prefill?.signalId ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,8 +47,16 @@ export default function OrderTicket({ cash, livePrice, prefill, onSymbol, onSubm
   }, []);
 
   const ref = livePrice(symbol);
-  const m = num(margin), lev = num(leverage), sl = num(stopLoss), tp = num(takeProfit);
+  const m = num(margin), lev = num(leverage);
   const fill = ref == null ? null : ref * (side === "LONG" ? 1 + SLIPPAGE : 1 - SLIPPAGE);
+  // A percent is measured from the estimated fill, so it follows the price until the order is placed.
+  const sl = exitPrice(stopLoss, unit, side, "stop", fill), tp = exitPrice(takeProfit, unit, side, "target", fill);
+  const switchUnit = (to: ExitUnit) => {
+    setStopLoss(convertExit(stopLoss, unit, to, side, "stop", fill));
+    setTakeProfit(convertExit(takeProfit, unit, to, side, "target", fill));
+    setUnit(to);
+  };
+  const pctHint = (v: number | null) => (unit === "pct" && v != null ? <p className="mt-1 text-xs tabular-nums text-ink-3">≈ {fmtPrice(v)} from fill</p> : null);
   const notional = m != null && lev != null ? m * lev : null;
   const fee = notional == null ? null : notional * FEE_RATE;
   const problem =
@@ -122,13 +132,19 @@ export default function OrderTicket({ cash, livePrice, prefill, onSymbol, onSubm
           <label htmlFor="pt-lev" className={label}>Leverage (×)</label>
           <input id="pt-lev" className={field} type="number" min={1} max={MAX_LEVERAGE} step={1} value={leverage} onChange={(e) => setLeverage(e.target.value)} />
         </div>
-        <div>
-          <label htmlFor="pt-sl" className={label}>Stop-loss</label>
-          <input id="pt-sl" className={field} inputMode="decimal" placeholder="Optional" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} />
+        <div className="col-span-2 -mb-2 flex items-center justify-between">
+          <span className={label}>Exits</span>
+          <ExitUnitToggle unit={unit} onChange={switchUnit} />
         </div>
         <div>
-          <label htmlFor="pt-tp" className={label}>Take-profit</label>
-          <input id="pt-tp" className={field} inputMode="decimal" placeholder="Optional" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} />
+          <label htmlFor="pt-sl" className={label}>Stop-loss{unit === "pct" ? " %" : ""}</label>
+          <input id="pt-sl" className={field} inputMode="decimal" placeholder={unit === "pct" ? "e.g. 2" : "Optional"} value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} />
+          {pctHint(sl)}
+        </div>
+        <div>
+          <label htmlFor="pt-tp" className={label}>Take-profit{unit === "pct" ? " %" : ""}</label>
+          <input id="pt-tp" className={field} inputMode="decimal" placeholder={unit === "pct" ? "e.g. 4" : "Optional"} value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} />
+          {pctHint(tp)}
         </div>
       </div>
 

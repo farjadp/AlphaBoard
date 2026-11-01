@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { PaperPositionDto } from "@/lib/paper/types";
 import { rText } from "@/lib/format";
 import { money, pct, price, qty, tone, when } from "./format";
+import { ExitUnitToggle, convertExit, exitPrice, type ExitUnit } from "@/components/trade/ExitUnit";
 
 const th = "px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wider text-ink-3";
 const td = "px-3 py-2.5 tabular-nums";
@@ -19,21 +20,32 @@ const SideTag = ({ p }: { p: PaperPositionDto }) => (
 function ExitsEditor({ p, onSave, onCancel }: { p: PaperPositionDto; onSave: (sl: number | null, tp: number | null) => Promise<unknown>; onCancel: () => void }) {
   const [sl, setSl] = useState(p.stopLoss == null ? "" : String(p.stopLoss));
   const [tp, setTp] = useState(p.takeProfit == null ? "" : String(p.takeProfit));
+  const [unit, setUnit] = useState<ExitUnit>("price");
   const [error, setError] = useState<string | null>(null);
-  const parse = (s: string) => (s.trim() === "" ? null : Number.parseFloat(s));
+  // Percent is measured from the entry price.
+  const slPrice = exitPrice(sl, unit, p.side, "stop", p.entryPrice, p.stopLoss), tpPrice = exitPrice(tp, unit, p.side, "target", p.entryPrice, p.takeProfit);
+  const switchUnit = (to: ExitUnit) => {
+    setSl(convertExit(sl, unit, to, p.side, "stop", p.entryPrice));
+    setTp(convertExit(tp, unit, to, p.side, "target", p.entryPrice));
+    setUnit(to);
+  };
   const input = "w-24 rounded border border-line bg-wash px-2 py-1 text-xs tabular-nums text-ink";
   return (
     <form
       className="flex flex-wrap items-center gap-2"
       onSubmit={async (e) => {
         e.preventDefault();
-        try { await onSave(parse(sl), parse(tp)); } catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
+        try { await onSave(slPrice, tpPrice); } catch (err) { setError(err instanceof Error ? err.message : "Update failed"); }
       }}
     >
-      <input aria-label="Stop-loss" placeholder="SL" className={input} value={sl} onChange={(e) => setSl(e.target.value)} />
-      <input aria-label="Take-profit" placeholder="TP" className={input} value={tp} onChange={(e) => setTp(e.target.value)} />
+      <ExitUnitToggle unit={unit} onChange={switchUnit} />
+      <input aria-label={unit === "pct" ? "Stop-loss, percent from entry" : "Stop-loss"} placeholder={unit === "pct" ? "SL %" : "SL"} className={input} value={sl} onChange={(e) => setSl(e.target.value)} />
+      <input aria-label={unit === "pct" ? "Take-profit, percent from entry" : "Take-profit"} placeholder={unit === "pct" ? "TP %" : "TP"} className={input} value={tp} onChange={(e) => setTp(e.target.value)} />
       <button type="submit" className="rounded bg-accent-soft px-2 py-1 text-xs text-accent">Save</button>
       <button type="button" onClick={onCancel} className="px-1 text-xs text-ink-3">Cancel</button>
+      {unit === "pct" && (slPrice != null || tpPrice != null) && (
+        <span className="w-full text-[11px] tabular-nums text-ink-3">From entry: SL {slPrice == null ? "—" : price(slPrice)} · TP {tpPrice == null ? "—" : price(tpPrice)}</span>
+      )}
       {error && <span role="alert" className="w-full text-xs text-down">{error}</span>}
     </form>
   );
