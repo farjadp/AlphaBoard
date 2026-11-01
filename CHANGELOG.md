@@ -4,6 +4,9 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### Stops and targets in percent
+- Paper order ticket, paper position editor and session position editor have a **Price / %** switch for stop-loss and take-profit. A percent is a distance from the estimated fill (new order) or the entry price (open position), on the losing side for a stop and the winning side for a target; the price it means is shown underneath. Switching converts the values both ways, and a percent left as converted keeps the exact current level.
+
 ### P17 · Sessions: Balanced entry style
 - **New "Entry style" per session:** Balanced (the form default) or Conservative (the rules so far; also what stored sessions and API calls without the field keep).
 - **Balanced:** opens at 60% conviction; the market analyst only has to not read the opposite way at 60%+ (neutral is fine); a 1H pullback inside the 4H trend is a valid setup; every entry needs a take-profit at 1.5R or more; the strategist runs when any market note is directional at 50%+; the form presets "stop after losses in a row" to 3.
