@@ -5,7 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import NavBar from "@/components/shell/NavBar";
 import AssetTabs from "./AssetTabs";
 import SessionBand from "./SessionBand";
-import PriceChart, { type ChartLevel } from "./PriceChart";
+import ChartPanel from "./ChartPanel";
+import type { ChartLevel } from "./PriceChart";
 import TradeTicket, { type AlertState, type PlanSource } from "./TradeTicket";
 import TimeframeLadder from "./TimeframeLadder";
 import { FundamentalsStrip, FuturesPanel, MarketStatsPanel, NewsPanel, PatternsPanel } from "./EvidencePanels";
@@ -19,7 +20,7 @@ import { useAlerts } from "@/lib/client/hooks/useAlerts";
 import { formatPrice, formatVolume } from "@/lib/format";
 import { findAsset } from "@/lib/market/catalog";
 import { hasLegacyData, useHydrated } from "@/lib/import/client";
-import { pricePrecision, signedPct } from "@/lib/format";
+import { signedPct } from "@/lib/format";
 import { alertCondition } from "@/lib/market/tradePlan";
 import { REPORT_TIMEFRAMES, type TimeframeKey } from "@/lib/market/timeframes";
 import type { IndicatorReport } from "@/lib/market/report";
@@ -179,22 +180,22 @@ export default function MarketScreen({ symbol }: { symbol: string }) {
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
             <section aria-label={`${symbol} price chart`} className="panel flex min-w-0 flex-col gap-3 p-4 md:p-5">
               <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-                <h1 className="font-display text-2xl font-extrabold leading-none">{symbol}</h1>
-                <span className="num text-2xl font-semibold leading-none tracking-tight">{price ? formatPrice(price) : "—"}</span>
+                <h1 className="font-display text-[30px] font-extrabold leading-none tracking-[-0.03em]">{symbol}</h1>
+                <span className="num text-[30px] font-semibold leading-none tracking-[-0.03em]">{price ? formatPrice(price) : "—"}</span>
                 {change !== undefined && price ? (
-                  <span className={`num rounded-full px-2.5 py-0.5 text-xs font-semibold ${up ? "bg-up-soft text-up" : "bg-down-soft text-down"}`}>{signedPct(change)}</span>
+                  <span className={`num rounded-sm px-2 py-0.5 text-xs font-semibold ${up ? "bg-up-soft text-up" : "bg-down-soft text-down"}`}>{signedPct(change)}</span>
                 ) : null}
                 <span className="text-[12px] text-ink-3">
                   {asset?.name} · {isCrypto ? (connected ? "live from Binance" : "connecting…") : "Yahoo Finance, refreshed every minute"}
                 </span>
-                <div role="group" aria-label="Timeframe" className="ml-auto flex rounded-lg border border-line bg-wash p-0.5">
+                <div role="group" aria-label="Timeframe" className="seg ml-auto">
                   {TF_OPTIONS.map((tf) => (
                     <button
                       key={tf}
                       type="button"
                       aria-pressed={tf === timeframe}
                       onClick={() => changeTimeframe(tf)}
-                      className={`rounded-md px-3 py-1 font-mono text-xs font-semibold ${tf === timeframe ? "bg-paper text-ink shadow-sm" : "text-ink-2 hover:text-ink"}`}
+                      className="seg-item font-mono"
                     >
                       {TF_LABEL[tf]}
                     </button>
@@ -202,23 +203,15 @@ export default function MarketScreen({ symbol }: { symbol: string }) {
                 </div>
               </div>
 
-              <div className="relative h-[320px] md:h-[420px]">
-                {candles.candles.length > 0 && (
-                  <PriceChart candles={candles.candles} levels={levels} precision={pricePrecision(price ?? candles.candles.at(-1)?.close)} />
-                )}
-                {candles.candles.length === 0 && candles.status === "loading" && <div className="skeleton absolute inset-0" aria-label="Loading chart" />}
-                {candles.candles.length === 0 && candles.status === "error" && (
-                  <div className="absolute inset-0 grid place-items-center rounded-lg bg-wash text-[13px] text-ink-3">{candles.error}</div>
-                )}
-              </div>
-
-              <div className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-ink-2">
-                <Legend className="border-accent border-solid" label="Entry" />
-                <Legend className="border-up border-dashed" label="Take profit" />
-                <Legend className="border-down border-dashed" label="Stop" />
-                <Legend className="border-ink-3 border-dotted" label="Support / resistance" />
-                {volume ? <span className="ml-auto text-ink-3">24h volume <span className="num">{formatVolume(volume)}</span></span> : null}
-              </div>
+              <dl aria-label="Station readings" className="grid grid-cols-3 divide-x divide-line border-y border-line text-[12px] sm:max-w-md">
+                {([["24h high", high ? formatPrice(high) : "—"], ["24h low", low ? formatPrice(low) : "—"], ["24h volume", volume ? formatVolume(volume) : "—"]] as const).map(([label, value]) => (
+                  <div key={label} className="flex flex-col gap-0.5 px-3 py-1.5 first:pl-0">
+                    <dt className="label-caps">{label}</dt>
+                    <dd className="num font-semibold text-ink">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <ChartPanel asset={asset} timeframe={timeframe} candles={candles} levels={levels} price={price} />
             </section>
 
             <TradeTicket
@@ -251,14 +244,5 @@ export default function MarketScreen({ symbol }: { symbol: string }) {
         </div>
       </main>
     </div>
-  );
-}
-
-function Legend({ className, label }: { className: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className={`inline-block w-4 border-t-2 ${className}`} aria-hidden="true" />
-      {label}
-    </span>
   );
 }

@@ -4,6 +4,8 @@ export interface Candle {
   high: number;
   low: number;
   close: number;
+  /** Base-asset volume where the provider reports it (Binance, Yahoo); absent for legacy callers. */
+  volume?: number;
 }
 
 export interface CandlestickPatternMatch {

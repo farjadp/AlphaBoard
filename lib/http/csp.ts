@@ -9,6 +9,12 @@ const CONNECT_SRC = [
   "wss://data-stream.binance.vision",
 ];
 
+const FRAME_SRC = [
+  "https://www.tradingview-widget.com",
+  "https://s.tradingview.com",
+  "https://www.tradingview.com",
+];
+
 export function buildCsp(nonce: string, isDev = isDevelopment()): string {
   return [
     "default-src 'self'",
@@ -23,6 +29,8 @@ export function buildCsp(nonce: string, isDev = isDevelopment()): string {
     "font-src 'self' data:",
     `connect-src ${CONNECT_SRC.join(" ")}${isDev ? " ws://localhost:* http://localhost:*" : ""}`,
     "worker-src 'self' blob:",
+    // TradingView's free chart widget renders in an iframe from these hosts (components/market/TradingViewChart).
+    `frame-src ${FRAME_SRC.join(" ")}`,
     "upgrade-insecure-requests",
   ].join("; ");
 }
