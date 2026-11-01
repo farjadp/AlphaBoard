@@ -135,7 +135,7 @@ export default function AlertsPage() {
               <h2 className="label-caps mb-4 text-ink">Active Alerts ({activeAlerts.length})</h2>
 
               {activeAlerts.length === 0 ? (
-                <div className="rounded-[14px] border border-dashed border-line-2 bg-paper p-8 text-center">
+                <div className="rounded-lg border border-dashed border-line-2 bg-paper p-8 text-center">
                   <p className="text-sm text-ink-3">No active alerts. Add one to start tracking.</p>
                 </div>
               ) : (

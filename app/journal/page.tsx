@@ -137,7 +137,7 @@ function JournalContent() {
             )}
 
             <div
-              className="relative flex cursor-pointer flex-col items-center justify-center rounded-[14px] border-2 border-dashed border-line-2 bg-paper p-4 text-center transition-colors hover:bg-wash"
+              className="relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-line-2 bg-paper p-4 text-center transition-colors hover:bg-wash"
               onClick={() => fileInputRef.current?.click()}
               role="button" tabIndex={0} aria-label="Auto-fill the form from a position screenshot"
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputRef.current?.click(); } }}
@@ -147,7 +147,7 @@ function JournalContent() {
               <p className="mt-0.5 text-[10px] text-ink-3">Upload Binance/Bybit position image to use AI Vision.</p>
 
               {isUploading && (
-                <div className="absolute inset-0 flex items-center justify-center rounded-[14px] bg-paper/90">
+                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-paper/90">
                   <span className="animate-pulse text-sm font-bold text-accent">AI Parsing...</span>
                 </div>
               )}
@@ -744,7 +744,7 @@ function TimelineSection({
       )}
 
       {entries.length === 0 ? (
-        <div className="rounded-[14px] border border-dashed border-line-2 bg-paper p-12 text-center">
+        <div className="rounded-lg border border-dashed border-line-2 bg-paper p-12 text-center">
           <p className="text-sm text-ink-3">Your journal is empty. Log a trade or upload a screenshot.</p>
         </div>
       ) : (
@@ -756,7 +756,7 @@ function TimelineSection({
           </div>
 
           {filtered.length === 0 ? (
-            <div className="rounded-[14px] border border-dashed border-line-2 bg-paper p-8 text-center">
+            <div className="rounded-lg border border-dashed border-line-2 bg-paper p-8 text-center">
               <p className="text-sm text-ink-3">
                 No {tab} trades yet.
               </p>

@@ -48,3 +48,7 @@ next-env.d.ts
 
 # bundled worker (npm run build:worker)
 /dist
+
+# impeccable session artifacts (review captures, decision-page logs)
+.impeccable/review/
+.impeccable/questions/

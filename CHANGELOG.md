@@ -4,6 +4,12 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P15 · New look ("Forecast Verification Bulletin") + live chart
+- **New visual world, light and dark:** every plan reads like a forecast bulletin, issued with a UTC timestamp and a valid-until stamp, then verified. Chart-paper light theme and a radar-night dark theme with a switch in the masthead (remembered per browser, follows the OS until pinned, no flash on load). New faces (Public Sans, JetBrains Mono for figures), square-cut sheets with a heavy top rule, faint isobar contours behind the app, isobar-blue band on the plan ticket, a UTC clock in the masthead. All text pairs ≥ 4.5:1 in both themes.
+- **Live chart:** the AlphaBoard chart now updates the forming candle on every trade from Binance's kline stream (crypto), shows volume, and has EMA 20 / EMA 50 toggles; the plan's entry, stop and target lines stay on it. Candles carry volume from Binance and Yahoo.
+- **TradingView tab:** TradingView's free Advanced Real-Time Chart widget (their data, drawing tools and indicators) sits beside our chart for every market with a free TradingView feed; it follows the theme. Their Advanced Charts library was ruled out: its free licence covers public sites only, and AlphaBoard is invite-only.
+- Market header shows 24h high / low / volume as a readings row; direction marks are drawn SVG instead of text glyphs.
+
 ### P13c · Folders settled (no behaviour change)
 - Loose `lib/` root files moved into features (`market/catalog`, `market/patterns/`, `config/site`, `db/client`; `lib/binance.ts` removed); execution code in `venues/` (connections, reconciler); MT5 device code in `signalDesk/`, deal import in `lab/data/`; `alerts/store`, `worker/tick`, `sessions/desk/` (agents); the legacy v1 import in one `lib/import/`.
 - `lib/signals` → `lib/signalDesk` ("signals" also meant archived AI analyses); API paths unchanged.
