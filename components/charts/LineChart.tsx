@@ -91,11 +91,14 @@ export default function LineChart({ points, baseline, baselineLabel, unit, title
           </g>
         )}
       </svg>
-      <table className="sr-only">
-        <caption>{title}</caption>
-        <thead><tr><th>Time</th><th>{title}</th></tr></thead>
-        <tbody>{points.map((p, i) => <tr key={`${p.at}-${i}`}><td>{when(p.at)}</td><td>{fmt(unit, p.value)}</td></tr>)}</tbody>
-      </table>
+      {/* Wrapped: a caption escapes `sr-only` on the table itself and paints over the next panel. */}
+      <div className="sr-only">
+        <table>
+          <caption>{title}</caption>
+          <thead><tr><th>Time</th><th>{title}</th></tr></thead>
+          <tbody>{points.map((p, i) => <tr key={`${p.at}-${i}`}><td>{when(p.at)}</td><td>{fmt(unit, p.value)}</td></tr>)}</tbody>
+        </table>
+      </div>
     </figure>
   );
 }
