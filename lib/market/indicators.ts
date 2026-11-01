@@ -8,8 +8,8 @@
  * "Neutral". They answer different questions and are now reported separately.
  */
 import { RSI, MACD, SMA, EMA, BollingerBands } from "technicalindicators";
-import { detectCandlestickPatterns, type Candle } from "@/lib/candlestickPatterns";
-import { detectChartPatterns } from "@/lib/chartPatterns";
+import { detectCandlestickPatterns, type Candle } from "@/lib/market/patterns/candlestick";
+import { detectChartPatterns } from "@/lib/market/patterns/chart";
 import { CONSENSUS_WEIGHTS, HTF_KEYS, LTF_KEYS } from "./timeframes";
 
 export type TrendSignal = "Bullish" | "Bearish" | "Neutral";

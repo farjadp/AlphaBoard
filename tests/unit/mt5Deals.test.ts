@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseDealsCsv, positionsFromDeals } from "@/lib/mt5/deals";
+import { parseDealsCsv, positionsFromDeals } from "@/lib/lab/data/mt5Deals";
 
 const H = "deal,order,position,time_utc,type,entry,symbol,volume,price,sl,tp,commission,swap,profit,fee,magic,comment,login=22215882,currency=USD";
 // deal,order,position,time,type(0 buy/1 sell),entry(0 in/1 out/2 inout),symbol,volume,price,sl,tp,commission,swap,profit,fee,magic,comment

@@ -3,7 +3,7 @@ import { readJson } from "@/lib/http/errors";
 import { NextResponse } from "next/server";
 import { adminRoute } from "@/lib/http/userRoute";
 import { z } from "zod";
-import { queueCommand } from "@/lib/signals/service";
+import { queueCommand } from "@/lib/signalDesk/service";
 
 export const dynamic = "force-dynamic";
 

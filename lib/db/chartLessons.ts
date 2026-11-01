@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import type { ChartLessonInput } from "./inputs";
 import { chartLessonToDto } from "./mappers";
 import { attachmentIdFromUrl, createAttachment, deleteAttachments } from "./attachments";

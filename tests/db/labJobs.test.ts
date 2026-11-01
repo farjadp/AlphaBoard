@@ -1,6 +1,6 @@
 /** Strategy Lab jobs against Postgres: enqueue rules, the worker pass, owner-only reads. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { makeBars } from "@/lib/lab/bars";
 import { saveDataset } from "@/lib/lab/data/store";
 import { enqueueLabJob, getLabJob, listLabJobs, processNextLabJob, MAX_ACTIVE_JOBS } from "@/lib/lab/jobs";

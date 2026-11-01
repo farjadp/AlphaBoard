@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useNotifications, type AppNotification } from "@/hooks/useNotifications";
+import { useNotifications, type AppNotification } from "@/lib/client/hooks/useNotifications";
 
 const ago = (iso: string) => {
   const s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);

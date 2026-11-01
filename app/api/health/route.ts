@@ -1,6 +1,6 @@
+import { dbAndTick } from "@/lib/ops/health";
 import { NextResponse } from "next/server";
 import { appVersion } from "@/lib/config/version";
-import { prisma } from "@/lib/prisma";
 import { route } from "@/lib/http/route";
 
 export const dynamic = "force-dynamic";
@@ -8,16 +8,7 @@ export const dynamic = "force-dynamic";
 const startedAt = Date.now();
 
 export const GET = route(async () => {
-  let db: "ok" | "down" = "ok";
-  let tick: { at: string; ms: number; errors: number } | null = null;
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-    const row = await prisma.appSetting.findUnique({ where: { key: "tick.last" } });
-    const t = row?.value as { at?: string; ms?: number; errors?: unknown[] } | undefined;
-    if (t?.at) tick = { at: t.at, ms: t.ms ?? 0, errors: t.errors?.length ?? 0 };
-  } catch {
-    db = "down";
-  }
+  const { db, tick } = await dbAndTick();
   const body = {
     ok: db === "ok",
     db,

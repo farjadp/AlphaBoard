@@ -3,16 +3,16 @@
  * Run with TEST_DATABASE_URL set; skipped otherwise (CI sets it).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { createJournalEntry, listJournal, updateJournalEntry, deleteJournalEntry } from "@/lib/db/journal";
 import { createAttachment, getAttachment, assertOwnedAttachments } from "@/lib/db/attachments";
 import { getWatchlist, setWatchlist } from "@/lib/db/watchlist";
-import { createAlert, listAlerts, deleteAlert, markAlertTriggered } from "@/lib/db/alerts";
+import { createAlert, listAlerts, deleteAlert, markAlertTriggered } from "@/lib/alerts/store";
 import { createChartLesson, listChartLessons } from "@/lib/db/chartLessons";
 import { saveLesson, listLessons } from "@/lib/db/lessons";
-import { importLegacyData } from "@/lib/db/importLegacy";
+import { importLegacyData } from "@/lib/import/store";
 import { parseLegacyData } from "@/lib/import/legacy";
-import { DEFAULT_WATCHLIST } from "@/lib/assetCatalog";
+import { DEFAULT_WATCHLIST } from "@/lib/market/catalog";
 
 const png = "data:image/png;base64," + Buffer.from("pretend-image-bytes").toString("base64");
 const run = !!process.env.TEST_DATABASE_URL;

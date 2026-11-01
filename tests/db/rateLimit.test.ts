@@ -1,6 +1,6 @@
 /** The shared rate-limit store against Postgres: refill arithmetic, cross-call budget, prune. */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { checkRateLimitInDb, pruneRateLimits } from "@/lib/http/rateLimit";
 
 const run = !!process.env.TEST_DATABASE_URL;

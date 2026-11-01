@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyReport, type LegView, type SignalView } from "@/lib/signals/state";
+import { applyReport, type LegView, type SignalView } from "@/lib/signalDesk/state";
 
 const leg = (n: number, over: Partial<LegView> = {}): LegView => ({ leg: n, status: "OPEN", openPrice: 2650, volume: 0.01, r: null, ...over });
 const sig = (over: Partial<SignalView> = {}): SignalView => ({ status: "OPEN", side: "BUY", stop: 2638, legs: [leg(1), leg(2), leg(3)], breakevenDone: false, ...over });

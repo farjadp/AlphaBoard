@@ -1,6 +1,6 @@
 import "server-only";
 import { gunzipSync, gzipSync } from "node:zlib";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { badRequest, notFound } from "@/lib/http/errors";
 import type { Cube } from "../dca";
 import type { SymbolSeries } from "./binanceVision";

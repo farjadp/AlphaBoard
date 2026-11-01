@@ -1,6 +1,6 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 
 /** One audit row per privileged action. `target` is the thing acted on (id, email, key); `meta` the details. */
 export function audit(

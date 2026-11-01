@@ -1,16 +1,16 @@
 /** Exchange sessions end to end against Postgres with a fake ccxt exchange. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { randomBytes } from "node:crypto";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import type { AiRequest } from "@/lib/ai";
-import type { AiFn } from "@/lib/agents/run";
-import type { SymbolContext } from "@/lib/agents/context";
+import type { AiFn } from "@/lib/sessions/desk/run";
+import type { SymbolContext } from "@/lib/sessions/desk/context";
 import { encryptSecret } from "@/lib/secrets/crypto";
 import { setExchangeFactory } from "@/lib/venues/ccxtClient";
 import { startSession } from "@/lib/sessions/service";
 import { runCycle } from "@/lib/sessions/cycle";
 import { monitorSessions } from "@/lib/sessions/monitor";
-import { reconcileSession } from "@/lib/exec/reconciler";
+import { reconcileSession } from "@/lib/venues/reconciler";
 import { listMessages } from "@/lib/sessions/room";
 import { fakeExchange } from "../setup/fakeExchange";
 

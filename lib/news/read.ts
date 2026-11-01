@@ -1,6 +1,6 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
-import { findAsset } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { findAsset } from "@/lib/market/catalog";
 import { articleWeight, corroboration } from "./score";
 import type { SentimentSource } from "./text";
 

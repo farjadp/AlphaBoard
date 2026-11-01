@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { userIdRoute } from "@/lib/http/userRoute";
-import { deleteConnection, requireExchangeAccess } from "@/lib/exchanges/connections";
+import { deleteConnection, requireExchangeAccess } from "@/lib/venues/connections";
 
 export const dynamic = "force-dynamic";
 

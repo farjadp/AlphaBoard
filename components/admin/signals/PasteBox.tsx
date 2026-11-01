@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { compressImage } from "@/lib/client/image";
-import type { SignalDraft } from "@/lib/signals/importDraft";
+import type { SignalDraft } from "@/lib/signalDesk/importDraft";
 import { btnQuiet, field, hint, label } from "./resources";
 
 /** Paste text or a screenshot of someone's signal; the model fills the form below. Nothing is sent from here. */

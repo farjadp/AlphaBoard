@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { trackRecord } from "@/lib/eval/trackRecord";
-import type { ArchivedSignal } from "@/lib/types/userData";
+import type { ArchivedSignal } from "@/lib/db/types";
 
 let n = 0;
 const sig = (over: Partial<ArchivedSignal> & { ev?: ArchivedSignal["evaluation"] }): ArchivedSignal => ({

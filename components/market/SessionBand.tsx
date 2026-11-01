@@ -1,6 +1,6 @@
 "use client";
 
-import { useNow } from "@/lib/client/useNow";
+import { useNow } from "@/lib/client/hooks/useNow";
 import { marketSessions, sessionHeadline, type SessionState } from "@/lib/market/sessions";
 
 // Two lanes keep overlapping sessions readable: Asia-Pacific/Europe on top, Tokyo/Americas below.

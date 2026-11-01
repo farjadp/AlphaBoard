@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { badRequest, notFound } from "@/lib/http/errors";
 import type { Bars } from "../bars";
 import { decodeSeries, encodeSeries } from "./encode";

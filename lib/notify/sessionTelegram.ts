@@ -1,7 +1,7 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import type { TradingSession } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import type { Mandate } from "@/lib/sessions/mandate";
 import type { Keyboard, Telegram } from "./telegram";

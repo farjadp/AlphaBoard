@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { checkSignal, signalInput } from "@/lib/signals/validate";
+import { checkSignal, signalInput } from "@/lib/signalDesk/validate";
 
 const base = { symbol: "XAUUSD.ec", side: "BUY", entry: 2650, stop: 2638, tps: [2656, 2662], riskPct: 0.5, execute: true, post: true };
 const ctx = { symbols: ["XAUUSD.ec", "SOLUSD.ec"] };

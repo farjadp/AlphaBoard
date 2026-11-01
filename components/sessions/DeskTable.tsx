@@ -1,8 +1,8 @@
 import { hhmm } from "@/lib/format";
 import type { Mandate } from "@/lib/sessions/mandate";
 import { deriveSeats, type Seat } from "@/lib/sessions/seats";
-import type { SeatRole } from "@/lib/agents/cast";
-import type { SessionMessageDto } from "@/lib/types/sessions";
+import type { SeatRole } from "@/lib/sessions/desk/cast";
+import type { SessionMessageDto } from "@/lib/sessions/types";
 
 /** Where each seat sits once there is room for a table; below sm the seats stack in cycle order. */
 const POS: Record<SeatRole, string> = {

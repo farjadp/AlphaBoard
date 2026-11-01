@@ -2,7 +2,7 @@
  * The user's own record for one symbol + timeframe, from the archive the client already has
  * (each archived signal carries its P5 evaluation). Same maths as the Performance page.
  */
-import type { ArchivedSignal } from "@/lib/types/userData";
+import type { ArchivedSignal } from "@/lib/db/types";
 import { summarize, type EvaluatedRow } from "./metrics";
 
 export type Outcome = NonNullable<ArchivedSignal["evaluation"]>["status"];

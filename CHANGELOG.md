@@ -4,6 +4,12 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P13c · Folders settled (no behaviour change)
+- Loose `lib/` root files moved into features (`market/catalog`, `market/patterns/`, `config/site`, `db/client`; `lib/binance.ts` removed); execution code in `venues/` (connections, reconciler); MT5 device code in `signalDesk/`, deal import in `lab/data/`; `alerts/store`, `worker/tick`, `sessions/desk/` (agents); the legacy v1 import in one `lib/import/`.
+- `lib/signals` → `lib/signalDesk` ("signals" also meant archived AI analyses); API paths unchanged.
+- Shared types live with their feature; hooks under `lib/client/hooks/`; no loose files at the `components/` root.
+- Pages and routes no longer query Prisma: 18 of them now call lib services, and ESLint rejects `@/lib/db/client` in `app/**` and `components/**`.
+
 ### P14c · Sessions: native targets, trailing, honest monitor
 - **Targets rest at the broker:** OANDA trades carry `takeProfitOnFill`, and moving or clearing the target edits the trade; swap exchanges that support a take-profit trigger get a reduce-only take-profit order next to the stop. The software monitor gives a resting target the same room it gives a resting stop. Spot exchanges keep software targets (two resting sells would lock the balance twice).
 - **A position reduced in OANDA's own app** is now booked as a partial close instead of being ignored, and the final close books only what was left.

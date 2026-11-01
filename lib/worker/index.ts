@@ -2,7 +2,7 @@ import { env } from "@/lib/env";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import { recordEvent } from "@/lib/ops/events";
 import { telegramFromEnv } from "@/lib/notify/telegram";
@@ -83,7 +83,7 @@ export function startWorker() {
 
   const timers = [leaseTimer];
   if (!env().TICK_DISABLED) {
-    timers.push(loop("tick", TICK_MS, async () => (await import("@/lib/jobs/tick")).runTick(), isLeader, isStopped));
+    timers.push(loop("tick", TICK_MS, async () => (await import("@/lib/worker/tick")).runTick(), isLeader, isStopped));
   }
   timers.push(loop("sessions", MONITOR_MS, async () => {
     const { monitorSessions } = await import("@/lib/sessions/monitor");

@@ -1,8 +1,8 @@
 /** P10: nothing on a weekday-only market (FX, metals) is opened near, or held into, the Friday close. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import type { AiRequest } from "@/lib/ai";
-import type { AiFn } from "@/lib/agents/run";
+import type { AiFn } from "@/lib/sessions/desk/run";
 import { monitorSessions } from "@/lib/sessions/monitor";
 import { startSession } from "@/lib/sessions/service";
 import { paperVenue } from "@/lib/venues/paper";

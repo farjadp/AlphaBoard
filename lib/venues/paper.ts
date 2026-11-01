@@ -1,6 +1,6 @@
 import "server-only";
 import { grossPnl } from "@/lib/trading/math";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { applySlippage, FEE_RATE, SLIPPAGE } from "@/lib/paper/engine";
 import type { PriceOf } from "@/lib/paper/account";
 import type { MarketRules } from "@/lib/risk/verdict";

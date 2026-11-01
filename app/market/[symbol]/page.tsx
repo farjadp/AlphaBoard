@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import MarketScreen from "@/components/market/MarketScreen";
-import { assetHref, DEFAULT_WATCHLIST, findAsset, findAssetBySlug, symbolToSlug } from "@/lib/assetCatalog";
+import { assetHref, DEFAULT_WATCHLIST, findAsset, findAssetBySlug, symbolToSlug } from "@/lib/market/catalog";
 
 interface MarketAssetPageProps {
   params: Promise<{

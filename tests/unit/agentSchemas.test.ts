@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   AGENT_JSON_SCHEMAS, AnalystNotesSchema, DebateSchema, SessionSummarySchema, StrategistPlanSchema, TradeLessonSchema,
-} from "@/lib/agents/schemas";
+} from "@/lib/sessions/desk/schemas";
 
 type Node = { type?: string | string[]; properties?: Record<string, Node>; items?: Node; required?: string[]; additionalProperties?: unknown };
 

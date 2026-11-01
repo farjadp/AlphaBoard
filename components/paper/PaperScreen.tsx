@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import NavBar from "@/components/NavBar";
-import { usePaper } from "@/hooks/usePaper";
-import { useBinanceTickers } from "@/hooks/useBinanceTickers";
-import { useTradfiQuotes } from "@/hooks/useTradfiQuotes";
-import { findAsset } from "@/lib/assetCatalog";
+import NavBar from "@/components/shell/NavBar";
+import { usePaper } from "@/lib/client/hooks/usePaper";
+import { useBinanceTickers } from "@/lib/client/hooks/useBinanceTickers";
+import { useTradfiQuotes } from "@/lib/client/hooks/useTradfiQuotes";
+import { findAsset } from "@/lib/market/catalog";
 import OrderTicket, { type TicketPrefill } from "./OrderTicket";
 import LineChart from "@/components/charts/LineChart";
 import { ClosedPositions, OpenPositions } from "./PositionsTable";

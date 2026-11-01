@@ -1,6 +1,6 @@
 /** Strategy Lab datasets against Postgres: owner-only, caps, round trip. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { makeBars } from "@/lib/lab/bars";
 import { deleteDataset, listDatasets, loadDataset, saveDataset, MAX_DATASETS } from "@/lib/lab/data/store";
 

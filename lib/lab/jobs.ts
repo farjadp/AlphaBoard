@@ -1,8 +1,8 @@
 import "server-only";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { findAsset } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { findAsset } from "@/lib/market/catalog";
 import { badRequest, notFound } from "@/lib/http/errors";
 import { logger } from "@/lib/http/logger";
 import { oandaInstrument } from "@/lib/venues/oanda";

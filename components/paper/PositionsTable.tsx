@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { PaperPositionDto } from "@/lib/types/paper";
+import type { PaperPositionDto } from "@/lib/paper/types";
 import { rText } from "@/lib/format";
 import { money, pct, price, qty, tone, when } from "./format";
 

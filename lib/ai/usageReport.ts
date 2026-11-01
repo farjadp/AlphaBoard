@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { startOfUtcDay } from "./usage";
 
 export async function userUsageToday(userId: string) {

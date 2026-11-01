@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { aiJson } from "@/lib/ai";
 import { HttpError } from "@/lib/http/errors";
 import { publisherReport, type PublisherRow } from "./measure";

@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { checkSignal, signalInput } from "@/lib/signals/validate";
-import { formatSignalPost } from "@/lib/signals/format";
-import { num } from "@/lib/signals/num";
-import { matchSymbol, type SignalDraft } from "@/lib/signals/importDraft";
+import { checkSignal, signalInput } from "@/lib/signalDesk/validate";
+import { formatSignalPost } from "@/lib/signalDesk/format";
+import { num } from "@/lib/signalDesk/num";
+import { matchSymbol, type SignalDraft } from "@/lib/signalDesk/importDraft";
 import { PasteBox } from "./PasteBox";
 import { useResource } from "@/lib/client/resource";
 import { btn, btnQuiet, field, hint, isOnline, label, signalsRes, templateRes, type DeviceDto } from "./resources";

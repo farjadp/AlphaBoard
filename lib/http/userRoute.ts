@@ -1,6 +1,6 @@
 import { route } from "./route";
 import { requireAdmin, requireUser, type SessionUser } from "@/lib/auth/dal";
-import { deviceFromRequest } from "@/lib/mt5/devices";
+import { deviceFromRequest } from "@/lib/signalDesk/devices";
 import type { Mt5Device } from "@prisma/client";
 import { enforceRateLimit } from "./rateLimit";
 

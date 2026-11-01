@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
-import { prisma } from "@/lib/prisma";
-import { findAsset } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { findAsset } from "@/lib/market/catalog";
 import { storeArticles } from "@/lib/news/ingest";
 import { rankedNews } from "@/lib/news/read";
 import { evaluatePending, indexReport, publisherReport, snapshotIndex } from "@/lib/news/measure";

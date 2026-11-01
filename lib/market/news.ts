@@ -4,7 +4,7 @@
  * feed is fetched, stored in the hub and served. No fabricated fallback: v1 generated fake headlines
  * attributed to Bloomberg/Reuters when every source failed.
  */
-import type { Asset } from "@/lib/assetCatalog";
+import type { Asset } from "@/lib/market/catalog";
 import { logger } from "@/lib/http/logger";
 import { marketMemo } from "./cache";
 import { storeArticles } from "@/lib/news/ingest";

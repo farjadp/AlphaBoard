@@ -1,6 +1,6 @@
 /** Session service against Postgres: start rules, transitions, ownership, manual exits, kill and end. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import {
   closeSessionPosition, endSession, extendSession, killSession, listSessions, moveStopToBreakeven, pauseSession, resumeSession,
   sessionView, startSession,

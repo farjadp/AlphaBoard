@@ -1,14 +1,14 @@
 import "server-only";
 import type { Prisma, SessionPosition, TradingSession } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { logger } from "@/lib/http/logger";
 import { aiJson } from "@/lib/ai";
 import { livePrice, type PriceOf } from "@/lib/paper/account";
 import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
-import { gatherSymbol, type ContextData, type PositionContext, type SymbolContext } from "@/lib/agents/context";
-import { runAnalysts, runDebate, runStrategist, type AiFn } from "@/lib/agents/run";
-import type { AnalystNotes } from "@/lib/agents/schemas";
+import { gatherSymbol, type ContextData, type PositionContext, type SymbolContext } from "@/lib/sessions/desk/context";
+import { runAnalysts, runDebate, runStrategist, type AiFn } from "@/lib/sessions/desk/run";
+import type { AnalystNotes } from "@/lib/sessions/desk/schemas";
 import { fmt, money } from "@/lib/risk/limits";
 import { lossStreak } from "@/lib/risk/streak";
 import { evaluateProposal, MIN_ANALYST_CONFIDENCE, type Proposal, type RiskState, type SymbolSignals, type Verdict } from "@/lib/risk/verdict";

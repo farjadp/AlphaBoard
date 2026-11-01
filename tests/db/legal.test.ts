@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { acceptDisclaimer, hasAcceptedDisclaimer } from "@/lib/legal/accept";
 
 const run = !!process.env.TEST_DATABASE_URL;

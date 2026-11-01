@@ -1,6 +1,5 @@
 import { requireAdmin } from "@/lib/auth/dal";
-import { prisma } from "@/lib/prisma";
-import { startOfUtcDay } from "@/lib/ai/usage";
+import { listUsersWithUsageToday } from "@/lib/auth/users";
 import { findModel } from "@/lib/ai/catalog";
 import UserQuotaRow from "@/components/admin/UserQuotaRow";
 
@@ -8,11 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminUsersPage() {
   await requireAdmin();
-  const [users, today] = await Promise.all([
-    prisma.user.findMany({ orderBy: { createdAt: "asc" }, select: { id: true, email: true, name: true, role: true, dailyTokenQuota: true, aiProvider: true, aiModel: true, createdAt: true } }),
-    prisma.aiUsage.groupBy({ by: ["userId"], where: { createdAt: { gte: startOfUtcDay() } }, _sum: { inputTokens: true, outputTokens: true, costUsd: true } }),
-  ]);
-  const used = new Map(today.map((t) => [t.userId, { tokens: (t._sum.inputTokens ?? 0) + (t._sum.outputTokens ?? 0), cost: t._sum.costUsd ?? 0 }]));
+  const users = await listUsersWithUsageToday();
 
   return (
     <div className="space-y-6">
@@ -33,7 +28,7 @@ export default async function AdminUsersPage() {
           </thead>
           <tbody>
             {users.map((u) => {
-              const t = used.get(u.id) ?? { tokens: 0, cost: 0 };
+              const t = { tokens: u.today.tokens, cost: u.today.costUsd };
               return (
                 <tr key={u.id} className="border-t border-line text-ink">
                   <td className="p-3"><p className="font-semibold text-ink">{u.name ?? "—"}</p><p className="text-xs text-ink-3">{u.email}</p></td>

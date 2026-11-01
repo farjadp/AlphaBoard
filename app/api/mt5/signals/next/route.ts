@@ -1,6 +1,6 @@
 import { deviceRoute } from "@/lib/http/userRoute";
-import { claimJobs } from "@/lib/signals/service";
-import { encodeJobs } from "@/lib/signals/wire";
+import { claimJobs } from "@/lib/signalDesk/service";
+import { encodeJobs } from "@/lib/signalDesk/wire";
 
 export const dynamic = "force-dynamic";
 

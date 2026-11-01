@@ -1,6 +1,6 @@
 /** Worker lease: one holder at a time, renewable by the holder, taken over after expiry. */
 import { describe, it, expect, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { acquireLease, releaseLease, LEASE_KEY } from "@/lib/worker";
 
 const run = !!process.env.TEST_DATABASE_URL;

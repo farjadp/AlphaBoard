@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import NavBar from "@/components/NavBar";
-import { AnnotatedCanvas, DropZone, SignalBadge, ConfluenceMeter } from "@/components/AcademyUI";
-import { useChartAcademy, Timeframe, Annotation } from "@/hooks/useChartAcademy";
+import NavBar from "@/components/shell/NavBar";
+import { AnnotatedCanvas, DropZone, SignalBadge, ConfluenceMeter } from "@/components/academy/AcademyUI";
+import { useChartAcademy, Timeframe, Annotation } from "@/lib/client/hooks/useChartAcademy";
 import { apiErrorMessage } from "@/lib/client/apiError";
 
 // ─── Types ────────────────────────────────────────────────────────────────────

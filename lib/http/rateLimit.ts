@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { tooManyRequests } from "./errors";
 import { logger } from "./logger";
 

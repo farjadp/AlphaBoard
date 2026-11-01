@@ -5,7 +5,7 @@ import {
   CandlestickSeries, ColorType, CrosshairMode, LineStyle, createChart,
   type IChartApi, type IPriceLine, type ISeriesApi, type UTCTimestamp,
 } from "lightweight-charts";
-import type { ChartCandle } from "@/hooks/useCandles";
+import type { ChartCandle } from "@/lib/client/hooks/useCandles";
 
 export interface ChartLevel {
   price: number;

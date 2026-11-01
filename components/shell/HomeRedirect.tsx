@@ -2,8 +2,8 @@
 
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useWatchlist } from "@/hooks/useWatchlist";
-import { assetHref, DEFAULT_WATCHLIST, findAsset } from "@/lib/assetCatalog";
+import { useWatchlist } from "@/lib/client/hooks/useWatchlist";
+import { assetHref, DEFAULT_WATCHLIST, findAsset } from "@/lib/market/catalog";
 
 /** Signed-in home: jump to the first watchlist market (or ?symbol=). */
 function DashboardContent() {

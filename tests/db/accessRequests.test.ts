@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { AccessRequestInput, dismissAccessRequest, inviteFromRequest, listAccessRequests, submitAccessRequest } from "@/lib/access/requests";
 import { hashInviteToken } from "@/lib/auth/invites";
 

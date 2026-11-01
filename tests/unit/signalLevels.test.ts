@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { catalogSymbolFor, suggestLevels } from "@/lib/signals/levels";
+import { catalogSymbolFor, suggestLevels } from "@/lib/signalDesk/levels";
 
 /** 80 flat 1H bars at 100 (true range 2, so ATR = 2), with optional spikes inside the last 48. */
 function bars(spikes: Record<number, { high?: number; low?: number }> = {}) {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { withDerivedPnl } from "@/lib/journal/derive";
-import type { JournalEntry } from "@/lib/types/userData";
+import type { JournalEntry } from "@/lib/db/types";
 
 const base: JournalEntry = {
   id: "1", timestamp: "2026-09-01T00:00:00Z", symbol: "BTC/USDT", position: "LONG",

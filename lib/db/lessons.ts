@@ -1,6 +1,6 @@
 import "server-only";
 import type { z } from "zod";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import type { LessonInput } from "./inputs";
 import { lessonToDto } from "./mappers";
 

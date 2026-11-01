@@ -1,6 +1,6 @@
 import YahooFinance from "yahoo-finance2";
-import type { Asset } from "@/lib/assetCatalog";
-import type { Candle } from "@/lib/candlestickPatterns";
+import type { Asset } from "@/lib/market/catalog";
+import type { Candle } from "@/lib/market/patterns/candlestick";
 import { marketMemo } from "./cache";
 import { binanceJson } from "./http";
 import { aggregateCandlesByTime } from "./indicators";

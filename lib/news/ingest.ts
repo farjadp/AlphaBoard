@@ -1,7 +1,7 @@
 import "server-only";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "@/lib/prisma";
-import { DEFAULT_WATCHLIST, findAsset, type Asset } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { DEFAULT_WATCHLIST, findAsset, type Asset } from "@/lib/market/catalog";
 import { matchSymbols } from "./match";
 import { PROVIDERS, type ProviderId, type ProviderSpec, type RawArticle } from "./sources";
 import { canonicalUrl, keywordSentiment, publisherKey, titleKey } from "./text";

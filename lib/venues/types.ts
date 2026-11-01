@@ -4,7 +4,7 @@
  */
 import type { SessionCloseReason } from "@prisma/client";
 import type { MarketRules } from "@/lib/risk/verdict";
-import type { AssetCategory } from "@/lib/assetCatalog";
+import type { AssetCategory } from "@/lib/market/catalog";
 
 export interface VenueFill {
   orderId: string;

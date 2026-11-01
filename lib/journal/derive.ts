@@ -1,4 +1,4 @@
-import type { JournalEntry } from "@/lib/types/userData";
+import type { JournalEntry } from "@/lib/db/types";
 import { computePnl } from "./pnl";
 
 /**

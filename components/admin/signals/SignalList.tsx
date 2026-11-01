@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { displaySymbol } from "@/lib/signals/format";
-import { num } from "@/lib/signals/num";
-import { fmtR } from "@/lib/signals/state";
+import { displaySymbol } from "@/lib/signalDesk/format";
+import { num } from "@/lib/signalDesk/num";
+import { fmtR } from "@/lib/signalDesk/state";
 import { btnQuiet, signalsRes, type LegDto, type SignalDto } from "./resources";
 
 export type { SignalDto };

@@ -2,7 +2,7 @@
  * Article weight = publisher credibility × recency × relevance × corroboration (spec: News Hub).
  * Pure functions; the DB layer feeds them.
  */
-import type { AssetCategory } from "@/lib/assetCatalog";
+import type { AssetCategory } from "@/lib/market/catalog";
 
 const HALF_LIFE_H: Record<AssetCategory, number> = { crypto: 6, indices: 24, commodities: 24, forex: 24 };
 

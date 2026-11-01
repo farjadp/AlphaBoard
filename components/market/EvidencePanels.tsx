@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PatternMiniVisual from "@/components/PatternMiniVisual";
-import { formatPrice, formatSupply, formatVolume } from "@/lib/binance";
-import { findAsset } from "@/lib/assetCatalog";
+import PatternMiniVisual from "@/components/market/PatternMiniVisual";
+import { formatPrice, formatSupply, formatVolume } from "@/lib/format";
+import { findAsset } from "@/lib/market/catalog";
 import { timeAgo } from "@/lib/format";
-import type { CandlestickPatternMatch } from "@/lib/candlestickPatterns";
-import type { ChartPatternMatch } from "@/lib/chartPatterns";
+import type { CandlestickPatternMatch } from "@/lib/market/patterns/candlestick";
+import type { ChartPatternMatch } from "@/lib/market/patterns/chart";
 import type { FuturesSnapshot } from "@/lib/market/futures";
 import type { BalanceSheet, Cashflow, GlobalMarket } from "@/lib/market/fundamentals";
 

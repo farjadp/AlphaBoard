@@ -1,6 +1,6 @@
 # AlphaBoard — architecture
 
-_Snapshot 2026-10-31 (start of P13). Folder names marked ➜ move in P13c; the shape of the system does not._
+_Snapshot 2026-10-31, after P13c (folders settled) and P14c._
 
 ## One paragraph
 
@@ -18,16 +18,16 @@ browser ─► proxy.ts (nonce CSP, public paths, disclaimer gate)
               └─ feature service → prisma         errors: HttpError → { error, code, requestId }
 ```
 
-Rules: DB access only from `lib/**` (never from `app/**` or `components/**`; P13c adds the ESLint rule); every query is scoped by `userId`; market data only through `lib/market/*` (cached by `marketMemo`, never fabricated — show "unavailable").
+Rules: DB access only from `lib/**` services (ESLint rejects `@/lib/db/client` in `app/**` and `components/**`); every query is scoped by `userId`; market data only through `lib/market/*` (cached by `marketMemo`, never fabricated — show "unavailable").
 
 ## Worker loops (`lib/worker/index.ts`)
 
 | Loop | Period | Does |
 |---|---|---|
 | lease | renew every 15 s, 45 s TTL | `AppSetting worker.lease`: exactly one process is the worker |
-| tick (`lib/jobs/tick.ts` ➜ `lib/worker/tick.ts`) | 60 s | paper settlement (5m candle high/low + quote) → equity snapshots → signal evaluation → price alerts → signal-desk sweep |
-| monitor (`lib/sessions/monitor.ts`) | 15 s | agent-session stops/targets (spot price), native-stop sync, loss limit, weekly close, clock |
-| reconciler (`lib/exec/reconciler.ts` ➜ `lib/venues/`) | 30 s | venue vs ledger; mismatch halts the session |
+| tick (`lib/worker/tick.ts`) | 60 s | paper settlement (5m candle high/low + quote) → equity snapshots → signal evaluation → price alerts → signal-desk sweep → rate-limit prune |
+| monitor (`lib/sessions/monitor.ts`) | 15 s | session stops/targets (5m candles since `lastCheckedAt` + spot), native-stop/target sync, trailing, loss limit, weekly close, clock |
+| reconciler (`lib/venues/reconciler.ts`) | 30 s | venue vs ledger; mismatch halts the session |
 | news (`lib/news/job.ts`) | 120 s | ingest, score, shadow index |
 | lab (`lib/lab/jobs.ts`) | 5 s | `LabJob` queue (datasets, studies, DCA baskets) |
 | telegram (`lib/notify/telegramBot.ts`) | long-poll 25 s | link codes, `/sessions`, `/positions`, inline buttons |
@@ -38,20 +38,21 @@ Kill switches: `TICK_DISABLED`, `NEWS_DISABLED`, `LAB_DISABLED`, `TRADING_HALT`,
 
 | Area | Folders | Notes |
 |---|---|---|
-| Auth & access | `auth/`, `access/`, `legal/`, `secrets/` | invite-only, disclaimer gate, AES-GCM for exchange keys |
-| Market data | `market/`, `assetCatalog.ts` ➜ `market/catalog.ts`, `candlestickPatterns.ts` + `chartPatterns.ts` ➜ `market/patterns/`, `binance.ts` ➜ `format/` | Binance, Yahoo, OANDA candles; indicators; hours |
-| AI | `ai/` (providers, catalog, `aiJson`, prompts), `agents/` ➜ `sessions/desk/` | desk cast, prompts, runners |
+| Auth & access | `auth/` (dal, invites, inviteStore, users, register, audit), `access/`, `legal/`, `secrets/` | invite-only, disclaimer gate, AES-GCM for exchange keys |
+| Market data | `market/` (catalog, candles, quote, indicators, hours, symbols, tickers, `patterns/`) | Binance, Yahoo, OANDA candles |
+| AI | `ai/` (providers, catalog, `aiJson`, prompts, analysisTypes) | one entry point for every model call |
 | Analyses (archive) | `db/signals.ts`, `eval/` | AI analyses = Prisma `Signal`; graded by `eval` |
-| Journal | `journal/`, `db/journal.ts`, `db/lessons.ts`, `db/chartLessons.ts` | P&L helper, post-mortems, academy lessons |
-| Paper trading | `paper/` | engine (fills, SL/TP scan, liquidation) + account service |
-| Agent sessions | `sessions/`, `risk/`, `venues/`, `exchanges/` ➜ `venues/connections.ts`, `exec/` ➜ `venues/reconciler.ts` | mandate → cycle → risk verdict → venue; monitor; report |
-| Signal Desk (Telegram + MT5) | `signals/` ➜ `signalDesk/`, `mt5/devices.ts` ➜ `signalDesk/devices.ts` | validate → post to channel → EA claims → reports → state |
-| Strategy Lab | `lab/`, `mt5/{deals,import}.ts` ➜ `lab/data/mt5` | bars, ladders, robustness, DCA, edge-vs-random |
-| News hub | `news/` | sources, weights agent, shadow index |
-| Alerts & notify | `alerts/` + `db/alerts.ts` ➜ `alerts/`, `notify/` | price alerts; Notification model; Telegram senders |
-| Platform | `http/`, `env.ts`, `format/`, `trading/`, `db/`, `prisma.ts` ➜ `db/client.ts`, `config/`, `ops/`, `worker/`, `jobs/` ➜ `worker/`, `client/`, `types/` ➜ per feature | route wrappers, validated env, formatting, trade math, logger, rate limit, health, overview |
+| Journal | `journal/`, `db/journal.ts`, `db/lessons.ts`, `db/chartLessons.ts`, `db/types.ts` | P&L helper, post-mortems, academy lessons |
+| Trade math & positions | `trading/math.ts`, `trading/positions/` | R, P&L, exits, MFE/MAE, breakeven, trailing, ladders |
+| Paper trading | `paper/` (engine, account, types) | uses the position core |
+| Agent sessions | `sessions/` (cycle, monitor, exits, service, view, types, `desk/` agents), `risk/`, `venues/` (paper, ccxt, oanda, connections, reconciler) | mandate → cycle → risk verdict → venue |
+| Signal Desk (Telegram + MT5) | `signalDesk/` (validate, wire, state, service, devices, channel, levels) | EA protocol and commands |
+| Strategy Lab | `lab/`, `lab/data/` (datasets, mt5Deals, mt5Import) | bars, ladders, robustness, DCA, edge-vs-random |
+| News hub | `news/` | sources, weights agent, shadow index, admin data |
+| Alerts & notify | `alerts/` (evaluate, job, store), `notify/` | price alerts; Notification model; Telegram senders |
+| Platform | `http/`, `env.ts`, `format/`, `config/` (site, version), `db/client.ts`, `ops/`, `worker/` (index, tick), `client/` (resource, image, `hooks/`), `import/` (legacy v1) | route wrappers, validated env, logger, rate limit, health |
 
-`components/` mirrors the features (`paper/`, `sessions/`, `market/`, `admin/{lab,news,signals,system}`, `settings/`, `shell/`); P13c moves the four loose files at its root into those folders and renders `NavBar` once from a route-group layout. P13d splits the oversized client pages (journal, academy, LabWorkbench, SessionRoom, setup, alerts).
+`components/` mirrors the features (`academy/`, `journal/`, `paper/`, `sessions/`, `market/`, `admin/{lab,news,signals,system}`, `settings/`, `shell/` with NavBar). Each page renders `NavBar` inside its own scroll wrapper; moving it into a shared layout would change scrolling on 13 pages and was left out. P13d splits the oversized client pages (journal, academy, LabWorkbench, SessionRoom, setup, alerts).
 
 ## Positions (one core since P14a; three ledgers)
 

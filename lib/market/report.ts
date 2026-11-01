@@ -1,4 +1,4 @@
-import type { Asset } from "@/lib/assetCatalog";
+import type { Asset } from "@/lib/market/catalog";
 import { logger } from "@/lib/http/logger";
 import { marketMemo } from "./cache";
 import { getCandles } from "./candles";

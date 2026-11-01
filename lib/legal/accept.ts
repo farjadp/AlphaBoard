@@ -1,5 +1,5 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 
 /** Record acceptance of the risk disclaimer once (first acceptance time is kept), with an audit entry. */
 export async function acceptDisclaimer(userId: string, ip?: string) {

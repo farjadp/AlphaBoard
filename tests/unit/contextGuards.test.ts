@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatUsage, type SessionUsage } from "@/lib/agents/context";
+import { formatUsage, type SessionUsage } from "@/lib/sessions/desk/context";
 
 const base: SessionUsage = {
   equity: 1_000, freeCapital: 1_000, lossUsed: 0, lossLimit: 100, tradesUsed: 1, maxTrades: 6,

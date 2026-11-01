@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import NavBar from "@/components/NavBar";
-import { useSessions } from "@/hooks/useSessions";
-import type { DailyUsageDto, SessionSummaryDto } from "@/lib/types/sessions";
+import NavBar from "@/components/shell/NavBar";
+import { useSessions } from "@/lib/client/hooks/useSessions";
+import type { DailyUsageDto, SessionSummaryDto } from "@/lib/sessions/types";
 import { END_REASON, StatusPill, durationText, usd } from "./ui";
 
 const ACTIVE = new Set(["RUNNING", "PAUSED", "AWAITING_EXTENSION", "ENDING"]);

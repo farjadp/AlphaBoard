@@ -1,6 +1,6 @@
+import { listOandaConnectionOptions } from "@/lib/venues/connections";
 import { requireAdmin } from "@/lib/auth/dal";
-import { prisma } from "@/lib/prisma";
-import { ASSET_CATALOG } from "@/lib/assetCatalog";
+import { ASSET_CATALOG } from "@/lib/market/catalog";
 import LabWorkbench from "@/components/admin/lab/LabWorkbench";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export const metadata = { title: "Strategy Lab" };
 
 export default async function LabPage() {
   const admin = await requireAdmin();
-  const connections = await prisma.exchangeConnection.findMany({ where: { userId: admin.id, provider: "oanda" }, select: { id: true, label: true }, orderBy: { createdAt: "asc" } });
+  const connections = await listOandaConnectionOptions(admin.id);
   return (
     <div className="space-y-6">
       <div>

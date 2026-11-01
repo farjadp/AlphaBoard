@@ -3,8 +3,8 @@
  * Keys travel in headers where the provider allows it; errors only ever name the host (lib/market/http).
  */
 import { env, secretByName } from "@/lib/env";
-import type { Asset } from "@/lib/assetCatalog";
-import { findAsset } from "@/lib/assetCatalog";
+import type { Asset } from "@/lib/market/catalog";
+import { findAsset } from "@/lib/market/catalog";
 import { fetchJson } from "@/lib/market/http";
 import { RELEVANCE } from "./match";
 

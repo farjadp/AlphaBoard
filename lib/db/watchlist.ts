@@ -1,6 +1,6 @@
 import "server-only";
-import { prisma } from "@/lib/prisma";
-import { ASSET_CATALOG, DEFAULT_WATCHLIST } from "@/lib/assetCatalog";
+import { prisma } from "@/lib/db/client";
+import { ASSET_CATALOG, DEFAULT_WATCHLIST } from "@/lib/market/catalog";
 import { badRequest } from "@/lib/http/errors";
 
 const WATCHLIST_MAX = 5;

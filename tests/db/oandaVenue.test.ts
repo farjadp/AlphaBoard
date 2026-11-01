@@ -2,12 +2,12 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { exitPosition } from "@/lib/sessions/exits";
 import { randomBytes } from "node:crypto";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { encryptSecret } from "@/lib/secrets/crypto";
 import { parseMandate } from "@/lib/sessions/mandate";
 import { oandaInstrument, oandaVenue, roundStop, setOandaFetch } from "@/lib/venues/oanda";
 import { startSession } from "@/lib/sessions/service";
-import { reconcileSession } from "@/lib/exec/reconciler";
+import { reconcileSession } from "@/lib/venues/reconciler";
 import { fakeOanda } from "../setup/fakeOanda";
 
 const run = !!process.env.TEST_DATABASE_URL;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { draftFromExtract, matchSymbol, SignalExtractSchema } from "@/lib/signals/importDraft";
+import { draftFromExtract, matchSymbol, SignalExtractSchema } from "@/lib/signalDesk/importDraft";
 
 const SYMS = ["XAUUSD.ec", "XAGUSD.ec", "ETHUSD.ec", "XRPUSD.ec", "BTCUSD.ec", "US30.ec", "EURUSD.ec"];
 const x = (o: Record<string, unknown>) => SignalExtractSchema.parse({ symbol: null, side: null, market: false, entryLow: null, entryHigh: null, stop: null, targets: [], source: null, ...o });

@@ -1,5 +1,5 @@
 import { deviceRoute } from "@/lib/http/userRoute";
-import { recordHeartbeat } from "@/lib/mt5/devices";
+import { recordHeartbeat } from "@/lib/signalDesk/devices";
 
 export const dynamic = "force-dynamic";
 

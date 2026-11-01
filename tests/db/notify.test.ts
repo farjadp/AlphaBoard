@@ -1,12 +1,12 @@
 /** P6 against Postgres: server-side alerts, notifications, Telegram linking/delivery with a fake bot. */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { evaluateAlerts } from "@/lib/alerts/job";
 import { listNotifications, markNotificationsRead, notify } from "@/lib/notify/notifications";
 import { processTelegramUpdates, startTelegramLink, telegramStatus, unlinkTelegram } from "@/lib/notify/telegramLink";
 import type { Telegram } from "@/lib/notify/telegram";
 import { openPaperPosition } from "@/lib/paper/account";
-import { runTick } from "@/lib/jobs/tick";
+import { runTick } from "@/lib/worker/tick";
 
 const run = !!process.env.TEST_DATABASE_URL;
 

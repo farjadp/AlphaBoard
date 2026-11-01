@@ -1,6 +1,6 @@
 /** Coin baskets against Postgres: round trip into a cube, owner-only, caps. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/db/client";
 import { deleteBasket, listBaskets, loadBasketCube, saveBasket, MAX_BASKETS } from "@/lib/lab/data/basket";
 import type { SymbolSeries } from "@/lib/lab/data/binanceVision";
 

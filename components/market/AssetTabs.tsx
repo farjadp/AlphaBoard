@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { formatPrice, type BinanceTicker } from "@/lib/binance";
-import { assetHref, type Asset } from "@/lib/assetCatalog";
-import type { TradfiQuoteMap } from "@/hooks/useTradfiQuotes";
-import { useCandles } from "@/hooks/useCandles";
+import { formatPrice } from "@/lib/format";
+import type { BinanceTicker } from "@/lib/market/tickers";
+import { assetHref, type Asset } from "@/lib/market/catalog";
+import type { TradfiQuoteMap } from "@/lib/client/hooks/useTradfiQuotes";
+import { useCandles } from "@/lib/client/hooks/useCandles";
 import Sparkline from "./Sparkline";
 
 interface AssetTabsProps {
