@@ -5,18 +5,31 @@ import { usePathname } from "next/navigation";
 import AccountMenu from "@/components/account/AccountMenu";
 import AssetSearch from "@/components/shell/AssetSearch";
 import NotificationBell from "@/components/notifications/NotificationBell";
-import ThemeToggle from "@/components/shell/ThemeToggle";
 import { useNow } from "@/lib/client/hooks/useNow";
 
-const NAV_LINKS: Array<{ href: string; label: string; match: (path: string) => boolean }> = [
-  { href: "/", label: "Markets", match: (p) => p === "/" || p.startsWith("/market") || p === "/setup" },
-  { href: "/paper", label: "Paper", match: (p) => p.startsWith("/paper") },
-  { href: "/sessions", label: "Sessions", match: (p) => p.startsWith("/sessions") },
-  { href: "/performance", label: "Performance", match: (p) => p.startsWith("/performance") },
-  { href: "/journal", label: "Journal", match: (p) => p.startsWith("/journal") },
-  { href: "/archive", label: "Archive", match: (p) => p.startsWith("/archive") },
-  { href: "/alerts", label: "Alerts", match: (p) => p.startsWith("/alerts") },
-  { href: "/academy", label: "Academy", match: (p) => p.startsWith("/academy") },
+type NavPage = { href: string; label: string; match: (path: string) => boolean };
+type NavGroup = { label: string; pages: NavPage[] };
+
+/** Four places in the masthead; a section with more than one page shows them in the strip underneath. */
+const NAV_GROUPS: NavGroup[] = [
+  { label: "Markets", pages: [{ href: "/", label: "Markets", match: (p) => p === "/" || p.startsWith("/market") || p === "/setup" }] },
+  {
+    label: "Trade",
+    pages: [
+      { href: "/paper", label: "Paper", match: (p) => p.startsWith("/paper") },
+      { href: "/sessions", label: "Sessions", match: (p) => p.startsWith("/sessions") },
+      { href: "/alerts", label: "Alerts", match: (p) => p.startsWith("/alerts") },
+    ],
+  },
+  {
+    label: "Review",
+    pages: [
+      { href: "/performance", label: "Performance", match: (p) => p.startsWith("/performance") },
+      { href: "/journal", label: "Journal", match: (p) => p.startsWith("/journal") },
+      { href: "/archive", label: "Archive", match: (p) => p.startsWith("/archive") },
+    ],
+  },
+  { label: "Learn", pages: [{ href: "/academy", label: "Academy", match: (p) => p.startsWith("/academy") }] },
 ];
 
 /** Bulletin time: every plan is stamped in UTC, so the masthead keeps the same clock. */
@@ -43,37 +56,59 @@ export function BulletinMark({ className = "" }: { className?: string }) {
 
 export default function NavBar() {
   const pathname = usePathname() ?? "/";
+  const activeGroup = NAV_GROUPS.find((g) => g.pages.some((page) => page.match(pathname)));
+  const subPages = activeGroup && activeGroup.pages.length > 1 ? activeGroup.pages : null;
 
   return (
-    <header className="flex shrink-0 flex-wrap items-center gap-x-8 gap-y-1 border-b-2 border-ink bg-paper px-4 pt-2 md:h-14 md:flex-nowrap md:px-6 md:pt-0">
-      <Link href="/" aria-label="AlphaBoard home" className="flex items-center gap-2 pb-2 text-[17px] font-extrabold tracking-[-0.02em] text-ink md:pb-0">
-        <BulletinMark />
-        <span className="hidden min-[420px]:inline">AlphaBoard</span>
-      </Link>
+    <>
+      <header className="flex shrink-0 flex-wrap items-center gap-x-4 border-b-2 border-ink bg-paper px-4 pt-2 md:h-14 md:flex-nowrap md:gap-x-8 md:px-6 md:pt-0">
+        <Link href="/" aria-label="AlphaBoard home" className="flex items-center gap-2 pb-2 text-[17px] font-extrabold tracking-[-0.02em] text-ink md:pb-0">
+          <BulletinMark />
+          <span className="md:max-lg:hidden">AlphaBoard</span>
+        </Link>
 
-      <nav aria-label="Main" className="-mx-1 order-last flex w-full items-stretch gap-0.5 self-stretch overflow-x-auto [scrollbar-width:none] md:order-none md:mx-0 md:w-auto">
-        {NAV_LINKS.map((link) => {
-          const active = link.match(pathname);
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={active ? "page" : undefined}
-              className={`relative flex shrink-0 items-center px-3 py-2 text-[13px] font-semibold transition-colors ${active ? "text-ink after:absolute after:inset-x-2 after:bottom-0 after:h-[3px] after:bg-accent" : "text-ink-2 hover:text-ink"}`}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
-      </nav>
+        {/* Phones: the four sections take their own row under the logo and icons. */}
+        <nav aria-label="Main" className="order-last -mx-2.5 flex w-full items-stretch self-stretch md:order-none md:mx-0 md:w-auto">
+          {NAV_GROUPS.map((group) => {
+            const active = group === activeGroup;
+            return (
+              <Link
+                key={group.label}
+                href={group.pages[0].href}
+                aria-current={active && !subPages ? "page" : undefined}
+                className={`relative flex items-center px-2.5 py-2 text-[13px] font-semibold transition-colors sm:px-3 md:py-0 ${active ? "text-ink after:absolute after:inset-x-2 after:-bottom-0.5 after:h-[3px] after:bg-accent" : "text-ink-2 hover:text-ink"}`}
+              >
+                {group.label}
+              </Link>
+            );
+          })}
+        </nav>
 
-      <div className="ml-auto flex items-center gap-2 pb-2 sm:gap-3 md:pb-0">
-        <UtcClock />
-        <AssetSearch />
-        <ThemeToggle />
-        <NotificationBell />
-        <AccountMenu />
-      </div>
-    </header>
+        <div className="ml-auto flex items-center gap-2 pb-2 sm:gap-3 md:pb-0">
+          <UtcClock />
+          <AssetSearch />
+          <NotificationBell />
+          <AccountMenu />
+        </div>
+      </header>
+
+      {subPages && activeGroup && (
+        <nav aria-label={activeGroup.label} className="flex shrink-0 gap-1 border-b border-line bg-paper px-4 md:px-6">
+          {subPages.map((page) => {
+            const active = page.match(pathname);
+            return (
+              <Link
+                key={page.href}
+                href={page.href}
+                aria-current={active ? "page" : undefined}
+                className={`border-b-2 px-2.5 py-2 text-[12px] font-semibold transition-colors ${active ? "border-ink text-ink" : "border-transparent text-ink-3 hover:text-ink"}`}
+              >
+                {page.label}
+              </Link>
+            );
+          })}
+        </nav>
+      )}
+    </>
   );
 }
