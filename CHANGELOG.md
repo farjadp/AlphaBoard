@@ -4,6 +4,15 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P17 · Sessions: Balanced entry style
+- **New "Entry style" per session:** Balanced (the form default) or Conservative (the rules so far; also what stored sessions and API calls without the field keep).
+- **Balanced:** opens at 60% conviction; the market analyst only has to not read the opposite way at 60%+ (neutral is fine); a 1H pullback inside the 4H trend is a valid setup; every entry needs a take-profit at 1.5R or more; the strategist runs when any market note is directional at 50%+; the form presets "stop after losses in a row" to 3.
+- **Unchanged in both:** risk per trade, position cap, stop at ≥ 1.5× the 1H ATR, no entries against the 4H trend, session / daily loss limits, cooldowns, exit management. Size for the same stop is identical.
+- Refused entries now keep their price, stop, target, horizon and profile in the verdict message, so a later study can replay what they would have done.
+
+### P16 · Menus
+- Masthead: Markets · Trade (Paper, Sessions, Alerts) · Review (Performance, Journal, Archive) · Learn, with the section's pages in a strip underneath; theme switch moved into the account menu; on phones the symbol search is a magnifier that opens across the masthead.
+
 ### P15 · New look ("Forecast Verification Bulletin") + live chart
 - **New visual world, light and dark:** every plan reads like a forecast bulletin, issued with a UTC timestamp and a valid-until stamp, then verified. Chart-paper light theme and a radar-night dark theme with a switch in the masthead (remembered per browser, follows the OS until pinned, no flash on load). New faces (Public Sans, JetBrains Mono for figures), square-cut sheets with a heavy top rule, faint isobar contours behind the app, isobar-blue band on the plan ticket, a UTC clock in the masthead. All text pairs ≥ 4.5:1 in both themes.
 - **Live chart:** the AlphaBoard chart now updates the forming candle on every trade from Binance's kline stream (crypto), shows volume, and has EMA 20 / EMA 50 toggles; the plan's entry, stop and target lines stay on it. Candles carry volume from Binance and Yahoo.

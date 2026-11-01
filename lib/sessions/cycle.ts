@@ -10,8 +10,9 @@ import { gatherSymbol, type ContextData, type PositionContext, type SymbolContex
 import { runAnalysts, runDebate, runStrategist, type AiFn } from "@/lib/sessions/desk/run";
 import type { AnalystNotes } from "@/lib/sessions/desk/schemas";
 import { fmt, money } from "@/lib/risk/limits";
+import { entryRules } from "@/lib/risk/profiles";
 import { lossStreak } from "@/lib/risk/streak";
-import { evaluateProposal, MIN_ANALYST_CONFIDENCE, type Proposal, type RiskState, type SymbolSignals, type Verdict } from "@/lib/risk/verdict";
+import { evaluateProposal, type Proposal, type RiskState, type SymbolSignals, type Verdict } from "@/lib/risk/verdict";
 import { sessionFreeCapital } from "@/lib/venues/paper";
 import { VenueError, type Venue } from "@/lib/venues/types";
 import { dailyUsage } from "./limits";
@@ -26,12 +27,9 @@ const QUIET_MOVE = 0.002;
 const MAX_SKIPS = 2;
 const FAILS_TO_PAUSE = 3;
 const RETRY_AFTER_FAIL_MS = 2 * 60_000;
-/** With no open position, the debate and strategist run only if a market note is directional at this confidence. */
-const SETUP_CONFIDENCE = MIN_ANALYST_CONFIDENCE;
-
-/** Symbols the market analyst reads as directional with enough confidence to be worth a strategist call. */
-function setupCandidates(market: AnalystNotes): string[] {
-  return market.notes.filter((n) => n.stance !== "neutral" && n.confidence >= SETUP_CONFIDENCE).map((n) => n.symbol);
+/** Symbols the market analyst reads as directional with enough confidence (per risk profile) to be worth a strategist call. */
+function setupCandidates(market: AnalystNotes, setupConfidence: number): string[] {
+  return market.notes.filter((n) => n.stance !== "neutral" && n.confidence >= setupConfidence).map((n) => n.symbol);
 }
 
 export interface CycleDeps {
@@ -248,8 +246,9 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
     await addCost(a.costUsd);
     await post(sessionId, "MARKET", "TEXT", notesBody("Market", a.market), { notes: a.market.notes }, { ...extra, costUsd: a.costUsd / 2 });
     await post(sessionId, "NEWS", "TEXT", notesBody("News", a.news), { notes: a.news.notes }, { ...extra, costUsd: a.costUsd / 2 });
-    if (!ctx.positions.length && !setupCandidates(a.market).length) {
-      await post(sessionId, "SYSTEM", "TEXT", `No setup: no symbol has a directional technical read at ${Math.round(SETUP_CONFIDENCE * 100)}% confidence or more, and nothing is open — skipped the debate and the strategist this cycle.`, { noSetup: true }, extra);
+    const setupConfidence = entryRules(m).setupConfidence;
+    if (!ctx.positions.length && !setupCandidates(a.market, setupConfidence).length) {
+      await post(sessionId, "SYSTEM", "TEXT", `No setup: no symbol has a directional technical read at ${Math.round(setupConfidence * 100)}% confidence or more, and nothing is open — skipped the debate and the strategist this cycle.`, { noSetup: true }, extra);
       await schedule({ skipStreak: 0, agentFailStreak: 0 });
       await budgetCheck(sessionId, m, deps.telegram);
       return { ran: true, skipped: "no setup", decisions: 0, executed: 0 };
@@ -296,7 +295,11 @@ async function cycle(sessionId: string, deps: CycleDeps): Promise<CycleResult> {
     else if (opening && current.endsAt.getTime() - now.getTime() < noEntryWindowMin(m) * 60_000) v = { kind: "rejected", reasons: [`less than ${noEntryWindowMin(m)} min left in the session — no new entries`] };
     else v = evaluateProposal(p, m, await riskState(s, priceOf, now), await venue.marketRules(p.symbol), signalsOf(symbols.find((x) => x.symbol === p.symbol), marketNotes));
     if (v.kind === "hold") continue;
-    await post(sessionId, "RISK", "VERDICT", verdictBody(p, v), { kind: v.kind, reasons: v.reasons, symbol: p.symbol, action: p.action }, extra);
+    // A refused entry keeps its levels so a later study can replay what the trade would have done.
+    const refusedEntry = opening && v.kind === "rejected"
+      ? { price: symbols.find((x) => x.symbol === p.symbol)?.price ?? null, stopLoss: p.exitPlan.stopLoss, takeProfit: p.exitPlan.takeProfit, horizonMin: p.exitPlan.horizonMin, conviction: p.conviction, profile: m.riskProfile ?? "conservative" }
+      : undefined;
+    await post(sessionId, "RISK", "VERDICT", verdictBody(p, v), { kind: v.kind, reasons: v.reasons, symbol: p.symbol, action: p.action, ...(refusedEntry ? { refusedEntry } : {}) }, extra);
     try {
       if (v.kind === "approved" || v.kind === "clamped") {
         const r = await venue.openPosition({

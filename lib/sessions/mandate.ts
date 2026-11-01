@@ -4,6 +4,7 @@
  */
 import { z } from "zod";
 import { findAsset } from "@/lib/market/catalog";
+import { RISK_PROFILES, type RiskProfile } from "@/lib/risk/profiles";
 
 const ModelRefSchema = z.object({ provider: z.string().min(1).max(40), model: z.string().min(1).max(120) }).strict();
 
@@ -19,6 +20,8 @@ const MandateSchema = z
     capital: z.number().finite().min(10).max(10_000_000),
     maxLeverage: z.number().finite().min(1).max(50).default(1),
     marginMode: z.literal("isolated").default("isolated"),
+    /** How picky entries are (lib/risk/profiles). Size, stops and loss limits do not depend on it. */
+    riskProfile: z.enum(RISK_PROFILES as [RiskProfile, ...RiskProfile[]]).default("conservative"),
     riskPerTradePct: z.number().finite().min(0.1).max(10).default(1),
     maxPositionPct: z.number().finite().min(5).max(100).default(50),
     maxOpenPositions: z.number().int().min(1).max(10).default(2),

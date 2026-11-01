@@ -8,6 +8,7 @@ import { minutesToWeeklyClose, tradesWeekdaysOnly } from "@/lib/market/hours";
 import { liquidationPrice } from "@/lib/paper/engine";
 import { favourMove, riskPerUnit, tightens } from "@/lib/trading/math";
 import type { Mandate } from "@/lib/sessions/mandate";
+import { entryRules } from "./profiles";
 import { floorToStep, fmt, money } from "./limits";
 
 type ProposalAction = "OPEN_LONG" | "OPEN_SHORT" | "CLOSE" | "TIGHTEN_STOP" | "HOLD";
@@ -102,10 +103,6 @@ const TIGHTEN_AFTER_R = 1;
 const TIGHTEN_MIN_ATR = 1;
 /** No new entries on weekday-only markets this close to the Friday close. */
 export const NO_ENTRY_BEFORE_CLOSE_MIN = 60;
-/** Entries below this conviction are refused: "the best of the allowed symbols" is not a setup. */
-const MIN_ENTRY_CONVICTION = 0.7;
-/** The market analyst must read the symbol in the entry's direction with at least this confidence. */
-export const MIN_ANALYST_CONFIDENCE = 0.6;
 /** Float tolerance for price-distance comparisons (1.103 − 1.102 is 0.000999…). */
 const EPS = 1e-9;
 
@@ -170,15 +167,25 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
   const side = p.action === "OPEN_LONG" ? "LONG" : "SHORT";
   const long = side === "LONG";
   if (!long && m.marketType === "spot") return reject("shorts are not possible on a spot session");
-  if (!(p.conviction >= MIN_ENTRY_CONVICTION))
-    return reject(`conviction ${Math.round(p.conviction * 100)}% is below the ${Math.round(MIN_ENTRY_CONVICTION * 100)}% needed to open — no trade is the default`);
+  const rules = entryRules(m);
+  if (!(p.conviction >= rules.minConviction))
+    return reject(`conviction ${Math.round(p.conviction * 100)}% is below the ${Math.round(rules.minConviction * 100)}% needed to open`);
   const t4 = sig?.trend4h?.toLowerCase();
   if (t4 === (long ? "bearish" : "bullish")) return reject(`the 4H trend is ${t4} — no ${side.toLowerCase()} against the higher timeframe`);
   if (sig && sig.analyst !== undefined) {
     const want = long ? "bullish" : "bearish";
+    const against = long ? "bearish" : "bullish";
     const a = sig.analyst;
-    if (!a || a.stance.toLowerCase() !== want || a.confidence < MIN_ANALYST_CONFIDENCE)
-      return reject(`the market analyst reads ${p.symbol} as ${a ? `${a.stance} ${Math.round(a.confidence * 100)}%` : "—"} — an entry needs a ${want} read of at least ${Math.round(MIN_ANALYST_CONFIDENCE * 100)}%`);
+    const pct = Math.round(rules.analystConfidence * 100);
+    const read = a ? `${a.stance} ${Math.round(a.confidence * 100)}%` : "—";
+    if (rules.analyst === "agree") {
+      if (!a || a.stance.toLowerCase() !== want || a.confidence < rules.analystConfidence)
+        return reject(`the market analyst reads ${p.symbol} as ${read} — an entry needs a ${want} read of at least ${pct}%`);
+    } else if (!a) {
+      return reject(`no market analyst read on ${p.symbol} this cycle — no entry without one`);
+    } else if (a.stance.toLowerCase() === against && a.confidence >= rules.analystConfidence) {
+      return reject(`the market analyst reads ${p.symbol} as ${read} — no ${side.toLowerCase()} against a ${against} read of ${pct}% or more`);
+    }
   }
   if (s.sessionLoss >= m.lossLimit) return reject(`session loss limit reached (${money(s.sessionLoss)} of ${money(m.lossLimit)})`);
   if (s.dailyLossLimit != null && s.dailyLossUsed >= s.dailyLossLimit)
@@ -250,6 +257,13 @@ export function evaluateProposal(p: Proposal, m: Mandate, s: RiskState, r: Marke
 
   if (!(qty > 0) || qty < r.minQty || qty * price < r.minCost)
     return reject(`size ${fmt(qty)} (${money(qty * price)}) is below the venue minimum (${fmt(r.minQty)} / ${money(r.minCost)})`, ...reasons);
+
+  if (rules.minRewardRisk != null) {
+    if (tp == null) return reject(`every entry needs a take-profit at ${rules.minRewardRisk}R or more`, ...reasons);
+    const rr = Math.abs(tp - price) / Math.abs(price - stop);
+    if (rr < rules.minRewardRisk - EPS)
+      return reject(`target ${fmt(tp)} is ${rr.toFixed(2)}R from the price — the ${m.riskProfile ?? "conservative"} profile needs ${rules.minRewardRisk}R or more`, ...reasons);
+  }
 
   if (tp != null) {
     const gross = Math.abs(tp - price) * qty;
