@@ -386,6 +386,7 @@ export default function SessionRoom({ id }: { id: string }) {
             <h2 id="mandate-heading" className="text-sm font-semibold text-ink">Mandate</h2>
             <dl className="num mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5">
               <dt className="text-ink-3">Capital</dt><dd>{usd(v.mandate.capital)}</dd>
+              <dt className="text-ink-3">Entry style</dt><dd>{v.mandate.riskProfile === "balanced" ? "Balanced" : "Conservative"}</dd>
               <dt className="text-ink-3">Risk per trade</dt><dd>{v.mandate.riskPerTradePct}%</dd>
               <dt className="text-ink-3">Max position</dt><dd>{v.mandate.maxPositionPct}% of capital</dd>
               <dt className="text-ink-3">Loss limit</dt><dd>{usd(v.mandate.lossLimit)}</dd>

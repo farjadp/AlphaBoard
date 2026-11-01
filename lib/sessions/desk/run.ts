@@ -50,7 +50,7 @@ export async function runDebate(d: AgentDeps, ctx: ContextData, market: AnalystN
 
 export async function runStrategist(d: AgentDeps, ctx: ContextData, market: AnalystNotes, news: AnalystNotes, debate: Debate | null) {
   const r = await d.ai({
-    feature: "session.strategist", userId: d.userId, model: d.mandate.models.strategist, system: P.withShape(P.STRATEGIST, P.SHAPES.strategistPlan),
+    feature: "session.strategist", userId: d.userId, model: d.mandate.models.strategist, system: P.withShape(P.strategistPrompt(d.mandate.riskProfile), P.SHAPES.strategistPlan),
     user: [
       formatContext(ctx, "full"),
       "## ANALYST NOTES", notesText("Market", market), notesText("News", news),

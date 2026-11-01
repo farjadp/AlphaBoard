@@ -238,3 +238,52 @@ describe("risk engine — money-management guards", () => {
     expect(v.kind).toBe("close");
   });
 });
+
+describe("risk engine — balanced profile (P17)", () => {
+  const bal = parseMandate({ symbols: ["EUR/USD", "GBP/USD"], capital: 1_000, marketType: "swap", maxLeverage: 20, riskProfile: "balanced" });
+  const TUE = Date.parse("2026-10-06T14:00:00Z");
+  const fxState = (o: Partial<RiskState> = {}) => state({ now: TUE, ...o });
+  const fxRules = (o: Partial<MarketRules> = {}) => rules({ price: 1.1, minQty: 1, minCost: 0, qtyStep: 1, feeRate: 0, slippage: 0.00005, ...o });
+  // Stop 0.002 below (2 ATR) → 1.5R target is 1.103.
+  const entry = (o: { conviction?: number; takeProfit?: number | null } = {}) =>
+    long({ symbol: "EUR/USD", conviction: o.conviction ?? 0.62, exitPlan: { stopLoss: 1.098, takeProfit: o.takeProfit === undefined ? 1.104 : o.takeProfit, invalidation: "", horizonMin: 240 } });
+  const sig = (analyst: { stance: string; confidence: number } | null, trend4h = "Bullish") => ({ atr1h: 0.001, trend4h, analyst });
+
+  it("defaults to conservative, so stored and API mandates keep the old rules", () => {
+    expect(parseMandate({ symbols: ["EUR/USD"], capital: 1_000 }).riskProfile).toBe("conservative");
+  });
+
+  it("opens at 60% conviction with a neutral analyst read", () => {
+    expect(evaluateProposal(entry(), bal, fxState(), fxRules(), sig({ stance: "neutral", confidence: 0.55 })).kind).toBe("approved");
+    expect(reasons(evaluateProposal(entry({ conviction: 0.58 }), bal, fxState(), fxRules(), sig({ stance: "neutral", confidence: 0.5 })))).toMatch(/below the 60%/);
+  });
+
+  it("refuses an entry the analyst reads the other way at 60% or more, and with no read at all", () => {
+    expect(reasons(evaluateProposal(entry(), bal, fxState(), fxRules(), sig({ stance: "bearish", confidence: 0.6 })))).toMatch(/against a bearish read/);
+    expect(evaluateProposal(entry(), bal, fxState(), fxRules(), sig({ stance: "bearish", confidence: 0.45 })).kind).toBe("approved");
+    expect(reasons(evaluateProposal(entry(), bal, fxState(), fxRules(), sig(null)))).toMatch(/no market analyst read/);
+  });
+
+  it("still refuses entries against the 4H trend", () => {
+    expect(reasons(evaluateProposal(entry(), bal, fxState(), fxRules(), sig({ stance: "neutral", confidence: 0.5 }, "Bearish")))).toMatch(/4H trend is bearish/);
+  });
+
+  it("needs a take-profit at 1.5R or more", () => {
+    const neutral = sig({ stance: "neutral", confidence: 0.5 });
+    expect(reasons(evaluateProposal(entry({ takeProfit: null }), bal, fxState(), fxRules(), neutral))).toMatch(/needs a take-profit at 1\.5R/);
+    expect(reasons(evaluateProposal(entry({ takeProfit: 1.1025 }), bal, fxState(), fxRules(), neutral))).toMatch(/1\.25R/);
+    expect(evaluateProposal(entry({ takeProfit: 1.103 }), bal, fxState(), fxRules(), neutral).kind).toBe("approved");
+  });
+
+  it("sizes exactly like conservative: same risk per trade and stop rules", () => {
+    const cons = { ...bal, riskProfile: "conservative" as const };
+    const strong = entry({ conviction: 0.75 });
+    const agree = sig({ stance: "bullish", confidence: 0.7 });
+    const a = evaluateProposal(strong, bal, fxState(), fxRules(), agree);
+    const b = evaluateProposal(strong, cons, fxState(), fxRules(), agree);
+    expect(a).toMatchObject({ kind: "approved" });
+    expect(b).toMatchObject({ kind: "approved" });
+    if (a.kind === "approved" && b.kind === "approved") expect(a.qty).toBe(b.qty);
+    expect(reasons(evaluateProposal(long({ symbol: "EUR/USD", conviction: 0.7, exitPlan: { stopLoss: 1.0988, takeProfit: 1.105, invalidation: "", horizonMin: 240 } }), bal, fxState(), fxRules(), agree))).toMatch(/1\.5× the 1H ATR/);
+  });
+});

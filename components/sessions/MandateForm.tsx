@@ -9,6 +9,7 @@ import { createResource, useResource } from "@/lib/client/resource";
 import { startSessionRequest } from "@/lib/client/hooks/useSessions";
 import { durationText } from "./ui";
 import { exchangesResource } from "@/components/settings/ExchangeSettings";
+import { ENTRY_RULES, RISK_PROFILES, type RiskProfile } from "@/lib/risk/profiles";
 
 type AiView = { models: Array<{ provider: string; id: string; label: string }>; providers: Array<{ id: string; configured: boolean }>; effective: { label: string } | null };
 const aiResource = createResource<AiView | null>("/api/settings/ai", { fallback: null, select: (j) => j as AiView });
@@ -20,6 +21,11 @@ const CATEGORIES: AssetCategory[] = ["crypto", "commodities", "forex", "indices"
 const field = "w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm tabular-nums text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent-soft";
 const label = "block text-xs font-medium text-ink-2";
 const hint = "mt-1 text-[11px] text-ink-3";
+
+const PROFILE_TEXT: Record<RiskProfile, { title: string; body: string }> = {
+  balanced: { title: "Balanced", body: "Enters at 60% conviction when the analyst is not against it, with a target of 1.5R or more. A 1H pullback inside the 4H trend counts." },
+  conservative: { title: "Conservative", body: "Enters only at 70% conviction with the analyst reading the same way and 1H and 4H in agreement. Few trades." },
+};
 
 function Section({ title, sub, children }: { title: string; sub: string; children: React.ReactNode }) {
   return (
@@ -61,7 +67,8 @@ export default function MandateForm() {
   const [duration, setDuration] = useState(480);
   const [interval, setIntervalMin] = useState(30);
   const [cooldown, setCooldown] = useState("30");
-  const [maxConsecLosses, setMaxConsecLosses] = useState("2");
+  const [riskProfile, setRiskProfile] = useState<RiskProfile>("balanced");
+  const [maxConsecLosses, setMaxConsecLosses] = useState(String(ENTRY_RULES.balanced.maxConsecLosses));
   const [lossCooldown, setLossCooldown] = useState("30");
   const [onEnd, setOnEnd] = useState<"CLOSE_ALL" | "KEEP_WITH_STOPS">("CLOSE_ALL");
   const [extensionTimeout, setExtensionTimeout] = useState("5");
@@ -86,7 +93,7 @@ export default function MandateForm() {
     const ref = (v: string) => (v ? { provider: v.split("::")[0], model: v.split("::")[1] } : null);
     const mandate = {
       venue: conn ? "exchange" : "paper", connectionId: conn?.id ?? null,
-      symbols, marketType: effectiveMarket, capital: Number(capital), maxLeverage: effectiveMarket === "spot" ? 1 : Number(maxLeverage),
+      symbols, marketType: effectiveMarket, riskProfile, capital: Number(capital), maxLeverage: effectiveMarket === "spot" ? 1 : Number(maxLeverage),
       riskPerTradePct: Number(riskPct), maxPositionPct: Number(maxPositionPct), maxOpenPositions: Number(maxOpen), maxTrades: Number(maxTrades),
       lossLimit: Number(lossLimit), durationMin: duration, decisionIntervalMin: interval, cooldownMin: Number(cooldown), maxConsecLosses: Number(maxConsecLosses), lossCooldownMin: Number(lossCooldown), onEnd,
       extensionTimeoutMin: Number(extensionTimeout), debate, maxLlmCostUsd: Number(maxCost),
@@ -193,6 +200,20 @@ export default function MandateForm() {
           </Section>
 
           <Section title="Capital and risk" sub="Sizes come from the stop distance: a stop twice as far means half the size.">
+            <div className="sm:col-span-2 lg:col-span-3">
+              <p className={label} id="profile-label">Entry style</p>
+              <div role="radiogroup" aria-labelledby="profile-label" className="mt-1 grid gap-2 sm:grid-cols-2">
+                {RISK_PROFILES.slice().reverse().map((p) => (
+                  <button key={p} type="button" role="radio" aria-checked={riskProfile === p}
+                    onClick={() => { setRiskProfile(p); setMaxConsecLosses(String(ENTRY_RULES[p].maxConsecLosses)); }}
+                    className={`rounded-md border px-3 py-2 text-left ${riskProfile === p ? "border-ink bg-wash" : "border-line bg-paper hover:border-ink-3"}`}>
+                    <span className="block text-sm font-semibold text-ink">{PROFILE_TEXT[p].title}</span>
+                    <span className="mt-0.5 block text-[11px] text-ink-3">{PROFILE_TEXT[p].body}</span>
+                  </button>
+                ))}
+              </div>
+              <p className={hint}>Only how picky entries are. Risk per trade, stops and loss limits below apply the same way to both.</p>
+            </div>
             <Num id="capital" text={`Session capital (${conn ? conn.quote : "$"})`} value={capital} onChange={setCapital} help={conn ? `Must not exceed your free ${conn.quote} balance.` : "Simulated; 10 to 10,000,000."} />
             <Num id="risk" text="Risk per trade (%)" value={riskPct} onChange={setRiskPct} help="Loss at the stop, as % of equity." />
             <Num id="maxpos" text="Max position (% of capital)" value={maxPositionPct} onChange={setMaxPositionPct} help="Margin cap per position." />
