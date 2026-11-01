@@ -1,40 +1,102 @@
 @import "tailwindcss";
 
 /*
- * AlphaBoard design tokens (light, v2).
- * Use the Tailwind utilities these generate (bg-paper, text-ink-2, border-line, text-up, …).
- * Semantic colours: up / down for price direction, amber for caution. accent is for emphasis only.
- * Every text colour clears WCAG AA (≥ 4.5:1) on page, paper, wash and its own -soft fill (audit 2026-09-29).
+ * AlphaBoard — "Forecast Verification Bulletin" (P15, 2026-11-01).
+ * A plan is issued like a weather forecast, stamped with when it was issued and how long it is valid, then
+ * verified against what price did. Day chart (light) and radar night (dark) share every token name, so the
+ * utilities (bg-paper, text-ink-2, border-line, text-up, …) work in both. up / down = price direction,
+ * amber = watch / caution, accent = isobar blue, for emphasis and the active state only.
+ * Every text colour clears WCAG AA (≥ 4.5:1) on page, paper, wash and its own -soft fill in both modes.
  */
 @theme {
-  --color-page: #eef1f4;
-  --color-paper: #ffffff;
-  --color-wash: #f6f8fa;
-  --color-ink: #15202b;
-  --color-ink-hover: #23313f;   /* primary (ink) button hover */
-  --color-on-ink-2: #c3ccd6;    /* secondary text on ink surfaces (10:1) */
-  --color-accent-soft-hover: #d9e2ff;
-  --color-ink-2: #4a5563;
-  --color-ink-3: #616a74;
-  --color-line: #e1e6ec;
-  --color-line-2: #cfd6de;
-  --color-accent: #2446d8;
-  --color-accent-soft: #e6ecff;
-  --color-up: #117c43;
-  --color-up-soft: #e3f4ea;
-  --color-down: #c23329;
-  --color-down-soft: #fbe7e5;
-  --color-amber: #936105;
-  --color-amber-soft: #fdf3dc;
+  --color-page: #eceee8;
+  --color-paper: #fafbf8;
+  --color-wash: #f2f4ef;
+  --color-ink: #16202b;
+  --color-ink-hover: #26323f;   /* primary (ink) button hover */
+  --color-on-ink-2: #c5cdd6;    /* secondary text on ink surfaces */
+  --color-ink-2: #3f4a57;
+  --color-ink-3: #596470;
+  --color-line: #d9ded3;
+  --color-line-2: #c2c9bc;
+  --color-accent: #2149b0;
+  --color-accent-soft: #e2e9f7;
+  --color-accent-soft-hover: #d3ddf3;
+  --color-up: #0d7446;
+  --color-up-soft: #e0f1e7;
+  --color-down: #b9302a;
+  --color-down-soft: #f8e5e2;
+  --color-amber: #7f5700;
+  --color-amber-soft: #f6edd6;
+  --color-isobar: rgb(33 73 176 / 0.16);
+
+  /* Square-cut bulletin sheets: the whole radius scale is tightened, so rounded-lg/xl/2xl stay crisp. */
+  --radius-sm: 2px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 5px;
+  --radius-2xl: 6px;
+  --radius-3xl: 8px;
 }
 
 @theme inline {
-  --font-sans: var(--font-manrope), "Segoe UI", system-ui, sans-serif;
+  --font-sans: var(--font-public), "Segoe UI", system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
-  --font-display: var(--font-bricolage), var(--font-manrope), system-ui, sans-serif;
+  --font-display: var(--font-public), system-ui, sans-serif;
 }
 
-:root { color-scheme: light; }
+/* Radar night: pinned with <html data-theme="dark">, or the OS preference unless the user pinned light. */
+@layer base {
+  :root { color-scheme: light; }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --color-page: #0a101b;
+    --color-paper: #101928;
+    --color-wash: #152032;
+    --color-ink: #e6ebf2;
+    --color-ink-hover: #cbd3de;
+    --color-on-ink-2: #3b4655;
+    --color-ink-2: #b4becc;
+    --color-ink-3: #8e9aab;
+    --color-line: #1f2b40;
+    --color-line-2: #2c3b56;
+    --color-accent: #86a8ff;
+    --color-accent-soft: #1b2947;
+    --color-accent-soft-hover: #24365c;
+    --color-up: #4fcb8f;
+    --color-up-soft: #0f2a1f;
+    --color-down: #ff8378;
+    --color-down-soft: #341719;
+    --color-amber: #edb94c;
+    --color-amber-soft: #2d2411;
+    --color-isobar: rgb(134 168 255 / 0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --color-page: #0a101b;
+      --color-paper: #101928;
+      --color-wash: #152032;
+      --color-ink: #e6ebf2;
+      --color-ink-hover: #cbd3de;
+      --color-on-ink-2: #3b4655;
+      --color-ink-2: #b4becc;
+      --color-ink-3: #8e9aab;
+      --color-line: #1f2b40;
+      --color-line-2: #2c3b56;
+      --color-accent: #86a8ff;
+      --color-accent-soft: #1b2947;
+      --color-accent-soft-hover: #24365c;
+      --color-up: #4fcb8f;
+      --color-up-soft: #0f2a1f;
+      --color-down: #ff8378;
+      --color-down-soft: #341719;
+      --color-amber: #edb94c;
+      --color-amber-soft: #2d2411;
+      --color-isobar: rgb(134 168 255 / 0.12);
+    }
+  }
+}
 
 * { box-sizing: border-box; }
 
@@ -48,32 +110,130 @@ body {
   background: var(--color-page);
   color: var(--color-ink);
   font-family: var(--font-sans);
+  font-feature-settings: "ss01";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-::selection { background: var(--color-accent-soft); color: var(--color-ink); }
-input, textarea { caret-color: var(--color-accent); }
+/*
+ * Isobars: faint pressure contours behind the whole app, the chart paper every bulletin is printed on.
+ * Drawn as a mask so the line colour follows the theme token.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--color-isobar);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='480' viewBox='0 0 720 480' fill='none' stroke='black' stroke-width='1.2'%3E%3Cpath d='M-20 70 C120 20 220 130 360 90 S600 10 740 60'/%3E%3Cpath d='M-20 150 C110 100 240 220 380 170 S610 90 740 140'/%3E%3Cpath d='M-20 235 C140 190 250 300 400 250 S620 175 740 225'/%3E%3Cpath d='M-20 320 C130 280 260 380 410 330 S630 260 740 310'/%3E%3Cpath d='M-20 405 C150 365 270 465 420 415 S640 345 740 395'/%3E%3Cellipse cx='540' cy='205' rx='70' ry='34'/%3E%3Cellipse cx='540' cy='205' rx='36' ry='16'/%3E%3C/svg%3E") 0 0 / 720px 480px repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='480' viewBox='0 0 720 480' fill='none' stroke='black' stroke-width='1.2'%3E%3Cpath d='M-20 70 C120 20 220 130 360 90 S600 10 740 60'/%3E%3Cpath d='M-20 150 C110 100 240 220 380 170 S610 90 740 140'/%3E%3Cpath d='M-20 235 C140 190 250 300 400 250 S620 175 740 225'/%3E%3Cpath d='M-20 320 C130 280 260 380 410 330 S630 260 740 310'/%3E%3Cpath d='M-20 405 C150 365 270 465 420 415 S640 345 740 395'/%3E%3Cellipse cx='540' cy='205' rx='70' ry='34'/%3E%3Cellipse cx='540' cy='205' rx='36' ry='16'/%3E%3C/svg%3E") 0 0 / 720px 480px repeat;
+}
+body > * { position: relative; z-index: 1; }
+
+::selection { background: var(--color-accent); color: var(--color-paper); }
+input, textarea, select { caret-color: var(--color-accent); accent-color: var(--color-accent); }
+a { text-underline-offset: 3px; }
 
 /* Helpers live in the components layer so Tailwind utilities can override them. */
 @layer components {
   /* Tabular digits wherever numbers line up. */
-  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 
-  /* Uppercase micro-label used across panels. */
+  /* Field label inside a panel (not above headings). */
   .label-caps {
     font-size: 10.5px;
     font-weight: 700;
-    letter-spacing: 0.07em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-ink-3);
   }
 
-  /* Panel surface. */
+  /* Bulletin sheet: square-cut, hairline-ruled, a heavier rule along the top like a printed bulletin. */
   .panel {
     background: var(--color-paper);
     border: 1px solid var(--color-line);
-    border-radius: 14px;
+    border-top: 3px solid var(--color-ink);
+    border-radius: 0;
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.02), 0 10px 24px -18px rgb(10 16 27 / 0.25);
+  }
+
+  /*
+   * Issue stamp: when a plan was issued and how long it is valid. Monospace because it is a timestamp,
+   * boxed like the rubber stamp on a teleprinted bulletin.
+   */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 2px 6px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .stamp-in { animation: stamp-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+  @keyframes stamp-in {
+    from { transform: scale(1.18) rotate(-3deg); opacity: 0.4; filter: blur(1px); }
+    to { transform: none; opacity: 1; filter: none; }
+  }
+
+  /* Segmented switch (chart view, timeframe). */
+  .seg {
+    display: inline-flex;
+    padding: 2px;
+    gap: 2px;
+    border: 1px solid var(--color-line);
+    border-radius: 4px;
+    background: var(--color-wash);
+  }
+  .seg-item {
+    padding: 4px 12px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-ink-2);
+    transition: background-color 150ms, color 150ms;
+  }
+  .seg-item:hover:not(:disabled):not([aria-selected="true"]):not([aria-pressed="true"]) { color: var(--color-ink); background: var(--color-paper); }
+  .seg-item[aria-selected="true"], .seg-item[aria-pressed="true"] {
+    background: var(--color-ink);
+    color: var(--color-paper);
+  }
+  .seg-item:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  /* Toggle chip (chart studies). */
+  .chip {
+    padding: 3px 9px;
+    border: 1px solid var(--color-line-2);
+    border-radius: 3px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-ink-3);
+    transition: border-color 150ms, color 150ms, background-color 150ms;
+  }
+  .chip:hover { color: var(--color-ink); border-color: var(--color-ink-3); }
+  .chip[aria-pressed="true"] { color: var(--color-accent); border-color: var(--color-accent); background: var(--color-accent-soft); }
+
+  /* Live stream indicator: one slow radar ping. */
+  .live-dot { position: relative; }
+  .live-dot::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    border: 1px solid currentColor;
+    color: var(--color-up);
+    animation: radar-ping 2.4s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+  }
+  @keyframes radar-ping {
+    from { transform: scale(0.6); opacity: 0.9; }
+    to { transform: scale(2.2); opacity: 0; }
   }
 
   /* Landing: the product shot settles into place once (already visible; exponential ease-out). */
@@ -82,9 +242,8 @@ input, textarea { caret-color: var(--color-accent); }
     from { transform: translateY(18px) scale(0.985); opacity: 0.6; }
     to { transform: none; opacity: 1; }
   }
-  @media (prefers-reduced-motion: reduce) { .landing-rise { animation: none; } }
 
-  /* Trade-ticket perforation: dashed rule with notches cut into both edges. */
+  /* Bulletin tear line between the forecast and its verification (trade ticket). */
   .perforation {
     position: relative;
     height: 18px;
@@ -92,18 +251,18 @@ input, textarea { caret-color: var(--color-accent); }
   .perforation::before {
     content: "";
     position: absolute;
-    left: 14px;
-    right: 14px;
+    left: 0;
+    right: 0;
     top: 50%;
-    border-top: 2px dashed var(--color-line-2);
+    border-top: 1px dashed var(--color-line-2);
   }
   .perforation::after {
     content: "";
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(circle at 0 50%, var(--color-page) 9px, transparent 10px),
-      radial-gradient(circle at 100% 50%, var(--color-page) 9px, transparent 10px);
+      radial-gradient(circle at 0 50%, var(--color-page) 6px, transparent 7px),
+      radial-gradient(circle at 100% 50%, var(--color-page) 6px, transparent 7px);
   }
 }
 
@@ -112,7 +271,7 @@ input, textarea { caret-color: var(--color-accent); }
   to { opacity: 1; transform: translateY(0); }
 }
 @layer components {
-  .animate-fade-up { animation: fade-up 0.3s ease-out both; }
+  .animate-fade-up { animation: fade-up 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 }
 
 @keyframes shimmer {
@@ -123,7 +282,7 @@ input, textarea { caret-color: var(--color-accent); }
   background: linear-gradient(90deg, var(--color-wash) 25%, var(--color-page) 50%, var(--color-wash) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 6px;
+  border-radius: 3px;
 }
 
 :focus-visible {
@@ -132,7 +291,7 @@ input, textarea { caret-color: var(--color-accent); }
 }
 
 /*
- * Reduced motion: no movement (slides, shimmer sweeps, spins, smooth scroll), but "something is loading"
+ * Reduced motion: no movement (slides, shimmer sweeps, spins, pings, smooth scroll), but "something is loading"
  * stays visible as a slow opacity breath instead of disappearing (audit 2026-09-29).
  */
 @keyframes breathe {
@@ -146,12 +305,14 @@ input, textarea { caret-color: var(--color-accent); }
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+  .live-dot::after { display: none; }
   .skeleton { background: var(--color-wash); }
   .skeleton, .animate-pulse, .animate-spin {
     animation: breathe 2.4s ease-in-out infinite !important;
   }
 }
 
+* { scrollbar-color: var(--color-line-2) transparent; }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--color-line-2); border-radius: 4px; }

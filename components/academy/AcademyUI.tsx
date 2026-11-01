@@ -337,8 +337,8 @@ export function AnnotatedCanvas({ imageDataUrl, annotations }: AnnotatedCanvasPr
   }, [draw]);
 
   return (
-    <div ref={containerRef} className="relative w-full overflow-hidden rounded-[10px]">
-      <canvas ref={canvasRef} className="block rounded-[10px]" />
+    <div ref={containerRef} className="relative w-full overflow-hidden rounded-md">
+      <canvas ref={canvasRef} className="block rounded-md" />
     </div>
   );
 }
@@ -384,7 +384,7 @@ export function DropZone({ label, timeframe, imageDataUrl, onFile, onClear }: Dr
       {imageDataUrl ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- local data URL preview; next/image cannot optimise it */}
-          <img src={imageDataUrl} alt={label} className="block w-full rounded-[10px]" />
+          <img src={imageDataUrl} alt={label} className="block w-full rounded-md" />
           <button
             onClick={(e) => { e.stopPropagation(); onClear(); }}
             aria-label="Remove image"

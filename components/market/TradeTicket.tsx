@@ -8,6 +8,7 @@ import type { AnalysisResult } from "@/lib/ai/analysisTypes";
 import type { ArchivedSignal } from "@/lib/db/types";
 import type { TrackRecord } from "@/lib/eval/trackRecord";
 import TrackRecordStrip from "./TrackRecordStrip";
+import { DirectionGlyph, IssueStamps } from "./BulletinStamps";
 
 export type PlanSource =
   | { kind: "fresh"; result: AnalysisResult }
@@ -77,23 +78,26 @@ export default function TradeTicket(props: TradeTicketProps) {
 
   if (loading) {
     return (
-      <section aria-label="Trade plan" aria-busy="true" className="panel flex flex-col gap-4 p-6">
-        <span className="label-caps">Strategy · {timeframeLabel}</span>
-        <p className="font-display text-2xl font-extrabold leading-tight text-ink">Building the plan…</p>
-        <p className="text-[13.5px] leading-relaxed text-ink-2">Reading live price, all timeframes, futures, news and your past lessons.</p>
-        <div className="skeleton h-24" />
-        <div className="skeleton h-10" />
+      <section aria-label="Trade plan" aria-busy="true" className="panel flex flex-col overflow-hidden">
+        <BulletinBand left={`Forecast · ${timeframeLabel}`} right="Drafting" />
+        <div className="flex flex-col gap-4 p-6">
+          <p className="font-display text-2xl font-extrabold leading-tight text-ink">Building the plan…</p>
+          <p className="text-[13.5px] leading-relaxed text-ink-2">Reading live price, all timeframes, futures, news and your past lessons.</p>
+          <div className="skeleton h-24" />
+          <div className="skeleton h-10" />
+        </div>
       </section>
     );
   }
 
   if (!source) {
     return (
-      <section aria-label="Trade plan" className="panel flex flex-col gap-4 p-6">
-        <span className="label-caps">Strategy · {timeframeLabel}</span>
-        <p className="font-display text-[26px] font-extrabold leading-tight text-ink">No plan for {timeframeLabel} yet</p>
+      <section aria-label="Trade plan" className="panel flex flex-col overflow-hidden">
+        <BulletinBand left={`Forecast · ${timeframeLabel}`} right="Not issued" />
+        <div className="flex flex-col gap-4 p-6">
+        <p className="font-display text-[26px] font-extrabold leading-tight tracking-[-0.02em] text-ink text-balance">Is there a trade on {props.symbol} today?</p>
         <p className="text-[13.5px] leading-relaxed text-ink-2">
-          The AI reads live price, every timeframe, futures positioning, news and your journal lessons, then proposes an entry, target and stop. Each plan is saved to your archive.
+          Issue a forecast: the AI reads live price, every timeframe, futures positioning, news and your journal lessons, then proposes an entry, target and stop, or says stay flat. Every forecast is stamped, saved and scored against what price does next.
         </p>
         {error && <p role="alert" className="rounded-lg bg-down-soft px-3 py-2 text-[13px] text-down">{error}</p>}
         <button
@@ -105,6 +109,7 @@ export default function TradeTicket(props: TradeTicketProps) {
           {props.canGenerate ? "Generate plan" : "Waiting for indicator data…"}
         </button>
         <TrackRecordStrip record={props.record} symbol={props.symbol} timeframe={props.timeframe} timeframeLabel={timeframeLabel} />
+        </div>
       </section>
     );
   }
@@ -118,12 +123,14 @@ export default function TradeTicket(props: TradeTicketProps) {
 
   return (
     <section aria-label="Trade plan" className="panel flex flex-col overflow-hidden">
+      <BulletinBand left={`Forecast · ${timeframeLabel}`} right={<>AI confidence <span className="num">{v.confidence}%</span></>} />
       <div className="flex flex-col gap-3 px-6 pb-4 pt-5">
-        <div className="flex items-center justify-between gap-3">
-          <span className={`rounded-md px-2.5 py-1 text-xs font-extrabold ${done ? "bg-wash text-ink-3" : tone === "up" ? "bg-up-soft text-up" : tone === "down" ? "bg-down-soft text-down" : "bg-wash text-ink-2"}`}>
-            {done ? `${tone === "up" ? "LONG" : tone === "down" ? "SHORT" : "NO TRADE"} · PLAYED OUT` : tone === "up" ? "▲ LONG SETUP" : tone === "down" ? "▼ SHORT SETUP" : "■ NO TRADE"}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-extrabold tracking-[0.04em] ${done ? "bg-wash text-ink-3" : tone === "up" ? "bg-up-soft text-up" : tone === "down" ? "bg-down-soft text-down" : "bg-wash text-ink-2"}`}>
+            <DirectionGlyph direction={plan.direction} />
+            {done ? `${tone === "up" ? "LONG" : tone === "down" ? "SHORT" : "NO TRADE"} · PLAYED OUT` : tone === "up" ? "LONG SETUP" : tone === "down" ? "SHORT SETUP" : "NO TRADE"}
           </span>
-          <span className="label-caps">{timeframeLabel} · AI confidence <span className="num">{v.confidence}%</span></span>
+          <IssueStamps issuedAt={v.generatedAt} timeframe={props.timeframe} className="justify-end" />
         </div>
         <p className="font-display text-[27px] font-extrabold leading-[1.12] tracking-tight text-ink text-balance">
           {plan.direction === "none"
@@ -133,6 +140,7 @@ export default function TradeTicket(props: TradeTicketProps) {
         {plan.because && <p className="text-[13.5px] leading-relaxed text-ink-2">{plan.because}</p>}
         {done && v.outcome && (
           <p role="status" className={`rounded-lg px-3 py-2 text-[13px] font-semibold ${v.outcome.rMultiple != null && v.outcome.rMultiple > 0 ? "bg-up-soft text-up" : v.outcome.rMultiple != null && v.outcome.rMultiple < 0 ? "bg-down-soft text-down" : "bg-wash text-ink-2"}`}>
+            <span className="stamp stamp-in mb-1.5 mr-2 align-middle">Verified</span>
             This plan has already played out: {done}
             {v.outcome.rMultiple != null && <span className="num"> · {v.outcome.rMultiple > 0 ? "+" : v.outcome.rMultiple < 0 ? "−" : ""}{Math.abs(v.outcome.rMultiple).toFixed(2)}R</span>}
             {v.outcome.resolvedAt && <span className="font-normal"> · {timeAgo(v.outcome.resolvedAt)}</span>}. Generate a fresh plan before acting.
@@ -205,6 +213,16 @@ export default function TradeTicket(props: TradeTicketProps) {
         <TrackRecordStrip record={props.record} symbol={props.symbol} timeframe={props.timeframe} timeframeLabel={timeframeLabel} />
       </div>
     </section>
+  );
+}
+
+/** The bulletin's header band: isobar blue, the one committed colour field on the market screen. */
+function BulletinBand({ left, right }: { left: React.ReactNode; right: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 bg-accent px-6 py-2 text-[11px] font-bold uppercase tracking-[0.09em] text-paper">
+      <span>{left}</span>
+      <span className="font-semibold opacity-90">{right}</span>
+    </div>
   );
 }
 

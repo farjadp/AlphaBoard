@@ -9,6 +9,7 @@ export interface ChartCandle {
   high: number;
   low: number;
   close: number;
+  volume?: number;
 }
 
 export interface CandlesState {

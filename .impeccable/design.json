@@ -1,0 +1,818 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-01T04:28:30.929Z",
+  "title": "Design System: AlphaBoard",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Isobar Blue (day chart)",
+        "canonical": "#2149b0",
+        "tonalRamp": [
+          "oklch(15% 0.171 264.3)",
+          "oklch(25% 0.171 264.3)",
+          "oklch(35% 0.171 264.3)",
+          "oklch(45% 0.171 264.3)",
+          "oklch(55% 0.171 264.3)",
+          "oklch(65% 0.171 264.3)",
+          "oklch(80% 0.171 264.3)",
+          "oklch(95% 0.171 264.3)"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Isobar Wash (day chart)",
+        "canonical": "#e2e9f7",
+        "tonalRamp": [
+          "oklch(15% 0.020 264.5)",
+          "oklch(25% 0.020 264.5)",
+          "oklch(35% 0.020 264.5)",
+          "oklch(45% 0.020 264.5)",
+          "oklch(55% 0.020 264.5)",
+          "oklch(65% 0.020 264.5)",
+          "oklch(80% 0.020 264.5)",
+          "oklch(95% 0.020 264.5)"
+        ]
+      },
+      "accent-soft-hover": {
+        "role": "primary",
+        "displayName": "Isobar Wash Hover (day chart)",
+        "canonical": "#d3ddf3",
+        "tonalRamp": [
+          "oklch(15% 0.032 266.2)",
+          "oklch(25% 0.032 266.2)",
+          "oklch(35% 0.032 266.2)",
+          "oklch(45% 0.032 266.2)",
+          "oklch(55% 0.032 266.2)",
+          "oklch(65% 0.032 266.2)",
+          "oklch(80% 0.032 266.2)",
+          "oklch(95% 0.032 266.2)"
+        ]
+      },
+      "up": {
+        "role": "secondary",
+        "displayName": "Rising Green (day chart)",
+        "canonical": "#0d7446",
+        "tonalRamp": [
+          "oklch(15% 0.114 156.8)",
+          "oklch(25% 0.114 156.8)",
+          "oklch(35% 0.114 156.8)",
+          "oklch(45% 0.114 156.8)",
+          "oklch(55% 0.114 156.8)",
+          "oklch(65% 0.114 156.8)",
+          "oklch(80% 0.114 156.8)",
+          "oklch(95% 0.114 156.8)"
+        ]
+      },
+      "up-soft": {
+        "role": "secondary",
+        "displayName": "Rising Green Wash (day chart)",
+        "canonical": "#e0f1e7",
+        "tonalRamp": [
+          "oklch(15% 0.022 160.2)",
+          "oklch(25% 0.022 160.2)",
+          "oklch(35% 0.022 160.2)",
+          "oklch(45% 0.022 160.2)",
+          "oklch(55% 0.022 160.2)",
+          "oklch(65% 0.022 160.2)",
+          "oklch(80% 0.022 160.2)",
+          "oklch(95% 0.022 160.2)"
+        ]
+      },
+      "down": {
+        "role": "secondary",
+        "displayName": "Falling Red (day chart)",
+        "canonical": "#b9302a",
+        "tonalRamp": [
+          "oklch(15% 0.175 27.6)",
+          "oklch(25% 0.175 27.6)",
+          "oklch(35% 0.175 27.6)",
+          "oklch(45% 0.175 27.6)",
+          "oklch(55% 0.175 27.6)",
+          "oklch(65% 0.175 27.6)",
+          "oklch(80% 0.175 27.6)",
+          "oklch(95% 0.175 27.6)"
+        ]
+      },
+      "down-soft": {
+        "role": "secondary",
+        "displayName": "Falling Red Wash (day chart)",
+        "canonical": "#f8e5e2",
+        "tonalRamp": [
+          "oklch(15% 0.021 28.3)",
+          "oklch(25% 0.021 28.3)",
+          "oklch(35% 0.021 28.3)",
+          "oklch(45% 0.021 28.3)",
+          "oklch(55% 0.021 28.3)",
+          "oklch(65% 0.021 28.3)",
+          "oklch(80% 0.021 28.3)",
+          "oklch(95% 0.021 28.3)"
+        ]
+      },
+      "amber": {
+        "role": "tertiary",
+        "displayName": "Watch Amber (day chart)",
+        "canonical": "#7f5700",
+        "tonalRamp": [
+          "oklch(15% 0.102 77.8)",
+          "oklch(25% 0.102 77.8)",
+          "oklch(35% 0.102 77.8)",
+          "oklch(45% 0.102 77.8)",
+          "oklch(55% 0.102 77.8)",
+          "oklch(65% 0.102 77.8)",
+          "oklch(80% 0.102 77.8)",
+          "oklch(95% 0.102 77.8)"
+        ]
+      },
+      "amber-soft": {
+        "role": "tertiary",
+        "displayName": "Watch Amber Wash (day chart)",
+        "canonical": "#f6edd6",
+        "tonalRamp": [
+          "oklch(15% 0.032 89.1)",
+          "oklch(25% 0.032 89.1)",
+          "oklch(35% 0.032 89.1)",
+          "oklch(45% 0.032 89.1)",
+          "oklch(55% 0.032 89.1)",
+          "oklch(65% 0.032 89.1)",
+          "oklch(80% 0.032 89.1)",
+          "oklch(95% 0.032 89.1)"
+        ]
+      },
+      "page": {
+        "role": "neutral",
+        "displayName": "Chart Table (day chart)",
+        "canonical": "#eceee8",
+        "tonalRamp": [
+          "oklch(15% 0.008 121.6)",
+          "oklch(25% 0.008 121.6)",
+          "oklch(35% 0.008 121.6)",
+          "oklch(45% 0.008 121.6)",
+          "oklch(55% 0.008 121.6)",
+          "oklch(65% 0.008 121.6)",
+          "oklch(80% 0.008 121.6)",
+          "oklch(95% 0.008 121.6)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Bulletin Paper (day chart)",
+        "canonical": "#fafbf8",
+        "tonalRamp": [
+          "oklch(15% 0.004 121.6)",
+          "oklch(25% 0.004 121.6)",
+          "oklch(35% 0.004 121.6)",
+          "oklch(45% 0.004 121.6)",
+          "oklch(55% 0.004 121.6)",
+          "oklch(65% 0.004 121.6)",
+          "oklch(80% 0.004 121.6)",
+          "oklch(95% 0.004 121.6)"
+        ]
+      },
+      "wash": {
+        "role": "neutral",
+        "displayName": "Recessed Wash (day chart)",
+        "canonical": "#f2f4ef",
+        "tonalRamp": [
+          "oklch(15% 0.007 124.4)",
+          "oklch(25% 0.007 124.4)",
+          "oklch(35% 0.007 124.4)",
+          "oklch(45% 0.007 124.4)",
+          "oklch(55% 0.007 124.4)",
+          "oklch(65% 0.007 124.4)",
+          "oklch(80% 0.007 124.4)",
+          "oklch(95% 0.007 124.4)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Bulletin Ink (day chart)",
+        "canonical": "#16202b",
+        "tonalRamp": [
+          "oklch(15% 0.026 251.3)",
+          "oklch(25% 0.026 251.3)",
+          "oklch(35% 0.026 251.3)",
+          "oklch(45% 0.026 251.3)",
+          "oklch(55% 0.026 251.3)",
+          "oklch(65% 0.026 251.3)",
+          "oklch(80% 0.026 251.3)",
+          "oklch(95% 0.026 251.3)"
+        ]
+      },
+      "ink-hover": {
+        "role": "neutral",
+        "displayName": "Ink Hover (day chart)",
+        "canonical": "#26323f",
+        "tonalRamp": [
+          "oklch(15% 0.029 250.8)",
+          "oklch(25% 0.029 250.8)",
+          "oklch(35% 0.029 250.8)",
+          "oklch(45% 0.029 250.8)",
+          "oklch(55% 0.029 250.8)",
+          "oklch(65% 0.029 250.8)",
+          "oklch(80% 0.029 250.8)",
+          "oklch(95% 0.029 250.8)"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2 (day chart)",
+        "canonical": "#3f4a57",
+        "tonalRamp": [
+          "oklch(15% 0.026 252.8)",
+          "oklch(25% 0.026 252.8)",
+          "oklch(35% 0.026 252.8)",
+          "oklch(45% 0.026 252.8)",
+          "oklch(55% 0.026 252.8)",
+          "oklch(65% 0.026 252.8)",
+          "oklch(80% 0.026 252.8)",
+          "oklch(95% 0.026 252.8)"
+        ]
+      },
+      "ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3 (day chart)",
+        "canonical": "#596470",
+        "tonalRamp": [
+          "oklch(15% 0.024 250.6)",
+          "oklch(25% 0.024 250.6)",
+          "oklch(35% 0.024 250.6)",
+          "oklch(45% 0.024 250.6)",
+          "oklch(55% 0.024 250.6)",
+          "oklch(65% 0.024 250.6)",
+          "oklch(80% 0.024 250.6)",
+          "oklch(95% 0.024 250.6)"
+        ]
+      },
+      "on-ink-2": {
+        "role": "neutral",
+        "displayName": "Secondary On Ink (day chart)",
+        "canonical": "#c5cdd6",
+        "tonalRamp": [
+          "oklch(15% 0.015 251.2)",
+          "oklch(25% 0.015 251.2)",
+          "oklch(35% 0.015 251.2)",
+          "oklch(45% 0.015 251.2)",
+          "oklch(55% 0.015 251.2)",
+          "oklch(65% 0.015 251.2)",
+          "oklch(80% 0.015 251.2)",
+          "oklch(95% 0.015 251.2)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline (day chart)",
+        "canonical": "#d9ded3",
+        "tonalRamp": [
+          "oklch(15% 0.016 126.8)",
+          "oklch(25% 0.016 126.8)",
+          "oklch(35% 0.016 126.8)",
+          "oklch(45% 0.016 126.8)",
+          "oklch(55% 0.016 126.8)",
+          "oklch(65% 0.016 126.8)",
+          "oklch(80% 0.016 126.8)",
+          "oklch(95% 0.016 126.8)"
+        ]
+      },
+      "line-2": {
+        "role": "neutral",
+        "displayName": "Hairline Strong (day chart)",
+        "canonical": "#c2c9bc",
+        "tonalRamp": [
+          "oklch(15% 0.019 130.2)",
+          "oklch(25% 0.019 130.2)",
+          "oklch(35% 0.019 130.2)",
+          "oklch(45% 0.019 130.2)",
+          "oklch(55% 0.019 130.2)",
+          "oklch(65% 0.019 130.2)",
+          "oklch(80% 0.019 130.2)",
+          "oklch(95% 0.019 130.2)"
+        ]
+      },
+      "isobar": {
+        "role": "neutral",
+        "displayName": "Isobar Contour (day chart)",
+        "canonical": "rgb(33 73 176 / 0.16)"
+      },
+      "night-accent": {
+        "role": "primary",
+        "displayName": "Isobar Blue (radar night)",
+        "canonical": "#86a8ff",
+        "tonalRamp": [
+          "oklch(15% 0.132 267.0)",
+          "oklch(25% 0.132 267.0)",
+          "oklch(35% 0.132 267.0)",
+          "oklch(45% 0.132 267.0)",
+          "oklch(55% 0.132 267.0)",
+          "oklch(65% 0.132 267.0)",
+          "oklch(80% 0.132 267.0)",
+          "oklch(95% 0.132 267.0)"
+        ]
+      },
+      "night-accent-soft": {
+        "role": "primary",
+        "displayName": "Isobar Wash (radar night)",
+        "canonical": "#1b2947",
+        "tonalRamp": [
+          "oklch(15% 0.059 264.1)",
+          "oklch(25% 0.059 264.1)",
+          "oklch(35% 0.059 264.1)",
+          "oklch(45% 0.059 264.1)",
+          "oklch(55% 0.059 264.1)",
+          "oklch(65% 0.059 264.1)",
+          "oklch(80% 0.059 264.1)",
+          "oklch(95% 0.059 264.1)"
+        ]
+      },
+      "night-accent-soft-hover": {
+        "role": "primary",
+        "displayName": "Isobar Wash Hover (radar night)",
+        "canonical": "#24365c",
+        "tonalRamp": [
+          "oklch(15% 0.071 263.8)",
+          "oklch(25% 0.071 263.8)",
+          "oklch(35% 0.071 263.8)",
+          "oklch(45% 0.071 263.8)",
+          "oklch(55% 0.071 263.8)",
+          "oklch(65% 0.071 263.8)",
+          "oklch(80% 0.071 263.8)",
+          "oklch(95% 0.071 263.8)"
+        ]
+      },
+      "night-up": {
+        "role": "secondary",
+        "displayName": "Rising Green (radar night)",
+        "canonical": "#4fcb8f",
+        "tonalRamp": [
+          "oklch(15% 0.141 159.0)",
+          "oklch(25% 0.141 159.0)",
+          "oklch(35% 0.141 159.0)",
+          "oklch(45% 0.141 159.0)",
+          "oklch(55% 0.141 159.0)",
+          "oklch(65% 0.141 159.0)",
+          "oklch(80% 0.141 159.0)",
+          "oklch(95% 0.141 159.0)"
+        ]
+      },
+      "night-up-soft": {
+        "role": "secondary",
+        "displayName": "Rising Green Wash (radar night)",
+        "canonical": "#0f2a1f",
+        "tonalRamp": [
+          "oklch(15% 0.039 164.5)",
+          "oklch(25% 0.039 164.5)",
+          "oklch(35% 0.039 164.5)",
+          "oklch(45% 0.039 164.5)",
+          "oklch(55% 0.039 164.5)",
+          "oklch(65% 0.039 164.5)",
+          "oklch(80% 0.039 164.5)",
+          "oklch(95% 0.039 164.5)"
+        ]
+      },
+      "night-down": {
+        "role": "secondary",
+        "displayName": "Falling Red (radar night)",
+        "canonical": "#ff8378",
+        "tonalRamp": [
+          "oklch(15% 0.153 26.6)",
+          "oklch(25% 0.153 26.6)",
+          "oklch(35% 0.153 26.6)",
+          "oklch(45% 0.153 26.6)",
+          "oklch(55% 0.153 26.6)",
+          "oklch(65% 0.153 26.6)",
+          "oklch(80% 0.153 26.6)",
+          "oklch(95% 0.153 26.6)"
+        ]
+      },
+      "night-down-soft": {
+        "role": "secondary",
+        "displayName": "Falling Red Wash (radar night)",
+        "canonical": "#341719",
+        "tonalRamp": [
+          "oklch(15% 0.047 16.7)",
+          "oklch(25% 0.047 16.7)",
+          "oklch(35% 0.047 16.7)",
+          "oklch(45% 0.047 16.7)",
+          "oklch(55% 0.047 16.7)",
+          "oklch(65% 0.047 16.7)",
+          "oklch(80% 0.047 16.7)",
+          "oklch(95% 0.047 16.7)"
+        ]
+      },
+      "night-amber": {
+        "role": "tertiary",
+        "displayName": "Watch Amber (radar night)",
+        "canonical": "#edb94c",
+        "tonalRamp": [
+          "oklch(15% 0.137 82.9)",
+          "oklch(25% 0.137 82.9)",
+          "oklch(35% 0.137 82.9)",
+          "oklch(45% 0.137 82.9)",
+          "oklch(55% 0.137 82.9)",
+          "oklch(65% 0.137 82.9)",
+          "oklch(80% 0.137 82.9)",
+          "oklch(95% 0.137 82.9)"
+        ]
+      },
+      "night-amber-soft": {
+        "role": "tertiary",
+        "displayName": "Watch Amber Wash (radar night)",
+        "canonical": "#2d2411",
+        "tonalRamp": [
+          "oklch(15% 0.034 84.8)",
+          "oklch(25% 0.034 84.8)",
+          "oklch(35% 0.034 84.8)",
+          "oklch(45% 0.034 84.8)",
+          "oklch(55% 0.034 84.8)",
+          "oklch(65% 0.034 84.8)",
+          "oklch(80% 0.034 84.8)",
+          "oklch(95% 0.034 84.8)"
+        ]
+      },
+      "night-page": {
+        "role": "neutral",
+        "displayName": "Chart Table (radar night)",
+        "canonical": "#0a101b",
+        "tonalRamp": [
+          "oklch(15% 0.025 262.1)",
+          "oklch(25% 0.025 262.1)",
+          "oklch(35% 0.025 262.1)",
+          "oklch(45% 0.025 262.1)",
+          "oklch(55% 0.025 262.1)",
+          "oklch(65% 0.025 262.1)",
+          "oklch(80% 0.025 262.1)",
+          "oklch(95% 0.025 262.1)"
+        ]
+      },
+      "night-paper": {
+        "role": "neutral",
+        "displayName": "Bulletin Paper (radar night)",
+        "canonical": "#101928",
+        "tonalRamp": [
+          "oklch(15% 0.033 260.3)",
+          "oklch(25% 0.033 260.3)",
+          "oklch(35% 0.033 260.3)",
+          "oklch(45% 0.033 260.3)",
+          "oklch(55% 0.033 260.3)",
+          "oklch(65% 0.033 260.3)",
+          "oklch(80% 0.033 260.3)",
+          "oklch(95% 0.033 260.3)"
+        ]
+      },
+      "night-wash": {
+        "role": "neutral",
+        "displayName": "Recessed Wash (radar night)",
+        "canonical": "#152032",
+        "tonalRamp": [
+          "oklch(15% 0.038 259.9)",
+          "oklch(25% 0.038 259.9)",
+          "oklch(35% 0.038 259.9)",
+          "oklch(45% 0.038 259.9)",
+          "oklch(55% 0.038 259.9)",
+          "oklch(65% 0.038 259.9)",
+          "oklch(80% 0.038 259.9)",
+          "oklch(95% 0.038 259.9)"
+        ]
+      },
+      "night-ink": {
+        "role": "neutral",
+        "displayName": "Bulletin Ink (radar night)",
+        "canonical": "#e6ebf2",
+        "tonalRamp": [
+          "oklch(15% 0.011 256.7)",
+          "oklch(25% 0.011 256.7)",
+          "oklch(35% 0.011 256.7)",
+          "oklch(45% 0.011 256.7)",
+          "oklch(55% 0.011 256.7)",
+          "oklch(65% 0.011 256.7)",
+          "oklch(80% 0.011 256.7)",
+          "oklch(95% 0.011 256.7)"
+        ]
+      },
+      "night-ink-hover": {
+        "role": "neutral",
+        "displayName": "Ink Hover (radar night)",
+        "canonical": "#cbd3de",
+        "tonalRamp": [
+          "oklch(15% 0.018 256.3)",
+          "oklch(25% 0.018 256.3)",
+          "oklch(35% 0.018 256.3)",
+          "oklch(45% 0.018 256.3)",
+          "oklch(55% 0.018 256.3)",
+          "oklch(65% 0.018 256.3)",
+          "oklch(80% 0.018 256.3)",
+          "oklch(95% 0.018 256.3)"
+        ]
+      },
+      "night-ink-2": {
+        "role": "neutral",
+        "displayName": "Ink 2 (radar night)",
+        "canonical": "#b4becc",
+        "tonalRamp": [
+          "oklch(15% 0.023 256.7)",
+          "oklch(25% 0.023 256.7)",
+          "oklch(35% 0.023 256.7)",
+          "oklch(45% 0.023 256.7)",
+          "oklch(55% 0.023 256.7)",
+          "oklch(65% 0.023 256.7)",
+          "oklch(80% 0.023 256.7)",
+          "oklch(95% 0.023 256.7)"
+        ]
+      },
+      "night-ink-3": {
+        "role": "neutral",
+        "displayName": "Ink 3 (radar night)",
+        "canonical": "#8e9aab",
+        "tonalRamp": [
+          "oklch(15% 0.029 257.1)",
+          "oklch(25% 0.029 257.1)",
+          "oklch(35% 0.029 257.1)",
+          "oklch(45% 0.029 257.1)",
+          "oklch(55% 0.029 257.1)",
+          "oklch(65% 0.029 257.1)",
+          "oklch(80% 0.029 257.1)",
+          "oklch(95% 0.029 257.1)"
+        ]
+      },
+      "night-on-ink-2": {
+        "role": "neutral",
+        "displayName": "Secondary On Ink (radar night)",
+        "canonical": "#3b4655",
+        "tonalRamp": [
+          "oklch(15% 0.029 256.2)",
+          "oklch(25% 0.029 256.2)",
+          "oklch(35% 0.029 256.2)",
+          "oklch(45% 0.029 256.2)",
+          "oklch(55% 0.029 256.2)",
+          "oklch(65% 0.029 256.2)",
+          "oklch(80% 0.029 256.2)",
+          "oklch(95% 0.029 256.2)"
+        ]
+      },
+      "night-line": {
+        "role": "neutral",
+        "displayName": "Hairline (radar night)",
+        "canonical": "#1f2b40",
+        "tonalRamp": [
+          "oklch(15% 0.042 261.2)",
+          "oklch(25% 0.042 261.2)",
+          "oklch(35% 0.042 261.2)",
+          "oklch(45% 0.042 261.2)",
+          "oklch(55% 0.042 261.2)",
+          "oklch(65% 0.042 261.2)",
+          "oklch(80% 0.042 261.2)",
+          "oklch(95% 0.042 261.2)"
+        ]
+      },
+      "night-line-2": {
+        "role": "neutral",
+        "displayName": "Hairline Strong (radar night)",
+        "canonical": "#2c3b56",
+        "tonalRamp": [
+          "oklch(15% 0.051 261.7)",
+          "oklch(25% 0.051 261.7)",
+          "oklch(35% 0.051 261.7)",
+          "oklch(45% 0.051 261.7)",
+          "oklch(55% 0.051 261.7)",
+          "oklch(65% 0.051 261.7)",
+          "oklch(80% 0.051 261.7)",
+          "oklch(95% 0.051 261.7)"
+        ]
+      },
+      "night-isobar": {
+        "role": "neutral",
+        "displayName": "Isobar Contour (radar night)",
+        "canonical": "rgb(134 168 255 / 0.12)"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Symbol on the chart sheet."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Plan statement on the trade ticket."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Wordmark and sheet titles."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Explanations and reasoning."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase field labels inside a sheet; never above headings."
+      },
+      "band": {
+        "displayName": "Band",
+        "purpose": "Bulletin band text only."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Prices, percentages, R multiples."
+      },
+      "stamp": {
+        "displayName": "Stamp",
+        "purpose": "Issue/validity stamps and UTC clock."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sheet",
+        "value": "0 1px 0 rgb(0 0 0 / 0.02), 0 10px 24px -18px rgb(10 16 27 / 0.25)",
+        "purpose": "Bulletin sheet resting on the chart table."
+      },
+      {
+        "name": "floating",
+        "value": "Tailwind shadow-lg",
+        "purpose": "Account, notification and asset-search menus only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-expo-out",
+        "value": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Default easing for stamp-in, fade-up, landing-rise and radar ping."
+      },
+      {
+        "name": "stamp-in",
+        "value": "420ms ease-expo-out",
+        "purpose": "Verified stamp landing."
+      },
+      {
+        "name": "radar-ping",
+        "value": "2.4s ease-expo-out infinite",
+        "purpose": "Live candle indicator."
+      },
+      {
+        "name": "state",
+        "value": "150ms",
+        "purpose": "Colour transitions on segments and chips."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "breathe 2.4s opacity",
+        "purpose": "Loading stays visible as an opacity breath; all movement collapses."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Bulletin Sheet",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "Square-cut paper sheet with a 3px ink top rule.",
+      "html": "<section class=\"ds-sheet\"><p class=\"ds-label\">24h high</p><p class=\"ds-num\">68,412.50</p></section>",
+      "css": ".ds-sheet{background:var(--color-paper);border:1px solid var(--color-line);border-top:3px solid var(--color-ink);border-radius:0;box-shadow:0 1px 0 rgb(0 0 0 / .02),0 10px 24px -18px rgb(10 16 27 / .25);padding:20px;font-family:\"Public Sans\",system-ui,sans-serif;color:var(--color-ink)}.ds-label{margin:0;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-3)}.ds-num{margin:2px 0 0;font-family:\"JetBrains Mono\",ui-monospace,monospace;font-variant-numeric:tabular-nums;font-size:17px;font-weight:600}"
+    },
+    {
+      "name": "Bulletin Band",
+      "kind": "custom",
+      "refersTo": "bulletin-band",
+      "description": "Isobar-blue header strip of the trade ticket; the one colour field.",
+      "html": "<div class=\"ds-band\"><span>Forecast · 1H</span><span class=\"ds-band-r\">AI confidence <span class=\"ds-mono\">62%</span></span></div>",
+      "css": ".ds-band{display:flex;justify-content:space-between;gap:12px;background:var(--color-accent);color:var(--color-paper);padding:8px 24px;font-family:\"Public Sans\",system-ui,sans-serif;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.ds-band-r{font-weight:600;opacity:.9}.ds-mono{font-family:\"JetBrains Mono\",ui-monospace,monospace}"
+    },
+    {
+      "name": "Issue Stamps",
+      "kind": "custom",
+      "refersTo": "stamp",
+      "description": "Boxed mono UTC stamps: issued, valid to / expired.",
+      "html": "<div class=\"ds-stamps\"><span class=\"ds-stamp\">Issued 14:05 UTC</span><span class=\"ds-stamp ds-stamp-valid\">Valid to 18:05 UTC</span><span class=\"ds-stamp ds-stamp-exp\">Expired 04 NOV 18:05 UTC</span></div>",
+      "css": ".ds-stamps{display:flex;flex-wrap:wrap;gap:6px;color:var(--color-ink-3)}.ds-stamp{display:inline-flex;align-items:center;padding:2px 6px;border:1px solid currentColor;border-radius:2px;font-family:\"JetBrains Mono\",ui-monospace,monospace;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}.ds-stamp-valid{color:var(--color-accent)}.ds-stamp-exp{color:var(--color-amber)}"
+    },
+    {
+      "name": "Direction Badge",
+      "kind": "chip",
+      "refersTo": "direction-badge-long",
+      "description": "Setup badge led by the drawn direction glyph.",
+      "html": "<span class=\"ds-dir ds-dir-up\"><svg width=\"10\" height=\"10\" viewBox=\"0 0 10 10\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M5 1 L9.5 9 H0.5 Z\"/></svg>LONG SETUP</span> <span class=\"ds-dir ds-dir-down\"><svg width=\"10\" height=\"10\" viewBox=\"0 0 10 10\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M5 9 L9.5 1 H0.5 Z\"/></svg>SHORT SETUP</span>",
+      "css": ".ds-dir{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:3px;font-family:\"Public Sans\",system-ui,sans-serif;font-size:12px;font-weight:800;letter-spacing:.04em}.ds-dir-up{background:var(--color-up-soft);color:var(--color-up)}.ds-dir-down{background:var(--color-down-soft);color:var(--color-down)}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Ink-filled main action (Generate plan).",
+      "html": "<button class=\"ds-btn\">Generate plan</button>",
+      "css": ".ds-btn{height:44px;padding:0 24px;border:0;border-radius:4px;background:var(--color-ink);color:var(--color-paper);font-family:\"Public Sans\",system-ui,sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:background-color 150ms}.ds-btn:hover{background:var(--color-ink-hover)}.ds-btn:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}.ds-btn:disabled{opacity:.4;cursor:not-allowed}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Stroked action (Alert me at entry).",
+      "html": "<button class=\"ds-btn2\">Alert me at entry</button>",
+      "css": ".ds-btn2{height:40px;padding:0 20px;border:1px solid var(--color-line-2);border-radius:4px;background:transparent;color:var(--color-ink);font-family:\"Public Sans\",system-ui,sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:background-color 150ms}.ds-btn2:hover{background:var(--color-wash)}.ds-btn2:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}"
+    },
+    {
+      "name": "Segmented Switch",
+      "kind": "nav",
+      "refersTo": "seg",
+      "description": "Chart source and timeframe switch; active item is ink.",
+      "html": "<div class=\"ds-seg\" role=\"group\"><button class=\"ds-seg-i\">5M</button><button class=\"ds-seg-i\" aria-pressed=\"true\">1H</button><button class=\"ds-seg-i\">4H</button><button class=\"ds-seg-i\">1D</button></div>",
+      "css": ".ds-seg{display:inline-flex;padding:2px;gap:2px;border:1px solid var(--color-line);border-radius:4px;background:var(--color-wash)}.ds-seg-i{padding:4px 12px;border:0;border-radius:3px;background:transparent;font-family:\"JetBrains Mono\",ui-monospace,monospace;font-size:12px;font-weight:600;color:var(--color-ink-2);cursor:pointer;transition:background-color 150ms,color 150ms}.ds-seg-i:hover:not([aria-pressed=true]){background:var(--color-paper);color:var(--color-ink)}.ds-seg-i[aria-pressed=true]{background:var(--color-ink);color:var(--color-paper)}.ds-seg-i:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}"
+    },
+    {
+      "name": "Study Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Mono toggle for chart studies.",
+      "html": "<button class=\"ds-chip\" aria-pressed=\"true\">EMA 20</button> <button class=\"ds-chip\" aria-pressed=\"false\">EMA 50</button>",
+      "css": ".ds-chip{padding:3px 9px;border:1px solid var(--color-line-2);border-radius:3px;background:transparent;font-family:\"JetBrains Mono\",ui-monospace,monospace;font-size:11px;font-weight:600;color:var(--color-ink-3);cursor:pointer;transition:border-color 150ms,color 150ms,background-color 150ms}.ds-chip:hover{color:var(--color-ink);border-color:var(--color-ink-3)}.ds-chip[aria-pressed=true]{color:var(--color-accent);border-color:var(--color-accent);background:var(--color-accent-soft)}.ds-chip:focus-visible{outline:2px solid var(--color-accent);outline-offset:2px}"
+    },
+    {
+      "name": "Masthead",
+      "kind": "nav",
+      "refersTo": "masthead",
+      "description": "Paper masthead with 2px ink rule, BulletinMark, accent underline on the active link, UTC clock.",
+      "html": "<header class=\"ds-mast\"><a class=\"ds-brand\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 22 22\" fill=\"none\" aria-hidden=\"true\"><ellipse cx=\"11\" cy=\"11\" rx=\"9.5\" ry=\"9.5\" stroke=\"var(--color-ink)\" stroke-width=\"1.5\"/><ellipse cx=\"11\" cy=\"11\" rx=\"5.5\" ry=\"4\" stroke=\"var(--color-accent)\" stroke-width=\"1.5\"/><path d=\"M3.5 15.5 L8.5 10.5 L12 13 L18.5 6\" stroke=\"var(--color-ink)\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/></svg>AlphaBoard</a><nav class=\"ds-nav\"><a class=\"ds-nav-a\" aria-current=\"page\">Markets</a><a class=\"ds-nav-a\">Paper</a><a class=\"ds-nav-a\">Performance</a></nav><span class=\"ds-clock\">14:05 UTC</span></header>",
+      "css": ".ds-mast{display:flex;align-items:center;gap:32px;height:56px;padding:0 24px;background:var(--color-paper);border-bottom:2px solid var(--color-ink);font-family:\"Public Sans\",system-ui,sans-serif}.ds-brand{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:800;letter-spacing:-.02em;color:var(--color-ink)}.ds-nav{display:flex;align-self:stretch;gap:2px}.ds-nav-a{position:relative;display:flex;align-items:center;padding:0 12px;font-size:13px;font-weight:600;color:var(--color-ink-2);cursor:pointer;transition:color 150ms}.ds-nav-a:hover{color:var(--color-ink)}.ds-nav-a[aria-current=page]{color:var(--color-ink)}.ds-nav-a[aria-current=page]::after{content:\"\";position:absolute;left:8px;right:8px;bottom:0;height:3px;background:var(--color-accent)}.ds-clock{margin-left:auto;font-family:\"JetBrains Mono\",ui-monospace,monospace;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--color-ink-3)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Forecast Verification Bulletin",
+    "overview": "A trade plan is treated like a weather forecast. It is issued, stamped with when it was issued and how long it is valid, and later verified against what price did. The interface is the bulletin office: square-cut paper sheets with a heavy printed rule along the top, boxed monospace issue stamps, a masthead with a UTC clock, and faint isobar contours on the chart paper behind everything. It explicitly rejects two looks: the dark neon trading terminal and the soft rounded-card dashboard.\n\nThere are two themes that share every token name. **Day chart** (light) is cool off-white paper with near-black ink. **Radar night** (dark) is deep navy with pale ink. The theme follows the OS preference until the user pins it with the masthead switch (`<html data-theme>`, stored as `alphaboard.theme`); a boot script in `app/layout.tsx` applies the pin before first paint. Any surface that paints its own pixels, such as a chart canvas or an embedded widget, must read the tokens at runtime and rebuild when the theme changes.\n\nDensity is a working desk: compact 12–13.5px UI text, figures in tabular mono, sheets on a 16px gap. Colour is mostly ink on paper. Hue carries meaning: price direction, caution, or emphasis.",
+    "keyCharacteristics": [
+      "Square-cut sheets with a 3px ink top rule over a hairline border",
+      "One committed colour field per screen: the isobar-blue band on the trade ticket",
+      "Boxed uppercase mono stamps for every issue and validity time, always in UTC",
+      "Isobar contour mask behind the whole app, tinted by the `isobar` token",
+      "Drawn SVG glyphs (direction triangles, masthead mark, theme icons), never icon fonts or unicode arrows",
+      "Every text pair clears WCAG AA (4.5:1) in both themes"
+    ],
+    "rules": [
+      {
+        "name": "The Direction-Only Rule",
+        "body": "Green and red mean price direction and nothing else: long/short, target/stop, positive/negative R, candles. Never use them for \"success\" chrome, brand or decoration. Errors borrow `down-soft`/`down` because an error is a stop.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Field Rule",
+        "body": "The trade ticket's bulletin band is the one committed colour field on the market screen. Everywhere else the accent is a stroke, a word or a line, never a filled panel.",
+        "section": "colors"
+      },
+      {
+        "name": "The AA Both Ways Rule",
+        "body": "Every text colour clears 4.5:1 on page, paper, wash and its own `-soft` fill in both themes (the tightest pair, `up` on `page` in day chart, is about 5.0:1). A new token, or a change to an old one, must be re-checked in both themes before it ships.",
+        "section": "colors"
+      },
+      {
+        "name": "The Figures-Only Mono Rule",
+        "body": "Monospace is only for figures and timestamps. Prose, labels and buttons are always Public Sans.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Eyebrow Rule",
+        "body": "Uppercase labels name a field inside a sheet. Never put one above a heading as an eyebrow or kicker; a heading carries its own meaning.",
+        "section": "typography"
+      },
+      {
+        "name": "The Printed Rule Rule",
+        "body": "Hierarchy comes from line weight: 3px ink across the top of a sheet, 2px ink under the masthead, 1px hairlines everywhere else. Shadows do not do this job.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do use the theme tokens (`bg-paper`, `text-ink-2`, `border-line` and so on) for every colour, so both themes work without per-theme code.",
+      "Do read tokens with `getComputedStyle` in anything that paints its own pixels, and rebuild it on `useColorScheme()` change.",
+      "Do stamp every issued plan with \"Issued\" and \"Valid to\" times in UTC using the boxed mono stamp.",
+      "Do set every price, percentage, R multiple and timeframe in mono with tabular figures.",
+      "Do draw icons and glyphs as inline SVG coloured with `currentColor` or token classes.",
+      "Do give every sheet the square-cut 3px ink top rule.",
+      "Do show missing data as missing (\"—\", \"Unavailable\"). Never present an invented number, statistic, testimonial or count.",
+      "Do honour reduced motion: animations collapse, the live ping hides, and loading becomes a slow opacity breath."
+    ],
+    "donts": [
+      "Don't use `up`/`down` for anything except price direction, or `amber` for anything except caution.",
+      "Don't add a second filled accent field to a screen. The ticket band is the only one.",
+      "Don't put uppercase eyebrow labels or kickers above headings.",
+      "Don't use unicode arrows or icon fonts for direction. Use the drawn DirectionGlyph.",
+      "Don't round sheets, or use radii outside the tightened scale.",
+      "Don't use mono for prose, labels or buttons.",
+      "Don't ship a text colour pair under 4.5:1 in either theme.",
+      "Don't drift toward the neon terminal (glow, black-and-green) or the soft card dashboard (large radii, floating shadowed cards)."
+    ]
+  }
+}

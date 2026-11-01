@@ -457,7 +457,7 @@ export default function AcademyPage() {
             </div>
 
             {lessons.length === 0 ? (
-              <div className="rounded-[14px] border border-dashed border-line-2 bg-paper p-12 text-center">
+              <div className="rounded-lg border border-dashed border-line-2 bg-paper p-12 text-center">
                 <p className="text-[13px] text-ink-3">هنوز درسی ذخیره نشده. چارت آپلود کن و تحلیل بگیر.</p>
                 <button
                   onClick={() => setActiveTab("analyze")}

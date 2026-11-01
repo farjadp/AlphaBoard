@@ -1,3 +1,4 @@
+import { DirectionGlyph } from "./BulletinStamps";
 import type { ConsensusScore } from "@/lib/market/indicators";
 import type { TimeframeSummary } from "@/lib/market/report";
 
@@ -7,7 +8,7 @@ interface TimeframeLadderProps {
   current: string;
 }
 
-const ARROW = { Bullish: "▲", Bearish: "▼", Neutral: "■" } as const;
+const DIRECTION = { Bullish: "long", Bearish: "short", Neutral: "none" } as const;
 const TONE = { Bullish: "text-up", Bearish: "text-down", Neutral: "text-ink-3" } as const;
 
 /** One row: trend direction and RSI on every timeframe, highest first. */
@@ -36,7 +37,7 @@ export default function TimeframeLadder({ frames, consensus, current }: Timefram
           <div className="flex justify-between font-extrabold">
             <span>{f.timeframe}</span>
             <span className={f.available ? TONE[f.trendSignal] : "text-ink-3"} aria-label={f.available ? f.trendSignal : "Unavailable"}>
-              {f.available ? ARROW[f.trendSignal] : "–"}
+              {f.available ? <DirectionGlyph direction={DIRECTION[f.trendSignal]} /> : "–"}
             </span>
           </div>
           {f.available && f.rsi !== null ? (

@@ -49,6 +49,12 @@ export const HORIZON_BARS: Record<TimeframeKey, number> = { "5M": 144, "15M": 96
 const BAR_MS: Record<TimeframeKey, number> = { "5M": 5 * MIN, "15M": 15 * MIN, "1H": HOUR, "4H": 4 * HOUR, "1D": DAY, "1W": 7 * DAY, "1M": 31 * DAY };
 const MARKET_ENTRY_TOLERANCE = 0.001;
 
+/** When a plan issued at `issuedAt` on `tf` stops being scored: the end of its horizon. Null for an unknown timeframe. */
+export function validUntil(issuedAt: Date, tf: string): Date | null {
+  const key = normalizeTimeframe(tf);
+  return key ? new Date(issuedAt.getTime() + HORIZON_BARS[key] * BAR_MS[key]) : null;
+}
+
 export function normalizeTimeframe(tf: string): TimeframeKey | null {
   const up = tf.trim().toUpperCase();
   // "1M" is the monthly key; minutes are spelled 5M/15M, so there is no ambiguity after upper-casing.

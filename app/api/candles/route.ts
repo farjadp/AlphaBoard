@@ -23,7 +23,7 @@ export const GET = route(async (req) => {
       timeframe,
       candles: candles
         .filter((c): c is typeof c & { time: number } => typeof c.time === "number")
-        .map((c) => ({ time: Math.floor(c.time / 1000), open: c.open, high: c.high, low: c.low, close: c.close })),
+        .map((c) => ({ time: Math.floor(c.time / 1000), open: c.open, high: c.high, low: c.low, close: c.close, ...(c.volume !== undefined ? { volume: c.volume } : {}) })),
     });
   } catch (e) {
     logger.warn({ symbol: asset.symbol, timeframe, err: e instanceof Error ? e.message : String(e) }, "candles unavailable");

@@ -110,12 +110,13 @@ export function aggregateCandlesByTime(candles: Candle[], bucketMs: number): Can
     if (c.time === undefined) continue;
     const bucket = Math.floor(c.time / bucketMs) * bucketMs;
     if (!current || current.time !== bucket) {
-      current = { time: bucket, open: c.open, high: c.high, low: c.low, close: c.close };
+      current = { time: bucket, open: c.open, high: c.high, low: c.low, close: c.close, ...(c.volume !== undefined ? { volume: c.volume } : {}) };
       out.push(current);
     } else {
       current.high = Math.max(current.high, c.high);
       current.low = Math.min(current.low, c.low);
       current.close = c.close;
+      if (c.volume !== undefined) current.volume = (current.volume ?? 0) + c.volume;
     }
   }
   return out;

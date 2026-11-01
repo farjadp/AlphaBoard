@@ -8,17 +8,17 @@ import { TIMEFRAMES, type TimeframeKey } from "./timeframes";
 
 export const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
-type KlineRow = [number, string, string, string, string, ...unknown[]];
+type KlineRow = [number, string, string, string, string, string, ...unknown[]];
 
 async function fetchBinanceCandles(symbol: string, interval: string, limit: number): Promise<Candle[]> {
   const rows = await binanceJson<KlineRow[]>(
     `/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`,
     (b) => (!Array.isArray(b) || b.length === 0 ? "empty klines" : null),
   );
-  return rows.map((r) => ({ time: r[0], open: +r[1], high: +r[2], low: +r[3], close: +r[4] }));
+  return rows.map((r) => ({ time: r[0], open: +r[1], high: +r[2], low: +r[3], close: +r[4], volume: +r[5] }));
 }
 
-type YahooQuote = { date: Date; open?: number | null; high?: number | null; low?: number | null; close?: number | null };
+type YahooQuote = { date: Date; open?: number | null; high?: number | null; low?: number | null; close?: number | null; volume?: number | null };
 
 /**
  * Yahoo bars with missing prices (weekend / holiday gaps on FX and metals) come back as nulls, and
@@ -28,7 +28,7 @@ type YahooQuote = { date: Date; open?: number | null; high?: number | null; low?
 export function yahooQuotesToCandles(quotes: YahooQuote[]): Candle[] {
   const px = (v: number | null | undefined) => (v == null ? NaN : Number(v));
   return quotes
-    .map((q) => ({ time: q.date.getTime(), open: px(q.open), high: px(q.high), low: px(q.low), close: px(q.close) }))
+    .map((q) => ({ time: q.date.getTime(), open: px(q.open), high: px(q.high), low: px(q.low), close: px(q.close), volume: q.volume != null && Number.isFinite(Number(q.volume)) ? Number(q.volume) : undefined }))
     .filter((c) => [c.open, c.high, c.low, c.close].every((v) => Number.isFinite(v) && v > 0)
       && c.high >= Math.max(c.open, c.close, c.low) && c.low <= Math.min(c.open, c.close));
 }

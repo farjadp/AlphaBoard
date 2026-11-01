@@ -14,7 +14,7 @@ A trading-intelligence workspace: read live markets across timeframes, draft a p
 The loop is closed and honest: every AI signal is replayed on later candles and graded in R (win rate, expectancy, profit factor, drawdown, calibration of stated confidence). Plans can say "stay flat". Missing data is shown as "Unavailable", never guessed. No live order execution — analysis and paper trading only.
 
 ## Operating Context
-Market screen (watchlist tabs, 24h session band, chart + trade ticket, timeframe agreement 5M–1W, patterns, futures positioning, news), paper account (10,000 USDT default), performance page, trade journal with AI post-mortems, chart academy, price alerts (in-app bell, optional Telegram), archive of signals.
+Market screen (watchlist tabs, 24h session band, live chart with a TradingView tab + trade ticket, timeframe agreement 5M–1W, patterns, futures positioning, news), paper account (10,000 USDT default), performance page, trade journal with AI post-mortems, chart academy, price alerts (in-app bell, optional Telegram), archive of signals.
 
 ## Capabilities and Constraints
 - Multi-user, invite-only; admins create invites; the landing collects access requests into a waitlist admins convert to invites.
@@ -26,7 +26,7 @@ Market screen (watchlist tabs, 24h session band, chart + trade ticket, timeframe
 - UI language: English.
 
 ## Brand Commitments
-Name "AlphaBoard". Light "briefing" visual world already in code (app/globals.css tokens; Manrope / JetBrains Mono / Bricolage Grotesque). Voice: plain, specific, candid about limits; no hype.
+Name "AlphaBoard". "Forecast Verification Bulletin" visual world since 2026-11-01 (P15): light (chart paper) and dark (radar night) with a user switch; Public Sans + JetBrains Mono; tokens in app/globals.css, rules in DESIGN.md. Voice: plain, specific, candid about limits; no hype.
 
 ## Evidence on Hand
 - Real product screenshot: public/landing/market.webp (2026-09-28, BTC/USDT 1H, live data; the AI plan says "Stay flat. No clean setup").
