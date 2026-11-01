@@ -46,7 +46,11 @@ export default function AssetSearch() {
   }
 
   return (
-    <div className="relative w-28 sm:w-72">
+    <div className="relative w-9 sm:w-72 max-sm:focus-within:fixed max-sm:focus-within:inset-x-4 max-sm:focus-within:top-2.5 max-sm:focus-within:z-50 max-sm:focus-within:w-auto">
+      {/* Phones get a magnifier box that opens across the masthead on focus, so the bell and account stay on screen. */}
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-3">
+        <circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5 14 14" />
+      </svg>
       <label htmlFor={`${listId}-input`} className="sr-only">Jump to symbol</label>
       <input
         id={`${listId}-input`}
@@ -62,11 +66,11 @@ export default function AssetSearch() {
         onBlur={() => setTimeout(() => setOpen(false), 120)}
         onKeyDown={onKeyDown}
         placeholder="Symbol…"
-        className="h-9 w-full rounded-lg border border-line bg-wash pl-3 pr-3 text-[13px] sm:pr-12 text-ink placeholder:text-ink-3 focus:border-accent focus:bg-paper focus:outline-none"
+        className="h-9 w-full rounded-md border border-line bg-wash pl-8 pr-2 text-[13px] sm:pr-12 max-sm:placeholder:text-transparent max-sm:focus:placeholder:text-ink-3 text-ink placeholder:text-ink-3 focus:border-accent focus:bg-paper focus:outline-none"
       />
       <kbd className="pointer-events-none absolute hidden sm:block right-2 top-1/2 -translate-y-1/2 rounded border border-line bg-paper px-1.5 font-mono text-[11px] text-ink-3">⌘K</kbd>
       {open && matches.length > 0 && (
-        <ul id={listId} role="listbox" className="absolute left-0 right-0 top-11 z-50 overflow-hidden rounded-xl border border-line bg-paper py-1 shadow-lg">
+        <ul id={listId} role="listbox" className="absolute left-0 right-0 top-11 z-50 overflow-hidden rounded-md border border-line bg-paper py-1 shadow-lg">
           {matches.map((a, i) => (
             <li
               key={a.symbol}

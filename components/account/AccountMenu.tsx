@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { signOutAction } from "@/app/actions/auth";
+import ThemeToggle from "@/components/shell/ThemeToggle";
 import { createResource, resetAllResources, useResource } from "@/lib/client/resource";
 
 type Me = { id: string; email: string; name: string | null; role: "USER" | "ADMIN" } | null;
@@ -40,17 +41,19 @@ export default function AccountMenu() {
         {initial}
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-10 z-50 w-60 rounded-xl border border-line bg-paper p-1 shadow-lg text-[13px]">
+        <div role="menu" className="absolute right-0 top-10 z-50 w-60 rounded-md border border-line bg-paper p-1 shadow-lg text-[13px]">
           <div className="px-3 py-2 border-b border-line mb-1">
             <p className="font-bold text-ink truncate">{me?.name ?? "Signed in"}</p>
             <p className="text-ink-3 truncate">{me?.email}</p>
           </div>
-          <Link role="menuitem" href="/settings" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Settings · AI model</Link>
-          <Link role="menuitem" href="/import" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Import browser data</Link>
+          <Link role="menuitem" href="/settings" className="block rounded-sm px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Settings</Link>
+          <Link role="menuitem" href="/import" className="block rounded-sm px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Import data</Link>
           {me?.role === "ADMIN" && (
-            <Link role="menuitem" href="/admin" className="block rounded-lg px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Admin · System, users, invites, AI</Link>
+            <Link role="menuitem" href="/admin" className="block rounded-sm px-3 py-2 text-ink-2 hover:bg-wash hover:text-ink">Admin</Link>
           )}
-          <button role="menuitem" type="button" disabled={busy} onClick={signOut} className="w-full text-left rounded-lg px-3 py-2 text-down hover:bg-down-soft disabled:opacity-50">
+          <ThemeToggle />
+          <div className="my-1 border-t border-line" />
+          <button role="menuitem" type="button" disabled={busy} onClick={signOut} className="w-full text-left rounded-sm px-3 py-2 text-down hover:bg-down-soft disabled:opacity-50">
             {busy ? "Signing out…" : "Sign out"}
           </button>
         </div>
