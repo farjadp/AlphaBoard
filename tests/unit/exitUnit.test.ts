@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { convertExit, exitPrice } from "@/components/trade/ExitUnit";
+import { convertExit, exitPrice, exitText } from "@/components/trade/ExitUnit";
 
 describe("exit unit fields", () => {
   it("reads a price field as is and a percent field from the reference", () => {
@@ -23,5 +23,13 @@ describe("exit unit round trip", () => {
     const shown = convertExit("76456.6", "price", "pct", "LONG", "stop", 78022.86);
     expect(exitPrice(shown, "pct", "LONG", "stop", 78022.86, 76456.6)).toBe(76456.6);
     expect(exitPrice("2.5", "pct", "LONG", "stop", 78022.86, 76456.6)).toBeCloseTo(76072.29, 1);
+  });
+});
+
+describe("exit price field display", () => {
+  it("shows a stored level without float noise and keeps it exactly when untouched", () => {
+    expect(exitText(2710.715964123)).toBe("2710.716");
+    expect(exitPrice("2710.716", "price", "SHORT", "stop", 2258.93, 2710.715964123)).toBe(2710.715964123);
+    expect(exitPrice("2700", "price", "SHORT", "stop", 2258.93, 2710.715964123)).toBe(2700);
   });
 });

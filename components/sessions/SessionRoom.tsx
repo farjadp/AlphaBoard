@@ -9,7 +9,7 @@ import DeskRoundTable from "@/components/sessions/DeskRoundTable";
 import { CAST } from "@/lib/sessions/desk/cast";
 import { useRoom, useSessionReport, useSessionView, type PositionAction } from "@/lib/client/hooks/useSessions";
 import { price as fmtPrice, qty as fmtQty } from "@/components/paper/format";
-import { ExitUnitToggle, convertExit, exitPrice, type ExitUnit } from "@/components/trade/ExitUnit";
+import { ExitUnitToggle, convertExit, exitPrice, exitText, type ExitUnit } from "@/components/trade/ExitUnit";
 import type { Mandate } from "@/lib/sessions/mandate";
 import type { SessionMessageDto, SessionPositionDto, SessionViewDto } from "@/lib/sessions/types";
 import { END_REASON, Meter, StatusPill, durationText, timeLeft, usd } from "./ui";
@@ -149,8 +149,8 @@ function Room({ id, mandate }: { id: string; mandate: Mandate }) {
 const pnlTone = (n: number | null) => (n == null || n === 0 ? "text-ink-2" : n > 0 ? "text-up" : "text-down");
 
 function ExitsEditor({ p, onSave, onCancel }: { p: SessionPositionDto; onSave: (a: PositionAction) => void; onCancel: () => void }) {
-  const [sl, setSl] = useState(p.stopLoss == null ? "" : String(p.stopLoss));
-  const [tp, setTp] = useState(p.takeProfit == null ? "" : String(p.takeProfit));
+  const [sl, setSl] = useState(exitText(p.stopLoss));
+  const [tp, setTp] = useState(exitText(p.takeProfit));
   const [trail, setTrail] = useState(p.trailAtr == null ? "" : String(p.trailAtr));
   const [unit, setUnit] = useState<ExitUnit>("price");
   const num = (s: string) => (s.trim() === "" ? null : Number.parseFloat(s.replace(",", ".")));

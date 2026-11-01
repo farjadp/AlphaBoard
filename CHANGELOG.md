@@ -4,6 +4,12 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### Paper positions fit the page
+- Open positions are a list instead of a wide table, so the panel no longer scrolls sideways; on phones each row wraps. The stop / target editor opens under its position with labelled fields.
+- Warnings on the row: a stop past the liquidation price (it can never fire), and no stop at 5× or more.
+- History drops its fixed width (entry → exit in one column; outcome folds under the date on phones).
+- The equity chart's hidden data caption no longer paints "Equity" over the positions tabs.
+
 ### Stops and targets in percent
 - Paper order ticket, paper position editor and session position editor have a **Price / %** switch for stop-loss and take-profit. A percent is a distance from the estimated fill (new order) or the entry price (open position), on the losing side for a stop and the winning side for a target; the price it means is shown underneath. Switching converts the values both ways, and a percent left as converted keeps the exact current level.
 
