@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { JetBrains_Mono, Public_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import SiteFooter from "@/components/legal/SiteFooter";
 import { siteUrl } from "@/lib/config/site";
 
+// Fonts ship with the repo (variable woff2, Latin, SIL OFL; from @fontsource-variable) so a build never depends on
+// reaching Google Fonts, which failed a production build on 2026-11-02.
 // Public Sans: the workhorse face of public-service bulletins; one family carries UI and display.
-const publicSans = Public_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+const publicSans = localFont({
+  src: "./fonts/public-sans-latin-wght-normal.woff2",
+  weight: "100 900",
   variable: "--font-public",
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+const jetbrainsMono = localFont({
+  src: "./fonts/jetbrains-mono-latin-wght-normal.woff2",
+  weight: "100 800",
   variable: "--font-jetbrains",
 });
 
