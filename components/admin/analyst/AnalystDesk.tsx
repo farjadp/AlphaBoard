@@ -9,7 +9,8 @@ import { api, btn, deskRes, field, hint, label, type ExtractResult } from "./res
 
 const REFRESH_MS = 30_000;
 
-export default function AnalystDesk() {
+/** `channel` = the signals channel username when the channel bot is configured, else null. */
+export default function AnalystDesk({ channel }: { channel: string | null }) {
   const desk = useResource(deskRes);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,7 +39,7 @@ export default function AnalystDesk() {
   return (
     <div className="space-y-8">
       {draft ? (
-        <DraftEditor result={draft.result} rawText={draft.text} sources={sources} onDone={() => setDraft(null)} />
+        <DraftEditor result={draft.result} rawText={draft.text} sources={sources} channel={channel} onDone={() => setDraft(null)} />
       ) : (
         <section aria-labelledby="paste-h" className="space-y-2 rounded-lg bg-wash p-4">
           <h2 id="paste-h" className="sr-only">Paste an analysis</h2>
@@ -52,7 +53,7 @@ export default function AnalystDesk() {
           {error && <p role="alert" className="text-sm text-down">{error}</p>}
         </section>
       )}
-      <PlanList plans={desk.data.plans} loaded={desk.loaded} error={desk.error} />
+      <PlanList plans={desk.data.plans} loaded={desk.loaded} error={desk.error} channel={channel} />
       <Scorecard scores={desk.data.scores} />
     </div>
   );

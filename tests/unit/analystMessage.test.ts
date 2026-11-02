@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { zoneMessage } from "@/lib/analyst/message";
+import { channelMessage, zoneMessage } from "@/lib/analyst/message";
 
 const sell = { id: "z1", symbol: "XAU/USD", kind: "SELL" as const, low: 3940, high: 3976, direction: null, closeTf: null, condition: "only with a 15m trigger", note: null };
 const inv = { id: "z2", symbol: "XAU/USD", kind: "INVALIDATION" as const, low: 3976, high: 3976, direction: "ABOVE", closeTf: "4H", condition: null, note: null };
@@ -32,5 +32,33 @@ describe("zoneMessage", () => {
     const b = zoneMessage("BROKEN", inv, { planId: "p", source: "X", price: 3985, agrees: [], newsRisk: null, invalidation: null });
     expect(b.title).toBe("⛔ XAU/USD: سناریو باطل شد (کلوز 4H بالای 3,976)");
     expect(b.body).toBe("منبع: X · کلوز: 3,985\nزون‌های دیگر این نماد در این پلن را با احتیاط ببینید.");
+  });
+});
+
+describe("channelMessage", () => {
+  it("is a public post: names the analysis, drops private context, says it is not an entry signal", () => {
+    const text = channelMessage("ENTERED", sell, { planId: "p1", source: "نیما رزاقی", price: 3944.5, agrees: ["Me"], newsRisk: "NFP", invalidation: inv }, "gheymat_today");
+    expect(text.split("\n")).toEqual([
+      "🟥 XAU/USD وارد زون فروش 3,940–3,976 شد",
+      "قیمت: 3,944.5",
+      "شرط ورود: only with a 15m trigger",
+      "ابطال: کلوز 4H بالای 3,976",
+      "⚠️ ریسک خبر: NFP",
+      "📊 بر اساس تحلیل: نیما رزاقی",
+      "",
+      "این هشدارِ رسیدن قیمت به یک سطح است، نه سیگنال ورود. تصمیم و مدیریت ریسک با خودتان.",
+      "@gheymat_today",
+    ]);
+  });
+
+  it("covers a broken scenario and works without a channel username", () => {
+    const text = channelMessage("BROKEN", inv, { planId: "p", source: "X", price: 3985, agrees: [], newsRisk: null, invalidation: null }, null);
+    expect(text.split("\n")).toEqual([
+      "⛔ XAU/USD: سناریو باطل شد (کلوز 4H بالای 3,976)",
+      "کلوز: 3,985",
+      "📊 بر اساس تحلیل: X",
+      "",
+      "این هشدارِ رسیدن قیمت به یک سطح است، نه سیگنال ورود. تصمیم و مدیریت ریسک با خودتان.",
+    ]);
   });
 });

@@ -2,11 +2,14 @@ import "server-only";
 import type { AnalystZone } from "@prisma/client";
 import { prisma } from "@/lib/db/client";
 import { findAsset } from "@/lib/market/catalog";
+import { logger } from "@/lib/http/logger";
 import { getCandles } from "@/lib/market/candles";
+import { env } from "@/lib/env";
+import { channelFromEnv, type Channel } from "@/lib/signalDesk/channel";
 import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
 import type { PriceOf } from "@/lib/paper/account";
-import { zoneMessage } from "./message";
+import { channelMessage, zoneMessage, type MessageContext, type MessageZone } from "./message";
 import { agreements, closedBeyond, nearEvent, scoreReaction, zoneTouched, type Bar } from "./zones";
 
 /**
@@ -26,6 +29,9 @@ export interface ZoneJobDeps {
   barsTfOf?: (symbol: string, tf: Tf) => Promise<Bar[] | null>;
   priceOf: PriceOf;
   telegram: Telegram | null;
+  /** Public signals channel for plans with postToChannel; defaults to SIGNAL_BOT_TOKEN + SIGNAL_CHANNEL_ID. */
+  channel?: Channel | null;
+  channelUsername?: string | null;
 }
 
 const tfBars = async (symbol: string, tf: Tf): Promise<Bar[] | null> => {
@@ -40,6 +46,20 @@ export async function evaluateZones(deps: ZoneJobDeps) {
   const now = deps.now;
   const t = now.getTime();
   const barsTfOf = deps.barsTfOf ?? tfBars;
+  const channel = deps.channel === undefined ? channelFromEnv() : deps.channel;
+  const username = deps.channelUsername === undefined ? env().SIGNAL_CHANNEL_USERNAME ?? null : deps.channelUsername;
+  /** Best effort, after the owner was told: a failed post is kept on the zone and never retried. */
+  const postToChannel = async (on: boolean, event: "ENTERED" | "HIT" | "BROKEN", z: MessageZone, ctx: MessageContext) => {
+    if (!on) return;
+    try {
+      if (!channel) throw new Error("channel not configured (SIGNAL_BOT_TOKEN / SIGNAL_CHANNEL_ID)");
+      const id = await channel.post(channelMessage(event, z, ctx, username));
+      await prisma.analystZone.update({ where: { id: z.id }, data: { channelMessageId: id } });
+    } catch (e) {
+      logger.warn({ err: msg(e), zoneId: z.id }, "analyst channel post failed");
+      await prisma.analystZone.update({ where: { id: z.id }, data: { channelError: msg(e).slice(0, 300) } }).catch(() => {});
+    }
+  };
   const errors: string[] = [];
   let entered = 0, broken = 0, scored = 0, expired = 0;
 
@@ -106,7 +126,9 @@ export async function evaluateZones(deps: ZoneJobDeps) {
             const done = await prisma.analystZone.updateMany({ where: { id: z.id, state: "WAITING" }, data: { state: "BROKEN", enteredAt: new Date(hit.at), enteredPrice: hit.close } });
             if (done.count === 1) {
               broken++;
-              await notify(p.userId, zoneMessage("BROKEN", z, { planId: p.id, source: p.source, price: hit.close, agrees: [], newsRisk: null, invalidation: null }), deps.telegram);
+              const ctx = { planId: p.id, source: p.source, price: hit.close, agrees: [], newsRisk: null, invalidation: null };
+              await notify(p.userId, zoneMessage("BROKEN", z, ctx), deps.telegram);
+              await postToChannel(p.postToChannel, "BROKEN", z, ctx);
             }
           }
           continue;
@@ -125,9 +147,9 @@ export async function evaluateZones(deps: ZoneJobDeps) {
           if (done.count === 1) {
             entered++;
             const invalidation = p.zones.find((o) => o.kind === "INVALIDATION" && o.symbol === z.symbol && o.state === "WAITING") ?? null;
-            await notify(p.userId, zoneMessage(target ? "HIT" : "ENTERED", z, {
-              planId: p.id, source: p.source, price: hit.price, agrees: agree.get(z.id) ?? [], newsRisk: nearEvent(hit.at, events), invalidation,
-            }), deps.telegram);
+            const ctx = { planId: p.id, source: p.source, price: hit.price, agrees: agree.get(z.id) ?? [], newsRisk: nearEvent(hit.at, events), invalidation };
+            await notify(p.userId, zoneMessage(target ? "HIT" : "ENTERED", z, ctx), deps.telegram);
+            await postToChannel(p.postToChannel, target ? "HIT" : "ENTERED", z, ctx);
           }
           continue;
         }

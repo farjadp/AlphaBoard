@@ -47,9 +47,10 @@ export const PlanInput = z.object({
   events: Events.default([]),
   offsets: Offsets.default({}),
   expiresAt: z.iso.datetime({ offset: true }),
+  postToChannel: z.boolean().default(false),
   zones: z.array(ZoneInput).max(MAX_ZONES).default([]),
 });
-export const PlanPatch = PlanInput.pick({ source: true, title: true, events: true, offsets: true, expiresAt: true }).partial();
+export const PlanPatch = PlanInput.pick({ source: true, title: true, events: true, offsets: true, expiresAt: true, postToChannel: true }).partial();
 
 /** zod applies field defaults inside .partial(), so a patch keeps only the keys the caller actually sent. */
 function sentOnly<T extends object>(raw: unknown, parsed: T): Partial<T> {
@@ -63,13 +64,14 @@ const zoneDto = (zn: AnalystZone, agrees: string[] = []) => ({
   id: zn.id, symbol: zn.symbol, kind: zn.kind, low: zn.low, high: zn.high, direction: zn.direction, closeTf: zn.closeTf,
   condition: zn.condition, note: zn.note, uncertain: zn.uncertain, confirmed: zn.confirmed, state: zn.state,
   enteredAt: zn.enteredAt?.toISOString() ?? null, enteredPrice: zn.enteredPrice, outcome: zn.outcome, mfe: zn.mfe, mae: zn.mae,
-  scoredAt: zn.scoredAt?.toISOString() ?? null, agrees,
+  scoredAt: zn.scoredAt?.toISOString() ?? null, channelMessageId: zn.channelMessageId, channelError: zn.channelError, agrees,
 });
 export type ZoneDto = ReturnType<typeof zoneDto>;
 
 const planDto = (p: PlanRow, agree: Map<string, string[]> = new Map()) => ({
   id: p.id, source: p.source, title: p.title, status: p.status,
   events: p.events as Array<{ at: string; label: string }>, offsets: p.offsets as Record<string, number>,
+  postToChannel: p.postToChannel,
   expiresAt: p.expiresAt.toISOString(), activatedAt: p.activatedAt?.toISOString() ?? null, createdAt: p.createdAt.toISOString(),
   zones: p.zones.map((zn) => zoneDto(zn, agree.get(zn.id))),
 });
@@ -98,6 +100,7 @@ export async function createPlan(userId: string, input: z.input<typeof PlanInput
   const row = await prisma.analystPlan.create({
     data: {
       userId, source: p.source, title: p.title, rawText: p.rawText, events: p.events, offsets: p.offsets, expiresAt: new Date(p.expiresAt),
+      postToChannel: p.postToChannel,
       zones: { create: p.zones.map(zoneData) },
     },
     include: { zones: { orderBy: ZONE_ORDER } },
@@ -105,9 +108,12 @@ export async function createPlan(userId: string, input: z.input<typeof PlanInput
   return planDto(row);
 }
 
+/** Field patch on a draft. The channel switch alone may change on an active plan: it does not touch the scoring. */
 export async function updatePlan(userId: string, id: string, patch: z.input<typeof PlanPatch>): Promise<PlanDto> {
-  draftOnly(await ownPlan(userId, id));
+  const current = await ownPlan(userId, id);
   const p = sentOnly(patch, PlanPatch.parse(patch));
+  const onlyChannel = Object.keys(p).length > 0 && Object.keys(p).every((k) => k === "postToChannel");
+  if (!(onlyChannel && current.status === "ACTIVE")) draftOnly(current);
   await prisma.analystPlan.update({
     where: { id },
     data: { ...p, expiresAt: p.expiresAt ? new Date(p.expiresAt) : undefined },

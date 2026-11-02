@@ -65,6 +65,27 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     expect(z).toMatchObject({ state: "ENTERED", enteredPrice: 3940 });
   });
 
+  it("posts to the channel only for plans that ask for it, and keeps a failed post on the zone", async () => {
+    const posts: string[] = [];
+    const channel = { post: async (t: string) => { posts.push(t); return 77; }, reply: async () => 0 };
+    const quiet = await goldPlan();
+    const loud = await goldPlan({ source: "Loud", postToChannel: true });
+    const bars = [{ time: T0, open: 3960, high: 3965, low: 3955, close: 3960 }];
+    const r = await evaluateZones({ now: new Date(T0 + M5), barsOf: async () => bars, barsTfOf: async () => [], priceOf: async () => null, telegram: null, channel, channelUsername: "gheymat_today" });
+    expect(r.entered).toBe(2);
+    expect(posts).toHaveLength(1);
+    expect(posts[0]).toContain("بر اساس تحلیل: Loud");
+    expect(posts[0]).toContain("@gheymat_today");
+    expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: loud.id, kind: "SELL" } })).channelMessageId).toBe(77);
+    expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: quiet.id, kind: "SELL" } })).channelMessageId).toBeNull();
+
+    const failing = await goldPlan({ source: "Down", postToChannel: true, zones: [{ symbol: "XAU/USD", kind: "TARGET", low: 3930, high: 3950 }] });
+    const bad = { post: async () => { throw new Error("Forbidden: bot is not a member of the channel"); }, reply: async () => 0 };
+    const r2 = await evaluateZones({ now: new Date(T0 + 2 * M5), barsOf: async () => bars, barsTfOf: async () => [], priceOf: async () => null, telegram: null, channel: bad, channelUsername: null });
+    expect(r2.entered).toBe(1);
+    expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: failing.id } })).channelError).toMatch(/not a member/);
+  });
+
   it("breaks an invalidation only on a closed candle of its timeframe", async () => {
     const p = await goldPlan();
     const fourH = [{ time: T0, open: 3990, high: 4010, low: 3985, close: 4005 }]; // 4005 − 20 = 3985 > 3976

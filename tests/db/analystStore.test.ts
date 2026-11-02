@@ -50,6 +50,9 @@ describe.skipIf(!run)("analyst plans store (Postgres)", () => {
     // Active plans are frozen.
     await expect(updateZone(A, buy.id, { low: 3800 })).rejects.toThrow(/draft/i);
     await expect(updatePlan(A, p.id, { title: "x" })).rejects.toThrow(/draft/i);
+    // The channel switch alone may change on an active plan.
+    expect((await updatePlan(A, p.id, { postToChannel: true })).postToChannel).toBe(true);
+    await expect(updatePlan(A, p.id, { postToChannel: false, title: "x" })).rejects.toThrow(/draft/i);
     await expect(deletePlan(A, p.id)).rejects.toThrow(/archive/i);
   });
 
