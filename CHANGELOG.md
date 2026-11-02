@@ -4,6 +4,13 @@ All notable changes to AlphaBoard are documented here.
 
 ## [Unreleased]
 
+### P18a · Analyst Plans
+- Admin → Analysts: paste an outside analysis (a weekly video summary, a channel post, your own notes). AI lists its zones: buy, sell, target, invalidation, info. Numbers the source marks unclear, or that sit far from the market, must be confirmed one by one before the plan can be activated.
+- A per-symbol offset handles feeds that differ from the broker (gold here is COMEX futures, not spot).
+- The worker watches active plans in every tick. It sends one in-app + Telegram message when price enters a zone or reaches a target, with agreeing sources, the entry condition, the invalidation level and a news-risk line near a listed event. It also sends one when a closed candle breaks an invalidation level. Nothing places an order.
+- Each zone is scored: held / broke / unclear 24 h after the touch, untouched or missed at the week end. A scorecard per source builds each analyst's track record.
+- DXY (US Dollar Index) added to the market catalog.
+
 ### Paper positions fit the page
 - Open positions are a list instead of a wide table, so the panel no longer scrolls sideways; on phones each row wraps. The stop / target editor opens under its position with labelled fields.
 - Warnings on the row: a stop past the liquidation price (it can never fire), and no stop at 5× or more.

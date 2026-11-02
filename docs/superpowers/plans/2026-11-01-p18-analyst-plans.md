@@ -178,7 +178,7 @@ Limits: 20 non-archived plans, 60 zones per plan. Routes: `GET/POST /api/analyst
 Per tick, for ACTIVE plans:
 1. Plan past `expiresAt` → WAITING BUY/SELL → `EXPIRED` + outcome `UNTOUCHED`; WAITING TARGET → `MISSED`; plan → `ARCHIVED`. No message (the weekly summary is P18b).
 2. WAITING BUY/SELL/TARGET: `zoneTouched` on 5m bars + live quote → state `ENTERED` (TARGET: `SCORED`, outcome `HIT`), one notification.
-3. WAITING INVALIDATION: `closedBeyond` on `closeTf` bars → `BROKEN`, one notification, and every other WAITING zone of that symbol in the plan gets `note` "scenario invalidated" (still watched — the outcome data stays honest).
+3. WAITING INVALIDATION: `closedBeyond` on `closeTf` bars (including the candle already open at activation) → `BROKEN`, one notification telling the owner to treat the plan's other zones of that symbol with care. The other zones stay watched and unchanged, so the outcome data stays honest.
 4. ENTERED BUY/SELL: `scoreReaction` on 1H bars → `SCORED` (no message).
 5. Advance `lastCheckedAt` like `evaluateAlerts`.
 
@@ -201,7 +201,7 @@ Message (Persian, the owner's language), example:
 
 `/admin/analyst` (`requireAdmin`), linked in `AdminNav` as "Analyst Plans". Follows the P15 design tokens (`DESIGN.md`); RTL-safe for Persian notes (`dir="auto"` on free text).
 - **Paste box:** source name (datalist of earlier sources), textarea, Extract.
-- **Review table:** one row per zone — symbol, kind, low, high, condition, note, uncertain badge + Confirm checkbox; editable inline. Per-symbol strip: analyst ref price, feed price, offset input (prefilled `feed − ref` when both exist; amber warning on `=F` symbols with offset 0). Events list editable. Expiry date. Buttons: Save draft, Activate (disabled with a reason while uncertain zones are unconfirmed).
+- **Review table** (times in the viewer's local time): one row per zone — symbol, kind, low, high, condition, note, uncertain badge + Confirm checkbox; editable inline. Per-symbol strip: analyst ref price, feed price, offset input (prefilled `feed − ref` when both exist; amber warning on `=F` symbols with offset 0). Events list editable. Expiry date. Buttons: Save draft, Activate (disabled with a reason while uncertain zones are unconfirmed).
 - **Active plans:** zones with state chips (Waiting / Entered / Broken / Scored · outcome), consensus chips, archive.
 - **Scorecard:** per source — zones, touched %, respected / broke / unclear, targets hit / missed. Footnote: "n < 30 is not evidence."
 
