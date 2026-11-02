@@ -57,10 +57,10 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     const r2 = await evaluateZones({ ...deps, now: new Date(T0 + 4 * M5) });
     expect(r2.entered).toBe(0);
     expect(tg.sent).toHaveLength(1);
-    expect(tg.sent[0]).toContain("وارد زون فروش 3,940–3,976");
-    expect(tg.sent[0]).toContain("قیمت: 3,940");
-    expect(tg.sent[0]).toContain("ابطال: کلوز 4H بالای 3,976");
-    expect(tg.sent[0]).toContain("ریسک خبر: NFP");
+    expect(tg.sent[0]).toContain("وارد زون فروش 3,940 – 3,976");
+    expect(tg.sent[0]).toContain("💵 قیمت الان: 3,940");
+    expect(tg.sent[0]).toContain("❌ ابطال: کلوز 4H بالای 3,976");
+    expect(tg.sent[0]).toContain("خبر مهم نزدیک است: NFP");
     const z = await prisma.analystZone.findFirstOrThrow({ where: { planId: p.id, kind: "SELL" } });
     expect(z).toMatchObject({ state: "ENTERED", enteredPrice: 3940 });
   });
@@ -77,9 +77,9 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     expect(posts[0]).not.toContain("Loud");
     expect(posts[0]).toContain("@gheymat_today");
     // Sell entered at 3940: stop 13% above, first target 5% below, risk line with its reasons.
-    expect(posts[0]).toContain("حد ضرر: 4,452.2 (13%)");
-    expect(posts[0]).toContain("حد سود 1: 3,743 (5%) — ریسک‌فری و سیو سود");
-    expect(posts[0]).toContain("ریسک: متوسط — خبر مهم نزدیک است: NFP، منبع هنوز آمار کافی ندارد");
+    expect(posts[0]).toContain("🛑 SL: 4,452.2 (+13%)");
+    expect(posts[0]).toContain("🎯 TP1: 3,743 (-5%) ✅ ریسک‌فری و سیو سود");
+    expect(posts[0]).toContain("🟡 ریسک: متوسط\n   ▫️ خبر مهم نزدیک است: NFP\n   ▫️ منبع هنوز آمار کافی ندارد");
     expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: loud.id, kind: "SELL" } })).channelMessageId).toBe(77);
     expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: quiet.id, kind: "SELL" } })).channelMessageId).toBeNull();
 
@@ -90,6 +90,19 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: failing.id } })).channelError).toMatch(/not a member/);
   });
 
+  it("shows only the invalidation that fits the zone's side", async () => {
+    await goldPlan({ zones: [
+      { symbol: "XAU/USD", kind: "BUY", low: 3850, high: 3865 },
+      { symbol: "XAU/USD", kind: "INVALIDATION", low: 3976, high: 3976, direction: "ABOVE", closeTf: "4H" },
+      { symbol: "XAU/USD", kind: "INVALIDATION", low: 3830, high: 3830, direction: "BELOW", closeTf: "4H" },
+    ] });
+    // Feed 3880 − offset 20 = 3860: inside the buy zone.
+    await evaluateZones({ now: new Date(T0 + M5), barsOf: async () => [flat(T0, 3880)], barsTfOf: async () => [], priceOf: async () => null, telegram: tg.bot, channel: null });
+    expect(tg.sent).toHaveLength(1);
+    expect(tg.sent[0]).toContain("❌ ابطال: کلوز 4H زیر 3,830");
+    expect(tg.sent[0]).not.toContain("بالای 3,976");
+  });
+
   it("breaks an invalidation only on a closed candle of its timeframe", async () => {
     const p = await goldPlan();
     const fourH = [{ time: T0, open: 3990, high: 4010, low: 3985, close: 4005 }]; // 4005 − 20 = 3985 > 3976
@@ -97,7 +110,7 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     expect((await evaluateZones({ ...deps, now: new Date(T0 + 3 * H) })).broken).toBe(0);
     expect((await evaluateZones({ ...deps, now: new Date(T0 + 4 * H) })).broken).toBe(1);
     expect(tg.sent[0]).toContain("سناریو باطل شد");
-    expect(tg.sent[0]).toContain("کلوز: 3,985");
+    expect(tg.sent[0]).toContain("💵 کلوز: 3,985");
     expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: p.id, kind: "INVALIDATION" } })).state).toBe("BROKEN");
   });
 
@@ -119,7 +132,7 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
       { symbol: "XAU/USD", kind: "TARGET", low: 3500, high: 3500 },
     ] });
     await evaluateZones({ now: new Date(T0 + M5), barsOf: async () => [flat(T0, 3775)], barsTfOf: async () => [], priceOf: async () => null, telegram: tg.bot });
-    expect(tg.sent[0]).toContain("به تارگت 3,740–3,760 رسید");
+    expect(tg.sent[0]).toContain("به تارگت 3,740 – 3,760 رسید");
     const r = await evaluateZones({ now: new Date("2026-11-07T00:00:00Z"), barsOf: async () => [], barsTfOf: async () => [], priceOf: async () => null, telegram: tg.bot });
     expect(r.expired).toBe(1);
     const zones = await prisma.analystZone.findMany({ where: { planId: p.id }, orderBy: { low: "desc" } });

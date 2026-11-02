@@ -4,8 +4,9 @@ import { RISK_TEXT, type RiskLevel } from "./exits";
 import type { ZoneKind } from "./zones";
 
 /**
- * The in-app + Telegram text for an analyst-zone event (P18a), in Persian for the owner. Prices are in the
- * analyst's basis (the feed offset already removed), so they match the numbers the analysis wrote.
+ * The texts for an analyst-zone event (P18a), in Persian: the owner's in-app + Telegram message, and the public
+ * channel post. Prices are in the analyst's basis (the feed offset already removed), so they match the numbers
+ * the analysis wrote. Telegram gets plain text, so the layout is built from lines, separators and emoji.
  */
 export interface MessageZone {
   id: string;
@@ -34,63 +35,79 @@ export interface MessageContext {
   price: number;
   agrees: string[];
   newsRisk: string | null;
-  /** The plan's invalidation level for this symbol, if any. */
+  /** The plan's invalidation level for this symbol that fits the zone's side, if any. */
   invalidation: MessageZone | null;
   trade?: TradeContext | null;
 }
 
-const range = (z: { low: number; high: number }) => (z.low === z.high ? fmtPrice(z.low) : `${fmtPrice(z.low)}–${fmtPrice(z.high)}`);
-const breakText = (z: MessageZone) =>
-  `کلوز ${z.closeTf ?? "4H"} ${z.direction === "BELOW" ? "پایین" : "بالای"} ${fmtPrice(z.direction === "BELOW" ? z.low : z.high)}`;
+type ZoneEvent = "ENTERED" | "HIT" | "BROKEN";
+
+const SEP = "━━━━━━━━━━━━━━";
 const FOOTER = "این فقط هشدار است؛ هیچ سفارشی ثبت نشده.";
-const pctText = (n: number) => `${Number(n.toFixed(2))}%`;
+const CHANNEL_FOOTER = ["این هشدارِ رسیدن قیمت به یک سطح است، نه سیگنال ورود.", "تصمیم و مدیریت ریسک با خودتان."];
+const TRADE_FOOTER = ["ورود فقط بعد از دیدن شرط ورود.", "حجم معامله و مدیریت ریسک با خودتان."];
+const RISK_ICON: Record<RiskLevel, string> = { LOW: "🟢", MEDIUM: "🟡", HIGH: "🔴" };
 
-/** Stop, targets and the risk line; the first target is where the stop moves to entry and profit is saved. */
-function tradeLines(t: TradeContext): string[] {
-  return [
-    `حد ضرر: ${fmtPrice(t.stop)} (${pctText(t.stopPct)})`,
-    ...t.targets.map((x, i) => `حد سود ${i + 1}: ${fmtPrice(x.price)} (${pctText(x.pct)})${i === 0 ? " — ریسک‌فری و سیو سود" : ""}`),
-    `ریسک: ${RISK_TEXT[t.risk.level]}${t.risk.reasons.length ? ` — ${t.risk.reasons.join("، ")}` : ""}`,
-  ];
+const range = (z: { low: number; high: number }) => (z.low === z.high ? fmtPrice(z.low) : `${fmtPrice(z.low)} – ${fmtPrice(z.high)}`);
+const breakText = (z: MessageZone) =>
+  `کلوز ${z.closeTf ?? "4H"} ${z.direction === "BELOW" ? "زیر" : "بالای"} ${fmtPrice(z.direction === "BELOW" ? z.low : z.high)}`;
+const signed = (pct: number, sign: 1 | -1) => `${sign > 0 ? "+" : "-"}${Number(pct.toFixed(2))}%`;
+const sideText = (z: MessageZone) => (z.kind === "BUY" ? "خرید" : "فروش");
+
+/** The title shown in the notification list, and the header line of a post. */
+function heading(event: ZoneEvent, z: MessageZone): { title: string; header: string } {
+  if (event === "BROKEN") return { title: `⛔ ${z.symbol}: سناریو باطل شد`, header: `⛔ ${z.symbol} | سناریو باطل شد` };
+  if (event === "HIT") return { title: `🎯 ${z.symbol} به تارگت ${range(z)} رسید`, header: `🎯 ${z.symbol} | تارگت خورد` };
+  const dot = z.kind === "BUY" ? "🟢" : "🔴";
+  return { title: `${dot} ${z.symbol} وارد زون ${sideText(z)} ${range(z)} شد`, header: `${dot} ${z.symbol} | ورود به زون ${sideText(z)}` };
 }
 
-export function zoneMessage(event: "ENTERED" | "HIT" | "BROKEN", z: MessageZone, ctx: MessageContext): NewNotification & { type: "analyst_zone" } {
-  const data = { planId: ctx.planId, zoneId: z.id, symbol: z.symbol, price: ctx.price, href: "/admin/analyst" };
-  if (event === "BROKEN") {
-    return {
-      type: "analyst_zone",
-      title: `⛔ ${z.symbol}: سناریو باطل شد (${breakText(z)})`,
-      body: [`منبع: ${ctx.source} · کلوز: ${fmtPrice(ctx.price)}`, "زون‌های دیگر این نماد در این پلن را با احتیاط ببینید."].join("\n"),
-      data,
-    };
+/** The lines between the header and the footer, shared by the private message and the channel post. */
+function details(event: ZoneEvent, z: MessageZone, ctx: MessageContext): string[] {
+  if (event === "BROKEN") return [`❌ ${breakText(z)}`, `💵 کلوز: ${fmtPrice(ctx.price)}`, "⚠️ پوزیشن‌های باز این نماد را بازبینی کنید."];
+  if (event === "HIT") return [`📍 تارگت: ${range(z)}`, `💵 قیمت: ${fmtPrice(ctx.price)}`];
+
+  const lines = [`📍 ناحیه‌ی ورود: ${range(z)}`, `💵 قیمت الان: ${fmtPrice(ctx.price)}`];
+  const t = ctx.trade;
+  if (t) {
+    const dir = z.kind === "BUY" ? 1 : -1;
+    lines.push(
+      "",
+      ...t.targets.map((x, i) => `🎯 TP${i + 1}: ${fmtPrice(x.price)} (${signed(x.pct, dir)})${i === 0 ? " ✅ ریسک‌فری و سیو سود" : ""}`),
+      `🛑 SL: ${fmtPrice(t.stop)} (${signed(t.stopPct, dir > 0 ? -1 : 1)})`,
+    );
   }
-  const title = event === "HIT"
-    ? `🎯 ${z.symbol} به تارگت ${range(z)} رسید`
-    : `${z.kind === "BUY" ? "🟩" : "🟥"} ${z.symbol} وارد زون ${z.kind === "BUY" ? "خرید" : "فروش"} ${range(z)} شد`;
-  const lines = [`منبع: ${ctx.source} · قیمت: ${fmtPrice(ctx.price)}`];
-  if (ctx.agrees.length) lines.push(`هم‌نظر: ${ctx.agrees.join("، ")}`);
-  if (event === "ENTERED") {
-    if (z.condition) lines.push(`شرط ورود: ${z.condition}`);
-    if (z.explain) lines.push(`توضیح: ${z.explain}`);
-    if (ctx.trade) lines.push(...tradeLines(ctx.trade));
-    if (ctx.invalidation) lines.push(`ابطال: ${breakText(ctx.invalidation)}`);
-  }
-  if (ctx.newsRisk) lines.push(`⚠️ ریسک خبر: ${ctx.newsRisk}`);
-  lines.push(FOOTER);
-  return { type: "analyst_zone", title, body: lines.join("\n"), data };
+  const notes: string[] = [];
+  if (z.condition) notes.push(`⏳ شرط ورود: ${z.condition}`);
+  if (z.explain) notes.push(`💡 ${z.explain}`);
+  if (t) notes.push(`${RISK_ICON[t.risk.level]} ریسک: ${RISK_TEXT[t.risk.level]}`, ...t.risk.reasons.map((r) => `   ▫️ ${r}`));
+  else if (ctx.newsRisk) notes.push(`⚠️ خبر مهم نزدیک است: ${ctx.newsRisk}`);
+  if (ctx.invalidation) notes.push(`❌ ابطال: ${breakText(ctx.invalidation)}`);
+  if (notes.length) lines.push(SEP, ...notes);
+  return lines;
 }
 
-const CHANNEL_FOOTER = "این هشدارِ رسیدن قیمت به یک سطح است، نه سیگنال ورود. تصمیم و مدیریت ریسک با خودتان.";
-const TRADE_FOOTER = "ورود فقط بعد از دیدن شرط ورود. حجم معامله و مدیریت ریسک با خودتان.";
+export function zoneMessage(event: ZoneEvent, z: MessageZone, ctx: MessageContext): NewNotification & { type: "analyst_zone" } {
+  const who = [`📌 منبع: ${ctx.source}`, ...(ctx.agrees.length ? [`🤝 هم‌نظر: ${ctx.agrees.join("، ")}`] : [])];
+  return {
+    type: "analyst_zone",
+    title: heading(event, z).title,
+    body: [...who, ...details(event, z, ctx), "", FOOTER].join("\n"),
+    data: { planId: ctx.planId, zoneId: z.id, symbol: z.symbol, price: ctx.price, href: "/admin/analyst" },
+  };
+}
 
 /**
- * The public channel post for the same event: leaves out the owner's private context (source, agreeing sources,
- * the "no order was placed" note). Without exits it says plainly that it is not an entry signal; with them, that the
- * entry waits for the condition and sizing is the reader's own.
+ * The public channel post: no source or agreeing sources, a separator under the header, and a footer that matches
+ * what the post carries (an entry with exits waits for the condition; a bare level alert is not an entry signal).
  */
-export function channelMessage(event: "ENTERED" | "HIT" | "BROKEN", z: MessageZone, ctx: MessageContext, username: string | null): string {
-  const m = zoneMessage(event, z, { ...ctx, agrees: [] });
-  const body = m.body.split("\n").filter((l) => !l.startsWith("منبع:") && l !== FOOTER && !l.startsWith("زون‌های دیگر"));
-  const price = event === "BROKEN" ? `کلوز: ${fmtPrice(ctx.price)}` : `قیمت: ${fmtPrice(ctx.price)}`;
-  return [m.title, price, ...body, "", ctx.trade ? TRADE_FOOTER : CHANNEL_FOOTER, ...(username ? [`@${username.replace(/^@/, "")}`] : [])].join("\n");
+export function channelMessage(event: ZoneEvent, z: MessageZone, ctx: MessageContext, username: string | null): string {
+  const footer = event === "ENTERED" ? (ctx.trade ? TRADE_FOOTER : CHANNEL_FOOTER) : [];
+  return [
+    heading(event, z).header,
+    SEP,
+    ...details(event, z, ctx),
+    ...(footer.length ? ["", ...footer] : []),
+    ...(username ? ["", `@${username.replace(/^@/, "")}`] : []),
+  ].join("\n");
 }

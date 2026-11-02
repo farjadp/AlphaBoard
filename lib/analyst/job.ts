@@ -187,7 +187,9 @@ export async function evaluateZones(deps: ZoneJobDeps) {
           });
           if (done.count === 1) {
             entered++;
-            const invalidation = p.zones.find((o) => o.kind === "INVALIDATION" && o.symbol === z.symbol && o.state === "WAITING") ?? null;
+            // A buy is cancelled by a close below, a sell by a close above; a target carries no invalidation.
+            const breakSide = z.kind === "BUY" ? "BELOW" : z.kind === "SELL" ? "ABOVE" : null;
+            const invalidation = p.zones.find((o) => o.kind === "INVALIDATION" && o.symbol === z.symbol && o.state === "WAITING" && o.direction === breakSide) ?? null;
             const newsRisk = nearEvent(hit.at, events);
             const trade = target ? null : await tradeFor(p, z, hit.price, newsRisk).catch((e) => { errors.push(`trade ${z.id}: ${msg(e)}`); return null; });
             const ctx = { planId: p.id, source: p.source, price: hit.price, agrees: agree.get(z.id) ?? [], newsRisk, invalidation, trade };
