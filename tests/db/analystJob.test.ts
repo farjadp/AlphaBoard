@@ -76,6 +76,10 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     expect(posts).toHaveLength(1);
     expect(posts[0]).not.toContain("Loud");
     expect(posts[0]).toContain("@gheymat_today");
+    // Sell entered at 3940: stop 13% above, first target 5% below, risk line with its reasons.
+    expect(posts[0]).toContain("حد ضرر: 4,452.2 (13%)");
+    expect(posts[0]).toContain("حد سود 1: 3,743 (5%) — ریسک‌فری و سیو سود");
+    expect(posts[0]).toContain("ریسک: متوسط — خبر مهم نزدیک است: NFP، منبع هنوز آمار کافی ندارد");
     expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: loud.id, kind: "SELL" } })).channelMessageId).toBe(77);
     expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: quiet.id, kind: "SELL" } })).channelMessageId).toBeNull();
 

@@ -36,6 +36,7 @@ function ZoneRow({ z, draft, onError }: { z: ZoneDto; draft: boolean; onError: (
       <td className="pr-3 text-xs text-ink-2">
         {z.agrees.length > 0 && <span className="mb-1 inline-block rounded bg-accent-soft px-1.5 py-0.5 font-semibold text-accent">agrees: {z.agrees.join(", ")}</span>}
         {z.condition && <p dir="auto">{z.condition}</p>}
+        {z.explain && <p dir="auto" className="text-ink-3">{z.explain}</p>}
         {z.note && <p dir="auto" className="text-ink-3">{z.note}</p>}
       </td>
       <td className="py-1.5 text-xs">
@@ -66,6 +67,7 @@ function PlanCard({ p, channel }: { p: PlanDto; channel: string | null }) {
           <h3 className="font-display text-base font-bold text-ink" dir="auto">{p.source}{p.title ? ` · ${p.title}` : ""}</h3>
           <p className="text-xs text-ink-3">
             {p.status === "ACTIVE" ? "Watching" : draft ? "Draft" : "Archived"} · until {when(p.expiresAt)}
+            {" "}· stop {p.stopPct}% · targets {p.targetPcts.join(" / ")}%
             {offsets.length > 0 && <> · offset {offsets.map(([s, v]) => `${s} ${v > 0 ? "+" : ""}${v}`).join(", ")}</>}
             {p.events.length > 0 && <> · events: {p.events.map((e) => `${e.label} ${when(e.at)}`).join(", ")}</>}
           </p>

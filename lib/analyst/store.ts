@@ -25,6 +25,7 @@ const ZoneFields = z.object({
   direction: z.enum(["ABOVE", "BELOW"]).nullable().default(null),
   closeTf: z.enum(["1H", "4H", "1D"]).nullable().default(null),
   condition: optText(200).default(null),
+  explain: optText(300).default(null),
   note: optText(200).default(null),
   uncertain: z.boolean().default(false),
   /** An uncertain zone the owner already checked during review. */
@@ -48,9 +49,11 @@ export const PlanInput = z.object({
   offsets: Offsets.default({}),
   expiresAt: z.iso.datetime({ offset: true }),
   postToChannel: z.boolean().default(false),
+  stopPct: z.number().gt(0).max(50).default(13),
+  targetPcts: z.array(z.number().gt(0).max(500)).max(6).default([5, 8, 34, 55]),
   zones: z.array(ZoneInput).max(MAX_ZONES).default([]),
 });
-export const PlanPatch = PlanInput.pick({ source: true, title: true, events: true, offsets: true, expiresAt: true, postToChannel: true }).partial();
+export const PlanPatch = PlanInput.pick({ source: true, title: true, events: true, offsets: true, expiresAt: true, postToChannel: true, stopPct: true, targetPcts: true }).partial();
 
 /** zod applies field defaults inside .partial(), so a patch keeps only the keys the caller actually sent. */
 function sentOnly<T extends object>(raw: unknown, parsed: T): Partial<T> {
@@ -62,7 +65,7 @@ type PlanRow = AnalystPlan & { zones: AnalystZone[] };
 
 const zoneDto = (zn: AnalystZone, agrees: string[] = []) => ({
   id: zn.id, symbol: zn.symbol, kind: zn.kind, low: zn.low, high: zn.high, direction: zn.direction, closeTf: zn.closeTf,
-  condition: zn.condition, note: zn.note, uncertain: zn.uncertain, confirmed: zn.confirmed, state: zn.state,
+  condition: zn.condition, explain: zn.explain, note: zn.note, uncertain: zn.uncertain, confirmed: zn.confirmed, state: zn.state,
   enteredAt: zn.enteredAt?.toISOString() ?? null, enteredPrice: zn.enteredPrice, outcome: zn.outcome, mfe: zn.mfe, mae: zn.mae,
   scoredAt: zn.scoredAt?.toISOString() ?? null, channelMessageId: zn.channelMessageId, channelError: zn.channelError, agrees,
 });
@@ -71,7 +74,7 @@ export type ZoneDto = ReturnType<typeof zoneDto>;
 const planDto = (p: PlanRow, agree: Map<string, string[]> = new Map()) => ({
   id: p.id, source: p.source, title: p.title, status: p.status,
   events: p.events as Array<{ at: string; label: string }>, offsets: p.offsets as Record<string, number>,
-  postToChannel: p.postToChannel,
+  postToChannel: p.postToChannel, stopPct: p.stopPct, targetPcts: p.targetPcts,
   expiresAt: p.expiresAt.toISOString(), activatedAt: p.activatedAt?.toISOString() ?? null, createdAt: p.createdAt.toISOString(),
   zones: p.zones.map((zn) => zoneDto(zn, agree.get(zn.id))),
 });
@@ -100,7 +103,7 @@ export async function createPlan(userId: string, input: z.input<typeof PlanInput
   const row = await prisma.analystPlan.create({
     data: {
       userId, source: p.source, title: p.title, rawText: p.rawText, events: p.events, offsets: p.offsets, expiresAt: new Date(p.expiresAt),
-      postToChannel: p.postToChannel,
+      postToChannel: p.postToChannel, stopPct: p.stopPct, targetPcts: [...p.targetPcts].sort((a, b) => a - b),
       zones: { create: p.zones.map(zoneData) },
     },
     include: { zones: { orderBy: ZONE_ORDER } },

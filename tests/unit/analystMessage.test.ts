@@ -60,3 +60,39 @@ describe("channelMessage", () => {
     ]);
   });
 });
+
+describe("trade lines", () => {
+  const trade = {
+    stop: 3358.2, stopPct: 13,
+    targets: [{ price: 4053, pct: 5 }, { price: 4168.8, pct: 8 }, { price: 5172.4, pct: 34 }, { price: 5983, pct: 55 }],
+    risk: { level: "MEDIUM" as const, reasons: ["خلاف روند ۴ساعته", "منبع هنوز آمار کافی ندارد"] },
+  };
+  const buy = { ...sell, kind: "BUY" as const, low: 3850, high: 3865, explain: "صبر کنید تا در تایم ۱۵ دقیقه کندل برگشتی ببینید." };
+
+  it("adds the explanation, stop, targets (first one = risk-free) and risk to a zone entry", () => {
+    const text = channelMessage("ENTERED", buy, { planId: "p", source: "X", price: 3860, agrees: [], newsRisk: null, invalidation: inv, trade }, "gheymat_today");
+    expect(text.split("\n")).toEqual([
+      "🟩 XAU/USD وارد زون خرید 3,850–3,865 شد",
+      "قیمت: 3,860",
+      "شرط ورود: only with a 15m trigger",
+      "توضیح: صبر کنید تا در تایم ۱۵ دقیقه کندل برگشتی ببینید.",
+      "حد ضرر: 3,358.2 (13%)",
+      "حد سود 1: 4,053 (5%) — ریسک‌فری و سیو سود",
+      "حد سود 2: 4,168.8 (8%)",
+      "حد سود 3: 5,172.4 (34%)",
+      "حد سود 4: 5,983 (55%)",
+      "ریسک: متوسط — خلاف روند ۴ساعته، منبع هنوز آمار کافی ندارد",
+      "ابطال: کلوز 4H بالای 3,976",
+      "",
+      "ورود فقط بعد از دیدن شرط ورود. حجم معامله و مدیریت ریسک با خودتان.",
+      "@gheymat_today",
+    ]);
+  });
+
+  it("keeps the private message's footer and source", () => {
+    const m = zoneMessage("ENTERED", buy, { planId: "p", source: "X", price: 3860, agrees: [], newsRisk: null, invalidation: null, trade });
+    expect(m.body.split("\n")[0]).toBe("منبع: X · قیمت: 3,860");
+    expect(m.body).toContain("حد سود 1: 4,053 (5%) — ریسک‌فری و سیو سود");
+    expect(m.body.split("\n").at(-1)).toBe("این فقط هشدار است؛ هیچ سفارشی ثبت نشده.");
+  });
+});

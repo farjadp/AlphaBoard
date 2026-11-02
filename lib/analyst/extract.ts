@@ -66,10 +66,11 @@ export const ANALYST_EXTRACT_JSON = {
           direction: { type: ["string", "null"], enum: ["ABOVE", "BELOW", null] },
           closeTf: { type: ["string", "null"], enum: ["1H", "4H", "1D", null] },
           condition: n("string"),
+          explain: n("string"),
           note: n("string"),
           uncertain: { type: "boolean" },
         },
-        required: ["symbol", "kind", "low", "high", "direction", "closeTf", "condition", "note", "uncertain"],
+        required: ["symbol", "kind", "low", "high", "direction", "closeTf", "condition", "explain", "note", "uncertain"],
         additionalProperties: false,
       },
     },
@@ -84,18 +85,19 @@ Return ONLY a JSON object:
 - "source": the analyst's name if stated, else null. "title": a short title (e.g. the week it covers), else null.
 - "refPrices": the current price the analysis states for each instrument ("current price 3875"), as { "symbol", "price" }. [] when none.
 - "events": scheduled risk events it names with a date and time (NFP, CPI, FOMC, elections), as { "at": ISO 8601 UTC, "label" }. Skip any without a clear date.
-- "zones": one entry per zone or level, as { "symbol", "kind", "low", "high", "direction", "closeTf", "condition", "note", "uncertain" }:
+- "zones": one entry per zone or level, as { "symbol", "kind", "low", "high", "direction", "closeTf", "condition", "explain", "note", "uncertain" }:
   - "symbol": the instrument as written (e.g. "XAUUSD", "طلا", "US30", "DXY").
   - "kind": "BUY" = an area to buy from; "SELL" = an area to sell from (resistance to sell); "TARGET" = a price objective; "INVALIDATION" = a level that cancels the scenario when price closes beyond it; "INFO" = any other level worth showing (liquidity, current range edges).
   - "low"/"high": the two ends of the zone ("3865 to 3850" → 3850 and 3865). A single price → the same number in both.
   - "direction": for INVALIDATION only, "ABOVE" or "BELOW" (which side cancels the scenario); else null. "closeTf": the timeframe whose close counts ("1H", "4H", "1D"), or null.
   - "condition": the entry condition as written ("only with a trigger on a lower timeframe"), else null. "note": a few words of context, else null.
+  - "explain": for BUY and SELL zones with a condition, one or two short sentences in plain Persian telling a non-expert reader what the condition means in practice and what to wait for before entering (e.g. what a "trigger on a lower timeframe" looks like on the 5- or 15-minute chart). Do not add levels or advice the analysis does not contain. Otherwise null.
   - "uncertain": true when the text itself marks the number as unclear (⚠️, "check on the chart", two conflicting numbers, a garbled figure such as "12400" for a pair that trades near 1.16).
 
 Use exactly these key names and these English "kind" values. Write every price as a JSON number with Western digits (3850, not "۳۸۵۰"). Copy the value exactly as written; never correct, round or invent one — mark doubt with "uncertain" instead. Ignore claims about past profits, critiques and general commentary.
 
 Example of the exact shape:
-{"source":"Nima","title":"Week of Nov 2","refPrices":[{"symbol":"XAUUSD","price":3875}],"events":[{"at":"2026-11-06T13:30:00Z","label":"NFP"}],"zones":[{"symbol":"XAUUSD","kind":"SELL","low":3940,"high":3976,"direction":null,"closeTf":null,"condition":null,"note":"fib 38-50%","uncertain":false},{"symbol":"XAUUSD","kind":"INVALIDATION","low":3976,"high":3976,"direction":"ABOVE","closeTf":"4H","condition":null,"note":null,"uncertain":false}]}`;
+{"source":"Nima","title":"Week of Nov 2","refPrices":[{"symbol":"XAUUSD","price":3875}],"events":[{"at":"2026-11-06T13:30:00Z","label":"NFP"}],"zones":[{"symbol":"XAUUSD","kind":"SELL","low":3940,"high":3976,"direction":null,"closeTf":null,"condition":"sell only after a lower-timeframe trigger","explain":"وقتی قیمت به این ناحیه رسید فوراً نفروشید؛ صبر کنید تا در تایم ۵ یا ۱۵ دقیقه نشانه‌ی برگشت ببینید، مثلاً شکست کف آخر یا کندل برگشتی، و بعد وارد شوید.","note":"fib 38-50%","uncertain":false},{"symbol":"XAUUSD","kind":"INVALIDATION","low":3976,"high":3976,"direction":"ABOVE","closeTf":"4H","condition":null,"explain":null,"note":null,"uncertain":false}]}`;
 
 /** Persian and Arabic-Indic digits and separators → ASCII, so "۳۸۵۰" and "۱٫۳۴" read as numbers. */
 export function westernDigits(text: string): string {
@@ -134,6 +136,7 @@ export interface ZoneDraft {
   direction: "ABOVE" | "BELOW" | null;
   closeTf: CloseTf | null;
   condition: string | null;
+  explain: string | null;
   note: string | null;
   uncertain: boolean;
 }
@@ -249,7 +252,7 @@ export function draftFromExtract(x: AnalystExtract, now: Date, feed: Record<stri
       uncertain = true;
       warnings.push(`${symbol} ${fmtRange(low, high)} is far from the reference price ${ref}: check it`);
     }
-    zones.push({ symbol, kind: zoneKind, low, high, direction, closeTf, condition: str(z.condition, 200), note: str(z.note, 200), uncertain });
+    zones.push({ symbol, kind: zoneKind, low, high, direction, closeTf, condition: str(z.condition, 200), explain: zoneKind === "BUY" || zoneKind === "SELL" ? str(pick(z, "explain", "explanation"), 300) : null, note: str(z.note, 200), uncertain });
   });
   if (x.zones.length > MAX_ZONES) warnings.push(`Only the first ${MAX_ZONES} zones were kept`);
   if (x.zones.length === 0) warnings.push("The model found no zones in this text: check that it lists prices, or add zones by hand");

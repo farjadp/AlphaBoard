@@ -7,7 +7,7 @@ import type { ZoneDraft } from "@/lib/analyst/extract";
 const run = !!process.env.TEST_DATABASE_URL;
 
 const zone = (over: Partial<ZoneDraft> = {}): ZoneDraft => ({
-  symbol: "XAU/USD", kind: "SELL", low: 3940, high: 3976, direction: null, closeTf: null, condition: null, note: null, uncertain: false, ...over,
+  symbol: "XAU/USD", kind: "SELL", low: 3940, high: 3976, direction: null, closeTf: null, condition: null, explain: null, note: null, uncertain: false, ...over,
 });
 const NOW = new Date("2026-11-01T23:00:00Z");
 const plan = (over: Record<string, unknown> = {}) => ({
