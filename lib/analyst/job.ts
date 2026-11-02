@@ -9,7 +9,9 @@ import { channelFromEnv, type Channel } from "@/lib/signalDesk/channel";
 import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
 import type { PriceOf } from "@/lib/paper/account";
-import { channelMessage, zoneMessage, type MessageContext, type MessageZone } from "./message";
+import { calculateIndicatorSnapshot, computeAtr } from "@/lib/market/indicators";
+import { exitsFor, riskLevel } from "./exits";
+import { channelMessage, zoneMessage, type MessageContext, type MessageZone, type TradeContext } from "./message";
 import { agreements, closedBeyond, nearEvent, scoreReaction, zoneTouched, type Bar } from "./zones";
 
 /**
@@ -104,6 +106,45 @@ export async function evaluateZones(deps: ZoneJobDeps) {
     return typeof v === "number" && Number.isFinite(v) ? v : 0;
   };
 
+  // A source's reached zones and how many held, once per owner + source per tick.
+  const records = new Map<string, Promise<{ touched: number; respected: number }>>();
+  const recordOf = (userId: string, source: string) => {
+    const key = `${userId} ${source.trim().toLowerCase()}`;
+    if (!records.has(key)) {
+      records.set(key, prisma.analystZone.findMany({
+        where: { plan: { userId, source: { equals: source.trim(), mode: "insensitive" } }, outcome: { in: ["RESPECTED", "BROKE", "UNCLEAR"] } },
+        select: { outcome: true },
+      }).then((rows) => ({ touched: rows.length, respected: rows.filter((r) => r.outcome === "RESPECTED").length })));
+    }
+    return records.get(key)!;
+  };
+
+  /** Stop, targets and the rule-based risk level for a buy/sell zone just entered. */
+  const tradeFor = async (p: { userId: string; source: string; stopPct: number; targetPcts: number[] }, z: AnalystZone, price: number, newsRisk: string | null): Promise<TradeContext> => {
+    const side = z.kind === "BUY" ? "BUY" : "SELL";
+    const { stop, targets } = exitsFor(side, price, p.stopPct, p.targetPcts);
+    const [bars4h, bars1h, bars5m, record] = await Promise.all([
+      load(`${z.symbol} 4H`, () => barsTfOf(z.symbol, "4H")),
+      load(`${z.symbol} 1H`, () => barsTfOf(z.symbol, "1H")),
+      fiveMin(z.symbol),
+      recordOf(p.userId, p.source),
+    ]);
+    const trend = calculateIndicatorSnapshot("4H", bars4h);
+    const lastHour = bars5m.filter((b) => b.time > t - 3_600_000);
+    return {
+      stop, stopPct: p.stopPct,
+      targets: targets.map((x, i) => ({ price: x, pct: p.targetPcts[i] })),
+      risk: riskLevel({
+        side,
+        trend4h: trend.available === false ? null : trend.trendSignal ?? null,
+        newsRisk,
+        atr1h: computeAtr(bars1h),
+        lastHourRange: lastHour.length ? Math.max(...lastHour.map((b) => b.high)) - Math.min(...lastHour.map((b) => b.low)) : null,
+        record,
+      }),
+    };
+  };
+
   // Agreement across each owner's active plans.
   const byUser = new Map<string, Array<AnalystZone & { source: string }>>();
   for (const p of plans) byUser.set(p.userId, [...(byUser.get(p.userId) ?? []), ...p.zones.map((z) => ({ ...z, source: p.source }))]);
@@ -147,7 +188,9 @@ export async function evaluateZones(deps: ZoneJobDeps) {
           if (done.count === 1) {
             entered++;
             const invalidation = p.zones.find((o) => o.kind === "INVALIDATION" && o.symbol === z.symbol && o.state === "WAITING") ?? null;
-            const ctx = { planId: p.id, source: p.source, price: hit.price, agrees: agree.get(z.id) ?? [], newsRisk: nearEvent(hit.at, events), invalidation };
+            const newsRisk = nearEvent(hit.at, events);
+            const trade = target ? null : await tradeFor(p, z, hit.price, newsRisk).catch((e) => { errors.push(`trade ${z.id}: ${msg(e)}`); return null; });
+            const ctx = { planId: p.id, source: p.source, price: hit.price, agrees: agree.get(z.id) ?? [], newsRisk, invalidation, trade };
             await notify(p.userId, zoneMessage(target ? "HIT" : "ENTERED", z, ctx), deps.telegram);
             await postToChannel(p.postToChannel, target ? "HIT" : "ENTERED", z, ctx);
           }

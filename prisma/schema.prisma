@@ -1145,6 +1145,9 @@ model AnalystPlan {
   activatedAt DateTime?
   /// Also post each zone event to the public signals channel (SIGNAL_BOT_TOKEN); off unless the owner turns it on.
   postToChannel Boolean           @default(false)
+  /// Stop-loss and targets for buy/sell zone alerts, as percents of the entry price.
+  stopPct     Float             @default(13)
+  targetPcts  Float[]           @default([5, 8, 34, 55])
   createdAt   DateTime          @default(now())
 
   zones AnalystZone[]
@@ -1168,6 +1171,8 @@ model AnalystZone {
   closeTf       String?
   /// Entry condition as written, e.g. "only with a lower-timeframe trigger".
   condition     String?
+  /// Plain-language explanation of the condition for readers, written by the model and reviewed by the owner.
+  explain       String?
   note          String?
   /// The model was not sure of the number; it must be confirmed before the plan can be activated.
   uncertain     Boolean          @default(false)

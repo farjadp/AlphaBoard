@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "AnalystPlan" ADD COLUMN     "stopPct" DOUBLE PRECISION NOT NULL DEFAULT 13,
+ADD COLUMN     "targetPcts" DOUBLE PRECISION[] DEFAULT ARRAY[5, 8, 34, 55]::DOUBLE PRECISION[];
+
+-- AlterTable
+ALTER TABLE "AnalystZone" ADD COLUMN     "explain" TEXT;
+

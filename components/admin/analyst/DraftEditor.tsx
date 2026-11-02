@@ -40,6 +40,8 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
   const [offsets, setOffsets] = useState(() => offsetsFrom(result));
   const [rows, setRows] = useState<Row[]>(() => d.zones.map((z) => ({ ...z, low: String(z.low), high: String(z.high), key: nextKey++, confirmed: false })));
   const [postToChannel, setPostToChannel] = useState(false);
+  const [stopPct, setStopPct] = useState("13");
+  const [targetPcts, setTargetPcts] = useState("5, 8, 34, 55");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,6 +54,7 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
     try {
       const { plan } = await api<{ plan: PlanDto }>("/api/analyst/plans", "POST", {
         source: source.trim(), title: title.trim() || null, rawText, expiresAt: fromLocalInput(expiresAt), postToChannel,
+        stopPct: Number(stopPct), targetPcts: targetPcts.split(/[,،\s]+/).filter(Boolean).map(Number),
         events: events.filter((e) => e.label.trim() && e.at).map((e) => ({ at: fromLocalInput(e.at), label: e.label.trim() })),
         offsets: Object.fromEntries(symbols.map((s) => [s, Number(offsets[s] ?? 0) || 0])),
         zones: rows.map(({ key: _key, ...z }) => ({ ...z, low: Number(z.low), high: Number(z.high), direction: z.kind === "INVALIDATION" ? z.direction : null, closeTf: z.kind === "INVALIDATION" ? z.closeTf ?? "4H" : null })),
@@ -166,6 +169,10 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
                   </td>
                   <td className="pr-2 py-1">
                     <input aria-label="Condition" dir="auto" className={`${cell} w-full min-w-[10rem]`} placeholder="Condition" value={r.condition ?? ""} onChange={(e) => set(r.key, { condition: e.target.value || null })} />
+                    {(r.kind === "BUY" || r.kind === "SELL") && (
+                      <textarea aria-label="Explanation for readers" dir="auto" rows={2} className={`${cell} mt-1 w-full min-w-[10rem]`} placeholder="Explanation for readers"
+                        value={r.explain ?? ""} onChange={(e) => set(r.key, { explain: e.target.value || null })} />
+                    )}
                     {r.note && <p dir="auto" className="mt-1 text-xs text-ink-3">{r.note}</p>}
                   </td>
                   <td className="pr-2 py-1.5">
@@ -183,7 +190,7 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
         </div>
         {rows.length === 0 && <p className="py-3 text-sm text-ink-3">No zones were read from the text. Add them by hand, or paste again.</p>}
         <button type="button" className={`${btnQuiet} mt-2`}
-          onClick={() => setRows((rs) => [...rs, { symbol: rs.at(-1)?.symbol ?? "XAU/USD", kind: "BUY", low: "", high: "", direction: null, closeTf: null, condition: null, note: null, uncertain: false, confirmed: false, key: nextKey++ }])}>
+          onClick={() => setRows((rs) => [...rs, { symbol: rs.at(-1)?.symbol ?? "XAU/USD", kind: "BUY", low: "", high: "", direction: null, closeTf: null, condition: null, explain: null, note: null, uncertain: false, confirmed: false, key: nextKey++ }])}>
           Add zone
         </button>
         <p className={hint}>Amber rows are numbers the source itself marked unclear, or that sit far from the market. Check each on the chart, fix it, then tick Confirm.</p>
@@ -205,13 +212,28 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
       </div>
 
       <div>
+        <h3 className={label}>Stop-loss and targets for buy/sell alerts</h3>
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label htmlFor="ap-stop" className={label}>Stop-loss %</label>
+            <input id="ap-stop" inputMode="decimal" className={`${cell} w-24`} value={stopPct} onChange={(e) => setStopPct(e.target.value)} />
+          </div>
+          <div>
+            <label htmlFor="ap-tps" className={label}>Targets % (first = risk-free)</label>
+            <input id="ap-tps" className={`${cell} w-48`} value={targetPcts} onChange={(e) => setTargetPcts(e.target.value)} />
+          </div>
+        </div>
+        <p className={hint}>Percent of price from the entry. On gold at 3,860, 13% is about 500 dollars and 55% about 2,100: check they fit the market you post.</p>
+      </div>
+
+      <div>
         <label className="flex items-center gap-2 text-sm font-semibold text-ink">
           <input type="checkbox" checked={postToChannel} disabled={!channel} onChange={(e) => setPostToChannel(e.target.checked)} />
           Also post these alerts to {channel ? `@${channel}` : "the Telegram channel"}
         </label>
         <p className={hint}>
           {channel
-            ? "Each post names this source and says it is a level alert, not an entry signal. You can turn it off later on the plan."
+            ? "Each post says it is a level alert, not an entry signal; the source is not named. You can turn it off later on the plan."
             : "The channel bot is not configured (SIGNAL_BOT_TOKEN, SIGNAL_CHANNEL_ID)."}
         </p>
       </div>
