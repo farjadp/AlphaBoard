@@ -38,7 +38,9 @@ describe.skipIf(!run)("analyst plans store (Postgres)", () => {
     const p = await createPlan(A, plan());
     await expect(activatePlan(A, p.id, NOW)).rejects.toThrow(/confirm/i);
     const buy = p.zones.find((z) => z.kind === "BUY")!;
-    await updateZone(A, buy.id, { low: 3852, confirmed: true });
+    await updateZone(A, buy.id, { confirmed: true, condition: "15m trigger" });
+    const kept = await updateZone(A, buy.id, { low: 3852 });
+    expect(kept).toMatchObject({ low: 3852, confirmed: true, condition: "15m trigger", uncertain: true });
     const active = await activatePlan(A, p.id, NOW);
     expect(active.status).toBe("ACTIVE");
     expect(active.zones.every((z) => z.state === "WAITING")).toBe(true);
@@ -66,6 +68,7 @@ describe.skipIf(!run)("analyst plans store (Postgres)", () => {
     await expect(updateZone(A, z.id, { low: 4000, high: 3990 })).rejects.toThrow(/low/i);
     const u = await updatePlan(A, p.id, { offsets: { "XAU/USD": 18.5 }, events: [{ at: "2026-11-06T13:30:00Z", label: "NFP" }] });
     expect(u).toMatchObject({ offsets: { "XAU/USD": 18.5 }, events: [{ at: "2026-11-06T13:30:00.000Z", label: "NFP" }] });
+    expect(await updatePlan(A, p.id, { title: "renamed" })).toMatchObject({ title: "renamed", offsets: { "XAU/USD": 18.5 } });
     await deletePlan(A, p.id);
     expect((await listPlans(A)).some((x) => x.id === p.id)).toBe(false);
   });

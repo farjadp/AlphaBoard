@@ -27,13 +27,15 @@ const ZoneFields = z.object({
   condition: optText(200).default(null),
   note: optText(200).default(null),
   uncertain: z.boolean().default(false),
+  /** An uncertain zone the owner already checked during review. */
+  confirmed: z.boolean().default(false),
 });
 const checkZone = <T extends { low?: number; high?: number; kind?: string; direction?: string | null }>(zn: T, ctx: z.RefinementCtx) => {
   if (zn.low != null && zn.high != null && zn.low > zn.high) ctx.addIssue({ code: "custom", message: "low must not be above high" });
   if (zn.kind === "INVALIDATION" && !zn.direction) ctx.addIssue({ code: "custom", message: "an invalidation needs a direction (ABOVE or BELOW)" });
 };
 export const ZoneInput = ZoneFields.superRefine(checkZone);
-export const ZonePatch = ZoneFields.partial().extend({ confirmed: z.boolean().optional() }).superRefine(checkZone);
+export const ZonePatch = ZoneFields.partial().superRefine(checkZone);
 
 const Events = z.array(z.object({ at: z.iso.datetime({ offset: true }).transform((s) => new Date(s).toISOString()), label: z.string().trim().min(1).max(60) })).max(20);
 const Offsets = z.record(symbol, z.number().finite());
@@ -48,6 +50,12 @@ export const PlanInput = z.object({
   zones: z.array(ZoneInput).max(MAX_ZONES).default([]),
 });
 export const PlanPatch = PlanInput.pick({ source: true, title: true, events: true, offsets: true, expiresAt: true }).partial();
+
+/** zod applies field defaults inside .partial(), so a patch keeps only the keys the caller actually sent. */
+function sentOnly<T extends object>(raw: unknown, parsed: T): Partial<T> {
+  const keys = new Set(raw && typeof raw === "object" ? Object.keys(raw) : []);
+  return Object.fromEntries(Object.entries(parsed).filter(([k]) => keys.has(k))) as Partial<T>;
+}
 
 type PlanRow = AnalystPlan & { zones: AnalystZone[] };
 
@@ -99,7 +107,7 @@ export async function createPlan(userId: string, input: z.input<typeof PlanInput
 
 export async function updatePlan(userId: string, id: string, patch: z.input<typeof PlanPatch>): Promise<PlanDto> {
   draftOnly(await ownPlan(userId, id));
-  const p = PlanPatch.parse(patch);
+  const p = sentOnly(patch, PlanPatch.parse(patch));
   await prisma.analystPlan.update({
     where: { id },
     data: { ...p, expiresAt: p.expiresAt ? new Date(p.expiresAt) : undefined },
@@ -123,9 +131,9 @@ async function ownZone(userId: string, zoneId: string) {
 
 export async function updateZone(userId: string, zoneId: string, patch: z.input<typeof ZonePatch>): Promise<ZoneDto> {
   const current = await ownZone(userId, zoneId);
-  const p = ZonePatch.parse(patch);
+  const p = sentOnly(patch, ZonePatch.parse(patch));
   const merged = ZoneInput.parse({ ...zoneDto(current), ...p });
-  return zoneDto(await prisma.analystZone.update({ where: { id: zoneId }, data: { ...zoneData(merged), confirmed: p.confirmed ?? current.confirmed } }));
+  return zoneDto(await prisma.analystZone.update({ where: { id: zoneId }, data: zoneData(merged) }));
 }
 
 export async function deleteZone(userId: string, zoneId: string): Promise<void> {
