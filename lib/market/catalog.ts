@@ -81,6 +81,7 @@ export const ASSET_CATALOG: Asset[] = [
   { symbol: "NZD/USD", name: "Kiwi / US Dollar",     category: "forex", yahooSymbol: "NZDUSD=X", newsKeyword: "NZD USD New Zealand",    icon: "🥝" },
   { symbol: "EUR/GBP", name: "Euro / Pound",          category: "forex", yahooSymbol: "EURGBP=X", newsKeyword: "EUR GBP euro pound",     icon: "🇪🇺" },
   { symbol: "EUR/JPY", name: "Euro / Yen",            category: "forex", yahooSymbol: "EURJPY=X", newsKeyword: "EUR JPY euro yen",       icon: "🗾" },
+  { symbol: "DXY",     name: "US Dollar Index",      category: "forex", yahooSymbol: "DX-Y.NYB", newsKeyword: "US dollar index DXY",    icon: "💵" },
   { symbol: "USD/TRY", name: "US Dollar / Lira",      category: "forex", yahooSymbol: "TRY=X",    newsKeyword: "USD TRY Turkish lira",   icon: "🇹🇷" },
 ];
 
