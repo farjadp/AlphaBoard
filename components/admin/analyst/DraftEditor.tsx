@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ZoneDraft } from "@/lib/analyst/extract";
 import { fmtPrice } from "@/lib/format";
+import { ASSET_CATALOG } from "@/lib/market/catalog";
 import { api, btn, btnQuiet, cell, deskRes, field, hint, KIND_LABEL, label, type ExtractResult, type PlanDto } from "./resources";
 
 /** Prices stay text while typing ("1.1" passes through "1."). */
@@ -138,7 +139,11 @@ export function DraftEditor({ result, rawText, sources, onDone }: { result: Extr
             <tbody>
               {rows.map((r) => (
                 <tr key={r.key} className={`border-t border-line align-top ${r.uncertain && !r.confirmed ? "bg-amber-soft" : ""}`}>
-                  <td className="py-1.5 pr-2 font-semibold text-ink">{r.symbol}</td>
+                  <td className="py-1 pr-2">
+                    <select aria-label="Symbol" className={`${cell} w-full min-w-[7rem] font-semibold`} value={r.symbol} onChange={(e) => set(r.key, { symbol: e.target.value })}>
+                      {ASSET_CATALOG.map((a) => <option key={a.symbol} value={a.symbol}>{a.symbol}</option>)}
+                    </select>
+                  </td>
                   <td className="pr-2 py-1">
                     <select aria-label="Kind" className={`${cell} w-full min-w-[8.5rem]`} value={r.kind} onChange={(e) => set(r.key, { kind: e.target.value as Row["kind"], direction: e.target.value === "INVALIDATION" ? r.direction ?? "ABOVE" : null })}>
                       {KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
@@ -175,7 +180,11 @@ export function DraftEditor({ result, rawText, sources, onDone }: { result: Extr
             </tbody>
           </table>
         </div>
-        {rows.length === 0 && <p className="py-3 text-sm text-ink-3">No zones were found in the text.</p>}
+        {rows.length === 0 && <p className="py-3 text-sm text-ink-3">No zones were read from the text. Add them by hand, or paste again.</p>}
+        <button type="button" className={`${btnQuiet} mt-2`}
+          onClick={() => setRows((rs) => [...rs, { symbol: rs.at(-1)?.symbol ?? "XAU/USD", kind: "BUY", low: "", high: "", direction: null, closeTf: null, condition: null, note: null, uncertain: false, confirmed: false, key: nextKey++ }])}>
+          Add zone
+        </button>
         <p className={hint}>Amber rows are numbers the source itself marked unclear, or that sit far from the market. Check each on the chart, fix it, then tick Confirm.</p>
       </div>
 

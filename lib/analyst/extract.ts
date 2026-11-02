@@ -17,13 +17,26 @@ const KINDS = new Set<ZoneKind>(["BUY", "SELL", "TARGET", "INVALIDATION", "INFO"
 const text = (max: number) => z.preprocess((v) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null), z.string().nullable()).default(null);
 const list = z.preprocess((v) => (Array.isArray(v) ? v : []), z.array(z.unknown())).default([]);
 
-export const AnalystExtractSchema = z.object({
+/** A model may name the lists differently ("levels", "areas"); map the common spellings before validating. */
+const lists = (v: unknown) => {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return v;
+  const o = v as Record<string, unknown>;
+  return {
+    ...o,
+    zones: o.zones ?? o.levels ?? o.areas ?? o.setups,
+    refPrices: o.refPrices ?? o.ref_prices ?? o.currentPrices ?? o.prices,
+    events: o.events ?? o.riskEvents ?? o.risk_events,
+  };
+};
+
+export const AnalystExtractFields = z.object({
   source: text(80),
   title: text(120),
   refPrices: list,
   events: list,
   zones: list,
 });
+export const AnalystExtractSchema = z.preprocess(lists, AnalystExtractFields);
 export type AnalystExtract = z.output<typeof AnalystExtractSchema>;
 
 const n = (t: "string" | "number") => ({ type: [t, "null"] });
@@ -79,7 +92,19 @@ Return ONLY a JSON object:
   - "condition": the entry condition as written ("only with a trigger on a lower timeframe"), else null. "note": a few words of context, else null.
   - "uncertain": true when the text itself marks the number as unclear (⚠️, "check on the chart", two conflicting numbers, a garbled figure such as "12400" for a pair that trades near 1.16).
 
-Copy numbers exactly as written; never correct, round or invent one — mark doubt with "uncertain" instead. Ignore claims about past profits, critiques and general commentary.`;
+Use exactly these key names and these English "kind" values. Write every price as a JSON number with Western digits (3850, not "۳۸۵۰"). Copy the value exactly as written; never correct, round or invent one — mark doubt with "uncertain" instead. Ignore claims about past profits, critiques and general commentary.
+
+Example of the exact shape:
+{"source":"Nima","title":"Week of Nov 2","refPrices":[{"symbol":"XAUUSD","price":3875}],"events":[{"at":"2026-11-06T13:30:00Z","label":"NFP"}],"zones":[{"symbol":"XAUUSD","kind":"SELL","low":3940,"high":3976,"direction":null,"closeTf":null,"condition":null,"note":"fib 38-50%","uncertain":false},{"symbol":"XAUUSD","kind":"INVALIDATION","low":3976,"high":3976,"direction":"ABOVE","closeTf":"4H","condition":null,"note":null,"uncertain":false}]}`;
+
+/** Persian and Arabic-Indic digits and separators → ASCII, so "۳۸۵۰" and "۱٫۳۴" read as numbers. */
+export function westernDigits(text: string): string {
+  return text
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06f0))
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/\u066B/g, ".")
+    .replace(/\u066C/g, ",");
+}
 
 /** Persian names, CFD tickers and plain words → catalog symbol. Keys are lower-case with spaces and ZWNJ removed. */
 const NAMES: Record<string, string> = {
@@ -125,12 +150,28 @@ export interface PlanDraft {
 }
 
 const positive = (v: unknown) => {
-  const x = typeof v === "number" ? v : typeof v === "string" ? Number(v.replace(/[,\s]/g, "")) : NaN;
+  const x = typeof v === "number" ? v : typeof v === "string" ? Number(westernDigits(v).replace(/[,\s$]/g, "")) : NaN;
   return Number.isFinite(x) && x > 0 ? x : null;
 };
 const str = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
 const rec = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
 const fmtRange = (lo: number, hi: number) => (lo === hi ? `${lo}` : `${lo}–${hi}`);
+
+/** Kind words a model may use instead of the requested English values. Keys lower-case, spaces and ZWNJ removed. */
+const KIND_ALIASES: Record<string, ZoneKind> = {
+  buy: "BUY", long: "BUY", buyzone: "BUY", demand: "BUY", support: "BUY", خرید: "BUY", ناحیهخرید: "BUY", زونخرید: "BUY", حمایت: "BUY",
+  sell: "SELL", short: "SELL", sellzone: "SELL", supply: "SELL", resistance: "SELL", فروش: "SELL", ناحیهفروش: "SELL", زونفروش: "SELL", مقاومت: "SELL",
+  target: "TARGET", tp: "TARGET", takeprofit: "TARGET", objective: "TARGET", تارگت: "TARGET", هدف: "TARGET",
+  invalidation: "INVALIDATION", stop: "INVALIDATION", stoploss: "INVALIDATION", ابطال: "INVALIDATION", حدضرر: "INVALIDATION",
+  info: "INFO", level: "INFO", liquidity: "INFO", other: "INFO", اطلاعات: "INFO", نقدینگی: "INFO",
+};
+const kindOf = (v: unknown): ZoneKind | null => {
+  if (typeof v !== "string") return null;
+  const k = v.trim().toLowerCase().replace(/[\s\u200c_-]+/g, "");
+  return KINDS.has(k.toUpperCase() as ZoneKind) ? (k.toUpperCase() as ZoneKind) : KIND_ALIASES[k] ?? null;
+};
+/** The first of several key spellings that is present on the object. */
+const pick = (o: Record<string, unknown>, ...keys: string[]) => keys.map((k) => o[k]).find((v) => v !== undefined && v !== null && v !== "");
 
 /** Next Saturday 00:00 UTC strictly after `now`: the plan covers the rest of the trading week. */
 export function weekEnd(now: Date): Date {
@@ -148,7 +189,7 @@ export function draftFromExtract(x: AnalystExtract, now: Date, feed: Record<stri
 
   const refPrices: Record<string, number> = {};
   for (const r of x.refPrices.map(rec)) {
-    const sym = typeof r.symbol === "string" ? catalogSymbolOf(r.symbol) : null;
+    const sym = typeof r.symbol === "string" ? catalogSymbolOf(westernDigits(r.symbol)) : null;
     const price = positive(r.price);
     if (sym && price) refPrices[sym] = price;
   }
@@ -164,14 +205,24 @@ export function draftFromExtract(x: AnalystExtract, now: Date, feed: Record<stri
 
   const zones: ZoneDraft[] = [];
   const unknown = new Set<string>();
-  for (const z of x.zones.map(rec)) {
-    const rawSymbol = str(z.symbol, 40);
-    const kind = typeof z.kind === "string" ? (z.kind.toUpperCase() as ZoneKind) : null;
-    let low = positive(z.low);
-    let high = positive(z.high);
-    if (!rawSymbol || !kind || !KINDS.has(kind) || (low == null && high == null)) continue;
-    const symbol = catalogSymbolOf(rawSymbol);
-    if (!symbol) { unknown.add(rawSymbol); continue; }
+  let dropped = 0;
+  x.zones.forEach((item, i) => {
+    if (zones.length >= MAX_ZONES) return;
+    const z = rec(item);
+    const rawSymbol = str(pick(z, "symbol", "instrument", "asset", "pair", "market"), 40);
+    const rawKind = pick(z, "kind", "type", "side", "role");
+    const kind = kindOf(rawKind);
+    const single = positive(pick(z, "price", "level"));
+    let low = positive(pick(z, "low", "from", "min", "lower", "priceLow", "price_low", "start")) ?? single;
+    let high = positive(pick(z, "high", "to", "max", "upper", "priceHigh", "price_high", "end")) ?? single;
+    const what = `Zone ${i + 1}${rawSymbol ? ` (${rawSymbol})` : ""}`;
+    if (!rawSymbol || !kind || (low == null && high == null)) {
+      dropped++;
+      warnings.push(`${what} was left out: ${!rawSymbol ? "no symbol" : !kind ? `unknown kind "${String(rawKind ?? "")}"` : "no usable price"}`);
+      return;
+    }
+    const symbol = catalogSymbolOf(westernDigits(rawSymbol));
+    if (!symbol) { unknown.add(rawSymbol); return; }
     low ??= high!;
     high ??= low;
     if (low > high) [low, high] = [high, low];
@@ -180,7 +231,8 @@ export function draftFromExtract(x: AnalystExtract, now: Date, feed: Record<stri
     let direction: ZoneDraft["direction"] = null;
     let closeTf: CloseTf | null = null;
     if (kind === "INVALIDATION") {
-      const dir = typeof z.direction === "string" ? z.direction.toUpperCase() : "";
+      const rawDir = pick(z, "direction", "side_to_break", "breakSide");
+      const dir = typeof rawDir === "string" ? (/above|up|بالا/i.test(rawDir) ? "ABOVE" : /below|down|پایین/i.test(rawDir) ? "BELOW" : "") : "";
       if (dir === "ABOVE" || dir === "BELOW") {
         direction = dir;
         const tf = typeof z.closeTf === "string" ? z.closeTf.toUpperCase() : "";
@@ -191,15 +243,17 @@ export function draftFromExtract(x: AnalystExtract, now: Date, feed: Record<stri
       }
     }
 
-    let uncertain = z.uncertain === true;
+    let uncertain = z.uncertain === true || z.uncertain === "true";
     const ref = refPrices[symbol] ?? feed[symbol] ?? null;
     if (ref && Math.abs((low + high) / 2 - ref) / ref > FAR_FROM_REFERENCE) {
       uncertain = true;
       warnings.push(`${symbol} ${fmtRange(low, high)} is far from the reference price ${ref}: check it`);
     }
     zones.push({ symbol, kind: zoneKind, low, high, direction, closeTf, condition: str(z.condition, 200), note: str(z.note, 200), uncertain });
-    if (zones.length >= MAX_ZONES) { warnings.push(`Only the first ${MAX_ZONES} zones were kept`); break; }
-  }
+  });
+  if (x.zones.length > MAX_ZONES) warnings.push(`Only the first ${MAX_ZONES} zones were kept`);
+  if (x.zones.length === 0) warnings.push("The model found no zones in this text: check that it lists prices, or add zones by hand");
+  else if (zones.length === 0 && dropped > 0) warnings.push(`None of the ${x.zones.length} zones the model returned could be read`);
   for (const s of unknown) warnings.push(`No market data for "${s}": its zones were left out`);
 
   return { source: x.source, title: x.title, refPrices, events, expiresAt: weekEnd(now).toISOString(), zones, warnings };

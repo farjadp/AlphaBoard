@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { aiJson } from "@/lib/ai";
-import { ANALYST_EXTRACT_JSON, ANALYST_EXTRACT_PROMPT, AnalystExtractSchema, draftFromExtract } from "@/lib/analyst/extract";
+import { ANALYST_EXTRACT_JSON, ANALYST_EXTRACT_PROMPT, AnalystExtractSchema, draftFromExtract, westernDigits } from "@/lib/analyst/extract";
 import { feedPrices, isFuturesFeed } from "@/lib/analyst/feed";
 import { readJson } from "@/lib/http/errors";
 import { enforceRateLimit } from "@/lib/http/rateLimit";
@@ -19,7 +19,7 @@ export const POST = adminRoute(async (req, admin) => {
     feature: "analyst-extract",
     userId: admin.id,
     system: "You extract price zones from market analyses exactly as written. Respond with a single JSON object only.",
-    user: `${ANALYST_EXTRACT_PROMPT}\n\nAnalysis:\n"""\n${text}\n"""`,
+    user: `${ANALYST_EXTRACT_PROMPT}\n\nAnalysis:\n"""\n${westernDigits(text)}\n"""`,
     schema: AnalystExtractSchema,
     jsonSchema: ANALYST_EXTRACT_JSON,
     maxTokens: 3_000,
