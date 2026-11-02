@@ -36,7 +36,7 @@ describe("zoneMessage", () => {
 });
 
 describe("channelMessage", () => {
-  it("is a public post: names the analysis, drops private context, says it is not an entry signal", () => {
+  it("is a public post: drops private context and the source, says it is not an entry signal", () => {
     const text = channelMessage("ENTERED", sell, { planId: "p1", source: "نیما رزاقی", price: 3944.5, agrees: ["Me"], newsRisk: "NFP", invalidation: inv }, "gheymat_today");
     expect(text.split("\n")).toEqual([
       "🟥 XAU/USD وارد زون فروش 3,940–3,976 شد",
@@ -44,7 +44,6 @@ describe("channelMessage", () => {
       "شرط ورود: only with a 15m trigger",
       "ابطال: کلوز 4H بالای 3,976",
       "⚠️ ریسک خبر: NFP",
-      "📊 بر اساس تحلیل: نیما رزاقی",
       "",
       "این هشدارِ رسیدن قیمت به یک سطح است، نه سیگنال ورود. تصمیم و مدیریت ریسک با خودتان.",
       "@gheymat_today",
@@ -56,7 +55,6 @@ describe("channelMessage", () => {
     expect(text.split("\n")).toEqual([
       "⛔ XAU/USD: سناریو باطل شد (کلوز 4H بالای 3,976)",
       "کلوز: 3,985",
-      "📊 بر اساس تحلیل: X",
       "",
       "این هشدارِ رسیدن قیمت به یک سطح است، نه سیگنال ورود. تصمیم و مدیریت ریسک با خودتان.",
     ]);

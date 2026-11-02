@@ -211,7 +211,7 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
         </label>
         <p className={hint}>
           {channel
-            ? "Each post names this source and says it is a level alert, not an entry signal. You can turn it off later on the plan."
+            ? "Each post says it is a level alert, not an entry signal; the source is not named. You can turn it off later on the plan."
             : "The channel bot is not configured (SIGNAL_BOT_TOKEN, SIGNAL_CHANNEL_ID)."}
         </p>
       </div>

@@ -59,12 +59,12 @@ export function zoneMessage(event: "ENTERED" | "HIT" | "BROKEN", z: MessageZone,
 const CHANNEL_FOOTER = "این هشدارِ رسیدن قیمت به یک سطح است، نه سیگنال ورود. تصمیم و مدیریت ریسک با خودتان.";
 
 /**
- * The public channel post for the same event: names the analysis it comes from, leaves out the owner's private
- * context (agreeing sources, the "no order was placed" note) and says plainly that it is not an entry signal.
+ * The public channel post for the same event: leaves out the owner's private context (source, agreeing sources,
+ * the "no order was placed" note) and says plainly that it is not an entry signal.
  */
 export function channelMessage(event: "ENTERED" | "HIT" | "BROKEN", z: MessageZone, ctx: MessageContext, username: string | null): string {
   const m = zoneMessage(event, z, { ...ctx, agrees: [] });
   const body = m.body.split("\n").filter((l) => !l.startsWith("منبع:") && l !== FOOTER && !l.startsWith("زون‌های دیگر"));
   const price = event === "BROKEN" ? `کلوز: ${fmtPrice(ctx.price)}` : `قیمت: ${fmtPrice(ctx.price)}`;
-  return [m.title, price, ...body, `📊 بر اساس تحلیل: ${ctx.source}`, "", CHANNEL_FOOTER, ...(username ? [`@${username.replace(/^@/, "")}`] : [])].join("\n");
+  return [m.title, price, ...body, "", CHANNEL_FOOTER, ...(username ? [`@${username.replace(/^@/, "")}`] : [])].join("\n");
 }

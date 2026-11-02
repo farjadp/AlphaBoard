@@ -74,7 +74,7 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     const r = await evaluateZones({ now: new Date(T0 + M5), barsOf: async () => bars, barsTfOf: async () => [], priceOf: async () => null, telegram: null, channel, channelUsername: "gheymat_today" });
     expect(r.entered).toBe(2);
     expect(posts).toHaveLength(1);
-    expect(posts[0]).toContain("بر اساس تحلیل: Loud");
+    expect(posts[0]).not.toContain("Loud");
     expect(posts[0]).toContain("@gheymat_today");
     expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: loud.id, kind: "SELL" } })).channelMessageId).toBe(77);
     expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: quiet.id, kind: "SELL" } })).channelMessageId).toBeNull();
