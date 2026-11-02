@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ANALYST_EXTRACT_JSON, AnalystExtractSchema, catalogSymbolOf, draftFromExtract } from "@/lib/analyst/extract";
+import { ANALYST_EXTRACT_JSON, AnalystExtractFields, AnalystExtractSchema, catalogSymbolOf, draftFromExtract, westernDigits } from "@/lib/analyst/extract";
 
 const NOW = new Date("2026-11-01T23:00:00Z"); // Sunday evening, Toronto
 
@@ -87,9 +87,52 @@ describe("draftFromExtract", () => {
   });
 });
 
+describe("loose model output (OpenAI json_object mode has no schema)", () => {
+  it("reads Persian digits, kind words, other key names and list names", () => {
+    const d = draftFromExtract(AnalystExtractSchema.parse({
+      source: "نیما رزاقی",
+      levels: [
+        { symbol: "طلا", kind: "SELL", low: "۳۹۴۰", high: "۳۹۷۶" },
+        { symbol: "XAUUSD", kind: "فروش", low: 3940, high: 3976 },
+        { instrument: "XAUUSD", type: "buy zone", from: "3,850", to: "3,865", uncertain: "true" },
+        { symbol: "XAUUSD", kind: "target", price: 3740 },
+        { symbol: "XAUUSD", kind: "ابطال", price: 3976, direction: "close above", closeTf: "4h" },
+        { symbol: "GBPUSD", kind: "BUY", low: "۱٫۳۳۴۰", high: "1.3360" },
+      ],
+    }), NOW);
+    expect(d.zones.map((z) => [z.symbol, z.kind, z.low, z.high])).toEqual([
+      ["XAU/USD", "SELL", 3940, 3976],
+      ["XAU/USD", "SELL", 3940, 3976],
+      ["XAU/USD", "BUY", 3850, 3865],
+      ["XAU/USD", "TARGET", 3740, 3740],
+      ["XAU/USD", "INVALIDATION", 3976, 3976],
+      ["GBP/USD", "BUY", 1.334, 1.336],
+    ]);
+    expect(d.zones[2].uncertain).toBe(true);
+    expect(d.zones[4]).toMatchObject({ direction: "ABOVE", closeTf: "4H" });
+    expect(d.warnings).toEqual([]);
+  });
+
+  it("never drops a zone without saying why", () => {
+    const d = draftFromExtract(AnalystExtractSchema.parse({ zones: [{ symbol: "XAUUSD", kind: "maybe", low: 1, high: 2 }, { kind: "BUY", low: 1 }, { symbol: "XAUUSD", kind: "BUY" }] }), NOW);
+    expect(d.zones).toEqual([]);
+    expect(d.warnings).toEqual([
+      'Zone 1 (XAUUSD) was left out: unknown kind "maybe"',
+      "Zone 2 was left out: no symbol",
+      "Zone 3 (XAUUSD) was left out: no usable price",
+      "None of the 3 zones the model returned could be read",
+    ]);
+    expect(draftFromExtract(AnalystExtractSchema.parse({ zones: [] }), NOW).warnings.join(" ")).toMatch(/found no zones/);
+  });
+
+  it("converts Persian and Arabic-Indic digits in text", () => {
+    expect(westernDigits("طلا ۳۸۶۵ تا ۳۸۵۰، پوند ۱٫۳۴۱۷ و ٤٢٠٠٬٥")).toBe("طلا 3865 تا 3850، پوند 1.3417 و 4200,5");
+  });
+});
+
 describe("ANALYST_EXTRACT_JSON", () => {
   it("names every key the zod schema reads", () => {
-    expect(Object.keys(ANALYST_EXTRACT_JSON.properties).sort()).toEqual(Object.keys(AnalystExtractSchema.shape).sort());
+    expect(Object.keys(ANALYST_EXTRACT_JSON.properties).sort()).toEqual(Object.keys(AnalystExtractFields.shape).sort());
     expect(ANALYST_EXTRACT_JSON.required.slice().sort()).toEqual(Object.keys(ANALYST_EXTRACT_JSON.properties).sort());
   });
 });
