@@ -62,6 +62,7 @@ export const ASSET_CATALOG: Asset[] = [
   { symbol: "KOSPI",    name: "KOSPI",                      category: "indices", yahooSymbol: "^KS11",      newsKeyword: "KOSPI South Korea",           icon: "🇰🇷" },
   { symbol: "RUT",      name: "Russell 2000",               category: "indices", yahooSymbol: "^RUT",       newsKeyword: "Russell 2000 small cap",      icon: "🧢" },
   { symbol: "IBEX",     name: "IBEX 35",                    category: "indices", yahooSymbol: "^IBEX",      newsKeyword: "IBEX 35 Spain",               icon: "��" },
+  { symbol: "DXY",      name: "US Dollar Index",            category: "indices", yahooSymbol: "DX-Y.NYB",   newsKeyword: "US dollar index DXY",         icon: "💵" },
 
   // ─── Commodities ──────────────────────────────────────────
   { symbol: "XAU/USD", name: "Gold",         category: "commodities", yahooSymbol: "GC=F",  newsKeyword: "Gold price commodity",    icon: "🥇" },
@@ -81,7 +82,6 @@ export const ASSET_CATALOG: Asset[] = [
   { symbol: "NZD/USD", name: "Kiwi / US Dollar",     category: "forex", yahooSymbol: "NZDUSD=X", newsKeyword: "NZD USD New Zealand",    icon: "🥝" },
   { symbol: "EUR/GBP", name: "Euro / Pound",          category: "forex", yahooSymbol: "EURGBP=X", newsKeyword: "EUR GBP euro pound",     icon: "🇪🇺" },
   { symbol: "EUR/JPY", name: "Euro / Yen",            category: "forex", yahooSymbol: "EURJPY=X", newsKeyword: "EUR JPY euro yen",       icon: "🗾" },
-  { symbol: "DXY",     name: "US Dollar Index",      category: "forex", yahooSymbol: "DX-Y.NYB", newsKeyword: "US dollar index DXY",    icon: "💵" },
   { symbol: "USD/TRY", name: "US Dollar / Lira",      category: "forex", yahooSymbol: "TRY=X",    newsKeyword: "USD TRY Turkish lira",   icon: "🇹🇷" },
 ];
 

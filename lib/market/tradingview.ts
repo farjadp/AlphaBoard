@@ -16,7 +16,7 @@ const TV_SYMBOLS: Record<string, string> = {
   NG: "OANDA:NATGASUSD", COPPER: "OANDA:XCUUSD",
   "EUR/USD": "OANDA:EURUSD", "GBP/USD": "OANDA:GBPUSD", "USD/JPY": "OANDA:USDJPY", "USD/CHF": "OANDA:USDCHF",
   "AUD/USD": "OANDA:AUDUSD", "USD/CAD": "OANDA:USDCAD", "NZD/USD": "OANDA:NZDUSD", "EUR/GBP": "OANDA:EURGBP",
-  "EUR/JPY": "OANDA:EURJPY", "USD/TRY": "OANDA:USDTRY",
+  "EUR/JPY": "OANDA:EURJPY", "USD/TRY": "OANDA:USDTRY", DXY: "TVC:DXY",
 };
 
 export function tradingViewSymbol(asset: Pick<Asset, "symbol" | "binanceSymbol">): string | null {
