@@ -1143,6 +1143,8 @@ model AnalystPlan {
   offsets     Json              @default("{}")
   expiresAt   DateTime
   activatedAt DateTime?
+  /// Also post each zone event to the public signals channel (SIGNAL_BOT_TOKEN); off unless the owner turns it on.
+  postToChannel Boolean           @default(false)
   createdAt   DateTime          @default(now())
 
   zones AnalystZone[]
@@ -1182,6 +1184,9 @@ model AnalystZone {
   mfe           Float?
   mae           Float?
   scoredAt      DateTime?
+  /// The channel post for this zone's event, or why it failed.
+  channelMessageId Int?
+  channelError     String?
 
   @@index([planId])
   @@index([state])

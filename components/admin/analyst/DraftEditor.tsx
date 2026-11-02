@@ -31,7 +31,7 @@ const fromLocalInput = (v: string) => new Date(v).toISOString();
  * Review step: everything the model read is editable, uncertain numbers must be confirmed one by one, and the
  * feed offset per symbol is shown next to the analyst's own price. Nothing is watched until "Save and activate".
  */
-export function DraftEditor({ result, rawText, sources, onDone }: { result: ExtractResult; rawText: string; sources: string[]; onDone: () => void }) {
+export function DraftEditor({ result, rawText, sources, channel, onDone }: { result: ExtractResult; rawText: string; sources: string[]; channel: string | null; onDone: () => void }) {
   const d = result.draft;
   const [source, setSource] = useState(d.source ?? "");
   const [title, setTitle] = useState(d.title ?? "");
@@ -39,6 +39,7 @@ export function DraftEditor({ result, rawText, sources, onDone }: { result: Extr
   const [events, setEvents] = useState(d.events.map((e) => ({ ...e, at: toLocalInput(e.at) })));
   const [offsets, setOffsets] = useState(() => offsetsFrom(result));
   const [rows, setRows] = useState<Row[]>(() => d.zones.map((z) => ({ ...z, low: String(z.low), high: String(z.high), key: nextKey++, confirmed: false })));
+  const [postToChannel, setPostToChannel] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +51,7 @@ export function DraftEditor({ result, rawText, sources, onDone }: { result: Extr
     setBusy(true); setError(null);
     try {
       const { plan } = await api<{ plan: PlanDto }>("/api/analyst/plans", "POST", {
-        source: source.trim(), title: title.trim() || null, rawText, expiresAt: fromLocalInput(expiresAt),
+        source: source.trim(), title: title.trim() || null, rawText, expiresAt: fromLocalInput(expiresAt), postToChannel,
         events: events.filter((e) => e.label.trim() && e.at).map((e) => ({ at: fromLocalInput(e.at), label: e.label.trim() })),
         offsets: Object.fromEntries(symbols.map((s) => [s, Number(offsets[s] ?? 0) || 0])),
         zones: rows.map(({ key: _key, ...z }) => ({ ...z, low: Number(z.low), high: Number(z.high), direction: z.kind === "INVALIDATION" ? z.direction : null, closeTf: z.kind === "INVALIDATION" ? z.closeTf ?? "4H" : null })),
@@ -201,6 +202,18 @@ export function DraftEditor({ result, rawText, sources, onDone }: { result: Extr
         </ul>
         <button type="button" className={`${btnQuiet} mt-2`} onClick={() => setEvents((es) => [...es, { at: expiresAt.slice(0, 10) + "T12:30", label: "" }])}>Add event</button>
         <p className={hint}>A zone message within two hours of an event carries a news-risk line (NFP, CPI, FOMC, elections).</p>
+      </div>
+
+      <div>
+        <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <input type="checkbox" checked={postToChannel} disabled={!channel} onChange={(e) => setPostToChannel(e.target.checked)} />
+          Also post these alerts to {channel ? `@${channel}` : "the Telegram channel"}
+        </label>
+        <p className={hint}>
+          {channel
+            ? "Each post names this source and says it is a level alert, not an entry signal. You can turn it off later on the plan."
+            : "The channel bot is not configured (SIGNAL_BOT_TOKEN, SIGNAL_CHANNEL_ID)."}
+        </p>
       </div>
 
       {error && <p role="alert" className="text-sm text-down">{error}</p>}
