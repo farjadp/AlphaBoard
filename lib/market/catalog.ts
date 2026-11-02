@@ -62,6 +62,7 @@ export const ASSET_CATALOG: Asset[] = [
   { symbol: "KOSPI",    name: "KOSPI",                      category: "indices", yahooSymbol: "^KS11",      newsKeyword: "KOSPI South Korea",           icon: "🇰🇷" },
   { symbol: "RUT",      name: "Russell 2000",               category: "indices", yahooSymbol: "^RUT",       newsKeyword: "Russell 2000 small cap",      icon: "🧢" },
   { symbol: "IBEX",     name: "IBEX 35",                    category: "indices", yahooSymbol: "^IBEX",      newsKeyword: "IBEX 35 Spain",               icon: "��" },
+  { symbol: "DXY",      name: "US Dollar Index",            category: "indices", yahooSymbol: "DX-Y.NYB",   newsKeyword: "US dollar index DXY",         icon: "💵" },
 
   // ─── Commodities ──────────────────────────────────────────
   { symbol: "XAU/USD", name: "Gold",         category: "commodities", yahooSymbol: "GC=F",  newsKeyword: "Gold price commodity",    icon: "🥇" },

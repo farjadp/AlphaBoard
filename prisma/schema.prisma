@@ -53,6 +53,7 @@ model User {
   labBaskets          LabBasket[]
   mt5Devices          Mt5Device[]
   tradeSignals        TradeSignal[]
+  analystPlans        AnalystPlan[]
 }
 
 model Invite {
@@ -1100,4 +1101,88 @@ model TradeSignalLeg {
   closedAt   DateTime?
 
   @@unique([signalId, leg])
+}
+
+// ─── Analyst plans (P18a) ────────────────────────────────────────────────────
+
+enum AnalystPlanStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum AnalystZoneKind {
+  BUY
+  SELL
+  TARGET
+  INVALIDATION
+  INFO
+}
+
+enum AnalystZoneState {
+  WAITING
+  ENTERED
+  BROKEN
+  SCORED
+  EXPIRED
+}
+
+/// An outside analysis (e.g. a weekly video) turned into price zones the worker watches. Never places orders.
+model AnalystPlan {
+  id          String            @id @default(cuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Who wrote the analysis, e.g. "Nima Razzaghi"; the scorecard groups by it.
+  source      String
+  title       String?
+  rawText     String
+  status      AnalystPlanStatus @default(DRAFT)
+  /// Risk events named for the week: [{ at: ISO string, label: string }].
+  events      Json              @default("[]")
+  /// Feed price minus the analyst's price, per catalog symbol ({ "XAU/USD": 18.5 }); gold's feed is futures.
+  offsets     Json              @default("{}")
+  expiresAt   DateTime
+  activatedAt DateTime?
+  createdAt   DateTime          @default(now())
+
+  zones AnalystZone[]
+
+  @@index([userId, status])
+  @@index([status])
+}
+
+/// One zone or level of a plan, in the analyst's prices (the plan's offset is applied when checking).
+model AnalystZone {
+  id            String           @id @default(cuid())
+  planId        String
+  plan          AnalystPlan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  /// Catalog symbol, e.g. "XAU/USD".
+  symbol        String
+  kind          AnalystZoneKind
+  low           Float
+  high          Float
+  /// INVALIDATION only: "ABOVE" | "BELOW", and the timeframe whose close counts ("4H" by default).
+  direction     String?
+  closeTf       String?
+  /// Entry condition as written, e.g. "only with a lower-timeframe trigger".
+  condition     String?
+  note          String?
+  /// The model was not sure of the number; it must be confirmed before the plan can be activated.
+  uncertain     Boolean          @default(false)
+  confirmed     Boolean          @default(false)
+  state         AnalystZoneState @default(WAITING)
+  /// Candles that started before this time have already been checked.
+  lastCheckedAt DateTime         @default(now())
+  enteredAt     DateTime?
+  /// First touching price, in the analyst's basis.
+  enteredPrice  Float?
+  /// RESPECTED | BROKE | UNCLEAR | UNTOUCHED | HIT | MISSED
+  outcome       String?
+  /// Best and worst move from the zone's near edge after the touch, in price units (analyst basis).
+  mfe           Float?
+  mae           Float?
+  scoredAt      DateTime?
+
+  @@index([planId])
+  @@index([state])
 }

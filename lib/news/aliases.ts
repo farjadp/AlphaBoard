@@ -70,4 +70,5 @@ export const NEWS_ALIASES: Record<string, string[]> = {
   "EUR/GBP": ["EUR/GBP", "EURGBP"],
   "EUR/JPY": ["EUR/JPY", "EURJPY"],
   "USD/TRY": ["USD/TRY", "USDTRY", "Turkish lira", "lira"],
+  DXY: ["DXY", "dollar index", "US dollar index"],
 };
