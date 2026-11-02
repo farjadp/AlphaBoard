@@ -10,7 +10,8 @@ import type { ZoneKind } from "./zones";
  */
 export const MAX_ZONES = 60;
 const FAR_FROM_REFERENCE = 0.2;
-const CLOSE_TFS = new Set(["1H", "4H", "1D"]);
+export type CloseTf = "1H" | "4H" | "1D";
+const CLOSE_TFS = new Set<string>(["1H", "4H", "1D"]);
 const KINDS = new Set<ZoneKind>(["BUY", "SELL", "TARGET", "INVALIDATION", "INFO"]);
 
 const text = (max: number) => z.preprocess((v) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null), z.string().nullable()).default(null);
@@ -106,7 +107,7 @@ export interface ZoneDraft {
   low: number;
   high: number;
   direction: "ABOVE" | "BELOW" | null;
-  closeTf: string | null;
+  closeTf: CloseTf | null;
   condition: string | null;
   note: string | null;
   uncertain: boolean;
@@ -177,13 +178,13 @@ export function draftFromExtract(x: AnalystExtract, now: Date, feed: Record<stri
 
     let zoneKind = kind;
     let direction: ZoneDraft["direction"] = null;
-    let closeTf: string | null = null;
+    let closeTf: CloseTf | null = null;
     if (kind === "INVALIDATION") {
       const dir = typeof z.direction === "string" ? z.direction.toUpperCase() : "";
       if (dir === "ABOVE" || dir === "BELOW") {
         direction = dir;
         const tf = typeof z.closeTf === "string" ? z.closeTf.toUpperCase() : "";
-        closeTf = CLOSE_TFS.has(tf) ? tf : "4H";
+        closeTf = CLOSE_TFS.has(tf) ? (tf as CloseTf) : "4H";
       } else {
         zoneKind = "INFO";
         warnings.push(`${symbol} ${fmtRange(low, high)}: no clear direction for the invalidation, kept as info`);
