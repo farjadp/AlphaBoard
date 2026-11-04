@@ -41,8 +41,8 @@ export interface TickResult {
   snapshots: number;
   signals: { checked: number; resolved: number };
   alerts: { active: number; fired: number };
-  /** Analyst plans (P18a): zones entered, invalidations broken, reactions scored, plans expired. */
-  analyst?: { active: number; entered: number; broken: number; scored: number; expired: number };
+  /** Analyst plans (P18a): zones entered, invalidations broken, reactions scored, plans expired, triggers fired, signal steps. */
+  analyst?: { active: number; entered: number; broken: number; scored: number; expired: number; triggered: number; steps: number };
   /** Signal Desk (P12): pending signals expired, silent claims flagged UNKNOWN. */
   signalDesk?: { expired: number; unknown: number };
   errors: string[];
@@ -156,7 +156,7 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
     errors.push(`alerts: ${e instanceof Error ? e.message : e}`);
   }
 
-  let analyst = { active: 0, entered: 0, broken: 0, scored: 0, expired: 0 };
+  let analyst = { active: 0, entered: 0, broken: 0, scored: 0, expired: 0, triggered: 0, steps: 0 };
   try {
     const { errors: zoneErrors, ...counts } = await evaluateZones({ now: now(), barsOf, priceOf, telegram });
     analyst = counts;
@@ -188,6 +188,6 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
   await pruneEvents(now());
   await pruneRateLimits(now()).catch((e) => logger.warn({ err: e instanceof Error ? e.message : String(e) }, "rate limit prune failed"));
   if (errors.length) logger.warn({ ...result }, "tick finished with errors");
-  else if (closed.length || signals.resolved || alerts.fired || analyst.entered || analyst.broken || signalDesk.expired || signalDesk.unknown) logger.info({ ...result }, "tick settled positions");
+  else if (closed.length || signals.resolved || alerts.fired || analyst.entered || analyst.broken || analyst.triggered || analyst.steps || signalDesk.expired || signalDesk.unknown) logger.info({ ...result }, "tick settled positions");
   return result;
 }

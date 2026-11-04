@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE "AnalystPlan" ADD COLUMN     "triggerTf" TEXT NOT NULL DEFAULT '15M';
+
+-- AlterTable
+ALTER TABLE "AnalystZone" ADD COLUMN     "signalCheckedAt" TIMESTAMP(3),
+ADD COLUMN     "signalClosedAt" TIMESTAMP(3),
+ADD COLUMN     "signalState" TEXT,
+ADD COLUMN     "signalStop" DOUBLE PRECISION,
+ADD COLUMN     "signalStopPct" DOUBLE PRECISION,
+ADD COLUMN     "signalTargetPcts" DOUBLE PRECISION[] DEFAULT ARRAY[]::DOUBLE PRECISION[],
+ADD COLUMN     "signalTargets" DOUBLE PRECISION[] DEFAULT ARRAY[]::DOUBLE PRECISION[],
+ADD COLUMN     "tpHit" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "triggerPrice" DOUBLE PRECISION,
+ADD COLUMN     "triggeredAt" TIMESTAMP(3);
+

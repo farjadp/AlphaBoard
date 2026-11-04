@@ -51,9 +51,10 @@ export const PlanInput = z.object({
   postToChannel: z.boolean().default(false),
   stopPct: z.number().gt(0).max(50).default(13),
   targetPcts: z.array(z.number().gt(0).max(500)).max(6).default([5, 8, 34, 55]),
+  triggerTf: z.enum(["5M", "15M", "1H"]).default("15M"),
   zones: z.array(ZoneInput).max(MAX_ZONES).default([]),
 });
-export const PlanPatch = PlanInput.pick({ source: true, title: true, events: true, offsets: true, expiresAt: true, postToChannel: true, stopPct: true, targetPcts: true }).partial();
+export const PlanPatch = PlanInput.pick({ source: true, title: true, events: true, offsets: true, expiresAt: true, postToChannel: true, stopPct: true, targetPcts: true, triggerTf: true }).partial();
 
 /** zod applies field defaults inside .partial(), so a patch keeps only the keys the caller actually sent. */
 function sentOnly<T extends object>(raw: unknown, parsed: T): Partial<T> {
@@ -67,14 +68,16 @@ const zoneDto = (zn: AnalystZone, agrees: string[] = []) => ({
   id: zn.id, symbol: zn.symbol, kind: zn.kind, low: zn.low, high: zn.high, direction: zn.direction, closeTf: zn.closeTf,
   condition: zn.condition, explain: zn.explain, note: zn.note, uncertain: zn.uncertain, confirmed: zn.confirmed, state: zn.state,
   enteredAt: zn.enteredAt?.toISOString() ?? null, enteredPrice: zn.enteredPrice, outcome: zn.outcome, mfe: zn.mfe, mae: zn.mae,
-  scoredAt: zn.scoredAt?.toISOString() ?? null, channelMessageId: zn.channelMessageId, channelError: zn.channelError, agrees,
+  scoredAt: zn.scoredAt?.toISOString() ?? null, channelMessageId: zn.channelMessageId, channelError: zn.channelError,
+  signalState: zn.signalState, triggeredAt: zn.triggeredAt?.toISOString() ?? null, triggerPrice: zn.triggerPrice,
+  signalStop: zn.signalStop, signalTargets: zn.signalTargets, tpHit: zn.tpHit, agrees,
 });
 export type ZoneDto = ReturnType<typeof zoneDto>;
 
 const planDto = (p: PlanRow, agree: Map<string, string[]> = new Map()) => ({
   id: p.id, source: p.source, title: p.title, status: p.status,
   events: p.events as Array<{ at: string; label: string }>, offsets: p.offsets as Record<string, number>,
-  postToChannel: p.postToChannel, stopPct: p.stopPct, targetPcts: p.targetPcts,
+  postToChannel: p.postToChannel, stopPct: p.stopPct, targetPcts: p.targetPcts, triggerTf: p.triggerTf,
   expiresAt: p.expiresAt.toISOString(), activatedAt: p.activatedAt?.toISOString() ?? null, createdAt: p.createdAt.toISOString(),
   zones: p.zones.map((zn) => zoneDto(zn, agree.get(zn.id))),
 });
@@ -103,7 +106,7 @@ export async function createPlan(userId: string, input: z.input<typeof PlanInput
   const row = await prisma.analystPlan.create({
     data: {
       userId, source: p.source, title: p.title, rawText: p.rawText, events: p.events, offsets: p.offsets, expiresAt: new Date(p.expiresAt),
-      postToChannel: p.postToChannel, stopPct: p.stopPct, targetPcts: [...p.targetPcts].sort((a, b) => a - b),
+      postToChannel: p.postToChannel, triggerTf: p.triggerTf, stopPct: p.stopPct, targetPcts: [...p.targetPcts].sort((a, b) => a - b),
       zones: { create: p.zones.map(zoneData) },
     },
     include: { zones: { orderBy: ZONE_ORDER } },

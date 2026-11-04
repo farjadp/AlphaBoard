@@ -42,6 +42,7 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
   const [postToChannel, setPostToChannel] = useState(false);
   const [stopPct, setStopPct] = useState("13");
   const [targetPcts, setTargetPcts] = useState("5, 8, 34, 55");
+  const [triggerTf, setTriggerTf] = useState<"5M" | "15M" | "1H">("15M");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,7 +55,7 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
     try {
       const { plan } = await api<{ plan: PlanDto }>("/api/analyst/plans", "POST", {
         source: source.trim(), title: title.trim() || null, rawText, expiresAt: fromLocalInput(expiresAt), postToChannel,
-        stopPct: Number(stopPct), targetPcts: targetPcts.split(/[,،\s]+/).filter(Boolean).map(Number),
+        triggerTf, stopPct: Number(stopPct), targetPcts: targetPcts.split(/[,،\s]+/).filter(Boolean).map(Number),
         events: events.filter((e) => e.label.trim() && e.at).map((e) => ({ at: fromLocalInput(e.at), label: e.label.trim() })),
         offsets: Object.fromEntries(symbols.map((s) => [s, Number(offsets[s] ?? 0) || 0])),
         zones: rows.map(({ key: _key, ...z }) => ({ ...z, low: Number(z.low), high: Number(z.high), direction: z.kind === "INVALIDATION" ? z.direction : null, closeTf: z.kind === "INVALIDATION" ? z.closeTf ?? "4H" : null })),
@@ -212,8 +213,14 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
       </div>
 
       <div>
-        <h3 className={label}>Stop-loss and targets for buy/sell alerts</h3>
+        <h3 className={label}>Trigger, stop-loss and targets for buy/sell zones</h3>
         <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label htmlFor="ap-tf" className={label}>Trigger candles</label>
+            <select id="ap-tf" className={`${cell} w-28`} value={triggerTf} onChange={(e) => setTriggerTf(e.target.value as "5M" | "15M" | "1H")}>
+              <option value="5M">5 min</option><option value="15M">15 min</option><option value="1H">1 hour</option>
+            </select>
+          </div>
           <div>
             <label htmlFor="ap-stop" className={label}>Stop-loss %</label>
             <input id="ap-stop" inputMode="decimal" className={`${cell} w-24`} value={stopPct} onChange={(e) => setStopPct(e.target.value)} />
@@ -223,7 +230,9 @@ export function DraftEditor({ result, rawText, sources, channel, onDone }: { res
             <input id="ap-tps" className={`${cell} w-48`} value={targetPcts} onChange={(e) => setTargetPcts(e.target.value)} />
           </div>
         </div>
-        <p className={hint}>Percent of price from the entry. On gold at 3,860, 13% is about 500 dollars and 55% about 2,100: check they fit the market you post.</p>
+        <p className={hint}>
+          After price reaches a buy zone, the trigger is a closed candle above the high of the 3 before it (a sell zone mirrors it), within 24 hours and
+          without a close beyond the zone. Only then is the signal sent, and posted if the channel is on. Percent of price from the trigger entry. On gold at 3,860, 13% is about 500 dollars and 55% about 2,100: check they fit the market you post.</p>
       </div>
 
       <div>
