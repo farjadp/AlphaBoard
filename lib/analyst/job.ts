@@ -11,17 +11,23 @@ import type { Telegram } from "@/lib/notify/telegram";
 import type { PriceOf } from "@/lib/paper/account";
 import { calculateIndicatorSnapshot, computeAtr } from "@/lib/market/indicators";
 import { exitsFor, riskLevel } from "./exits";
-import { channelMessage, zoneMessage, type MessageContext, type MessageZone, type TradeContext } from "./message";
+import { noTriggerMessage, signalMessage, signalPost, stepMessage, stepPost, zoneMessage, type SignalInfo, type SignalStep } from "./message";
+import { findTrigger, trackSignal, TF_MS as TRIGGER_TF_MS, type TriggerTf } from "./trigger";
 import { agreements, closedBeyond, nearEvent, scoreReaction, zoneTouched, type Bar } from "./zones";
 
 /**
  * The worker's analyst-plan step (P18a), run in every tick: expire plans past their week, mark zones price
- * reached (one notification each), mark invalidation levels a closed candle broke, and score how price reacted
- * after a touch. Every state change is an `updateMany` guarded on the old state, so a zone notifies at most once.
- * It never places an order.
+ * reached, mark invalidation levels a closed candle broke, wait for the system trigger after a buy/sell touch, follow
+ * the signal it starts (targets, stop, breakeven), and score how price reacted after a touch. Every state change
+ * is an `updateMany` guarded on the old state, so each step notifies at most once. It never places an order.
+ *
+ * Channel (plans with postToChannel): only the signal when its trigger fires, then every later step of that signal
+ * as a reply under it. Zone touches, analyst targets and triggers that never came stay private.
  */
-type Tf = "1H" | "4H" | "1D";
-const TF_MS: Record<Tf, number> = { "1H": 3_600_000, "4H": 4 * 3_600_000, "1D": 24 * 3_600_000 };
+type Tf = "15M" | "1H" | "4H" | "1D";
+const TF_MS: Record<Tf, number> = { "15M": 900_000, "1H": 3_600_000, "4H": 4 * 3_600_000, "1D": 24 * 3_600_000 };
+/** A signal nobody closed is no longer followed after this long. */
+export const SIGNAL_MAX_DAYS = 14;
 
 export interface ZoneJobDeps {
   now: Date;
@@ -43,6 +49,13 @@ const tfBars = async (symbol: string, tf: Tf): Promise<Bar[] | null> => {
 };
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+const triggerTfOf = (v: string): TriggerTf => (v === "5M" || v === "1H" ? v : "15M");
+/** A stored signal's entry and exits, as the texts need them. */
+const signalOf = (z: AnalystZone): Pick<SignalInfo, "entry" | "stopPct" | "targets"> => ({
+  entry: z.triggerPrice ?? z.enteredPrice ?? z.low,
+  stopPct: z.signalStopPct ?? 0,
+  targets: z.signalTargets.map((price, i) => ({ price, pct: z.signalTargetPcts[i] ?? 0 })),
+});
 
 export async function evaluateZones(deps: ZoneJobDeps) {
   const now = deps.now;
@@ -51,19 +64,27 @@ export async function evaluateZones(deps: ZoneJobDeps) {
   const channel = deps.channel === undefined ? channelFromEnv() : deps.channel;
   const username = deps.channelUsername === undefined ? env().SIGNAL_CHANNEL_USERNAME ?? null : deps.channelUsername;
   /** Best effort, after the owner was told: a failed post is kept on the zone and never retried. */
-  const postToChannel = async (on: boolean, event: "ENTERED" | "HIT" | "BROKEN", z: MessageZone, ctx: MessageContext) => {
-    if (!on) return;
+  const post = async (zoneId: string, text: string) => {
     try {
       if (!channel) throw new Error("channel not configured (SIGNAL_BOT_TOKEN / SIGNAL_CHANNEL_ID)");
-      const id = await channel.post(channelMessage(event, z, ctx, username));
-      await prisma.analystZone.update({ where: { id: z.id }, data: { channelMessageId: id } });
+      const id = await channel.post(text);
+      await prisma.analystZone.update({ where: { id: zoneId }, data: { channelMessageId: id } });
     } catch (e) {
-      logger.warn({ err: msg(e), zoneId: z.id }, "analyst channel post failed");
-      await prisma.analystZone.update({ where: { id: z.id }, data: { channelError: msg(e).slice(0, 300) } }).catch(() => {});
+      logger.warn({ err: msg(e), zoneId }, "analyst channel post failed");
+      await prisma.analystZone.update({ where: { id: zoneId }, data: { channelError: msg(e).slice(0, 300) } }).catch(() => {});
+    }
+  };
+  const reply = async (zoneId: string, messageId: number | null, text: string) => {
+    if (!channel || messageId == null) return;
+    try {
+      await channel.reply(messageId, text);
+    } catch (e) {
+      logger.warn({ err: msg(e), zoneId }, "analyst channel reply failed");
+      await prisma.analystZone.update({ where: { id: zoneId }, data: { channelError: msg(e).slice(0, 300) } }).catch(() => {});
     }
   };
   const errors: string[] = [];
-  let entered = 0, broken = 0, scored = 0, expired = 0;
+  let entered = 0, broken = 0, scored = 0, expired = 0, triggered = 0, steps = 0;
 
   // 1. Plans past their expiry: untouched zones get their final outcome, the plan is archived.
   const ending = await prisma.analystPlan.findMany({ where: { status: "ACTIVE", expiresAt: { lte: now } }, select: { id: true } });
@@ -119,8 +140,8 @@ export async function evaluateZones(deps: ZoneJobDeps) {
     return records.get(key)!;
   };
 
-  /** Stop, targets and the rule-based risk level for a buy/sell zone just entered. */
-  const tradeFor = async (p: { userId: string; source: string; stopPct: number; targetPcts: number[] }, z: AnalystZone, price: number, newsRisk: string | null): Promise<TradeContext> => {
+  /** Exits from the entry and the rule-based risk level, for a trigger that just fired. */
+  const signalFor = async (p: { userId: string; source: string; stopPct: number; targetPcts: number[]; triggerTf: string }, z: AnalystZone, price: number, newsRisk: string | null): Promise<SignalInfo> => {
     const side = z.kind === "BUY" ? "BUY" : "SELL";
     const { stop, targets } = exitsFor(side, price, p.stopPct, p.targetPcts);
     const [bars4h, bars1h, bars5m, record] = await Promise.all([
@@ -132,7 +153,7 @@ export async function evaluateZones(deps: ZoneJobDeps) {
     const trend = calculateIndicatorSnapshot("4H", bars4h);
     const lastHour = bars5m.filter((b) => b.time > t - 3_600_000);
     return {
-      stop, stopPct: p.stopPct,
+      entry: price, stop, stopPct: p.stopPct, triggerTf: triggerTfOf(p.triggerTf),
       targets: targets.map((x, i) => ({ price: x, pct: p.targetPcts[i] })),
       risk: riskLevel({
         side,
@@ -143,6 +164,12 @@ export async function evaluateZones(deps: ZoneJobDeps) {
         record,
       }),
     };
+  };
+
+  const invalidationFor = (zones: AnalystZone[], z: AnalystZone) => {
+    // A buy is cancelled by a close below, a sell by a close above.
+    const side = z.kind === "BUY" ? "BELOW" : z.kind === "SELL" ? "ABOVE" : null;
+    return zones.find((o) => o.kind === "INVALIDATION" && o.symbol === z.symbol && o.state === "WAITING" && o.direction === side) ?? null;
   };
 
   // Agreement across each owner's active plans.
@@ -167,9 +194,12 @@ export async function evaluateZones(deps: ZoneJobDeps) {
             const done = await prisma.analystZone.updateMany({ where: { id: z.id, state: "WAITING" }, data: { state: "BROKEN", enteredAt: new Date(hit.at), enteredPrice: hit.close } });
             if (done.count === 1) {
               broken++;
-              const ctx = { planId: p.id, source: p.source, price: hit.close, agrees: [], newsRisk: null, invalidation: null };
-              await notify(p.userId, zoneMessage("BROKEN", z, ctx), deps.telegram);
-              await postToChannel(p.postToChannel, "BROKEN", z, ctx);
+              await notify(p.userId, zoneMessage("BROKEN", z, { planId: p.id, source: p.source, price: hit.close, agrees: [], newsRisk: null, invalidation: null }), deps.telegram);
+              // Open signals of this plan on the side this level cancels get the news under their post.
+              const cancels = z.direction === "BELOW" ? "BUY" : "SELL";
+              for (const o of p.zones.filter((o) => o.symbol === z.symbol && o.kind === cancels && o.signalState === "OPEN")) {
+                await reply(o.id, o.channelMessageId, stepPost(o, signalOf(o), { kind: "BROKEN", level: z }));
+              }
             }
           }
           continue;
@@ -183,18 +213,15 @@ export async function evaluateZones(deps: ZoneJobDeps) {
             where: { id: z.id, state: "WAITING" },
             data: target
               ? { state: "SCORED", outcome: "HIT", enteredAt: new Date(hit.at), enteredPrice: hit.price, scoredAt: now }
-              : { state: "ENTERED", enteredAt: new Date(hit.at), enteredPrice: hit.price },
+              : { state: "ENTERED", enteredAt: new Date(hit.at), enteredPrice: hit.price, signalState: "WAITING_TRIGGER" },
           });
           if (done.count === 1) {
             entered++;
-            // A buy is cancelled by a close below, a sell by a close above; a target carries no invalidation.
-            const breakSide = z.kind === "BUY" ? "BELOW" : z.kind === "SELL" ? "ABOVE" : null;
-            const invalidation = p.zones.find((o) => o.kind === "INVALIDATION" && o.symbol === z.symbol && o.state === "WAITING" && o.direction === breakSide) ?? null;
-            const newsRisk = nearEvent(hit.at, events);
-            const trade = target ? null : await tradeFor(p, z, hit.price, newsRisk).catch((e) => { errors.push(`trade ${z.id}: ${msg(e)}`); return null; });
-            const ctx = { planId: p.id, source: p.source, price: hit.price, agrees: agree.get(z.id) ?? [], newsRisk, invalidation, trade };
+            const ctx = {
+              planId: p.id, source: p.source, price: hit.price, agrees: agree.get(z.id) ?? [], newsRisk: nearEvent(hit.at, events),
+              invalidation: target ? null : invalidationFor(p.zones, z), triggerTf: triggerTfOf(p.triggerTf),
+            };
             await notify(p.userId, zoneMessage(target ? "HIT" : "ENTERED", z, ctx), deps.telegram);
-            await postToChannel(p.postToChannel, target ? "HIT" : "ENTERED", z, ctx);
           }
           continue;
         }
@@ -208,7 +235,74 @@ export async function evaluateZones(deps: ZoneJobDeps) {
     }
   }
 
-  // 3. Reactions after a touch.
+  // 3. Triggers after a buy/sell touch, then the signals they start. Followed even after the plan is archived.
+  const signals = await prisma.analystZone.findMany({
+    where: { signalState: { in: ["WAITING_TRIGGER", "OPEN"] } },
+    include: { plan: { select: { id: true, userId: true, source: true, offsets: true, events: true, postToChannel: true, stopPct: true, targetPcts: true, triggerTf: true, zones: true } } },
+    take: 2_000,
+  });
+  for (const z of signals) {
+    const p = z.plan;
+    const offset = offsetOf(p.offsets, z.symbol);
+    const owner = { planId: p.id, source: p.source };
+    try {
+      if (z.signalState === "WAITING_TRIGGER") {
+        const tf = triggerTfOf(p.triggerTf);
+        const bars = tf === "5M" ? await load(`${z.symbol} 5M`, () => deps.barsOf(z.symbol)) : await load(`${z.symbol} ${tf}`, () => barsTfOf(z.symbol, tf));
+        const r = findTrigger(z, bars, z.enteredAt!.getTime(), TRIGGER_TF_MS[tf], t, offset);
+        if (!r) continue;
+        if (r.kind !== "TRIGGERED") {
+          const done = await prisma.analystZone.updateMany({ where: { id: z.id, signalState: "WAITING_TRIGGER" }, data: { signalState: r.kind, signalClosedAt: now } });
+          if (done.count === 1) await notify(p.userId, noTriggerMessage(z, r.kind, r.kind === "CANCELLED" ? r.close : null, owner), deps.telegram);
+          continue;
+        }
+        const events = Array.isArray(p.events) ? (p.events as Array<{ at: string; label: string }>) : [];
+        const s = await signalFor(p, z, r.price, nearEvent(r.at, events));
+        const done = await prisma.analystZone.updateMany({
+          where: { id: z.id, signalState: "WAITING_TRIGGER" },
+          data: {
+            signalState: "OPEN", triggeredAt: new Date(r.at), triggerPrice: r.price, signalStop: s.stop, signalStopPct: s.stopPct,
+            signalTargets: s.targets.map((x) => x.price), signalTargetPcts: s.targets.map((x) => x.pct), tpHit: 0,
+            signalCheckedAt: new Date(r.at + TRIGGER_TF_MS[tf]),
+          },
+        });
+        if (done.count !== 1) continue;
+        triggered++;
+        const invalidation = invalidationFor(p.zones, z);
+        await notify(p.userId, signalMessage(z, s, { ...owner, agrees: agree.get(z.id) ?? [], invalidation }), deps.telegram);
+        if (p.postToChannel) await post(z.id, signalPost(z, s, invalidation, username));
+        continue;
+      }
+
+      // OPEN: targets, stop, breakeven; or stop following after SIGNAL_MAX_DAYS.
+      const info = signalOf(z);
+      const side = z.kind === "BUY" ? "BUY" : "SELL";
+      const timedOut = t - z.triggeredAt!.getTime() > SIGNAL_MAX_DAYS * 86_400_000;
+      const bars = timedOut ? [] : await fiveMin(z.symbol);
+      const r = timedOut
+        ? { events: [], tpHit: z.tpHit, closed: null }
+        : trackSignal(side, info.entry, z.signalStop!, z.signalTargets, z.tpHit, bars, z.signalCheckedAt?.getTime() ?? z.triggeredAt!.getTime(), offset);
+      const stepsNow: SignalStep[] = r.events.map((e) => (e.kind === "TP" ? { kind: "TP", index: e.index } : { kind: e.kind }));
+      if (r.closed === "ALL_TP") stepsNow.push({ kind: "ALL_TP" });
+      if (timedOut) stepsNow.push({ kind: "TIMEOUT", days: SIGNAL_MAX_DAYS });
+      const closed = timedOut ? "TIMEOUT" : r.closed;
+      const latest = Math.max(...bars.filter((b) => b.time < t).map((b) => b.time), z.signalCheckedAt?.getTime() ?? 0);
+      const done = await prisma.analystZone.updateMany({
+        where: { id: z.id, signalState: "OPEN", tpHit: z.tpHit },
+        data: { tpHit: r.tpHit, signalCheckedAt: new Date(latest), ...(closed ? { signalState: closed, signalClosedAt: now } : {}) },
+      });
+      if (done.count !== 1) continue;
+      for (const step of stepsNow) {
+        steps++;
+        await notify(p.userId, stepMessage(z, info, step, owner), deps.telegram);
+        await reply(z.id, z.channelMessageId, stepPost(z, info, step));
+      }
+    } catch (e) {
+      errors.push(`signal ${z.id}: ${msg(e)}`);
+    }
+  }
+
+  // 4. Reactions after a touch.
   for (const z of scoring) {
     try {
       const bars = await load(`${z.symbol} 1H`, () => barsTfOf(z.symbol, "1H"));
@@ -221,5 +315,5 @@ export async function evaluateZones(deps: ZoneJobDeps) {
     }
   }
 
-  return { active: plans.length, entered, broken, scored, expired, errors };
+  return { active: plans.length, entered, broken, scored, expired, triggered, steps, errors };
 }

@@ -8,6 +8,10 @@ const STATE_TEXT: Record<ZoneDto["state"], string> = { WAITING: "Waiting", ENTER
 const OUTCOME_TONE: Record<string, string> = {
   RESPECTED: "text-up", HIT: "text-up", BROKE: "text-down", MISSED: "text-down", UNCLEAR: "text-ink-2", UNTOUCHED: "text-ink-3",
 };
+const SIGNAL_TEXT: Record<string, string> = {
+  WAITING_TRIGGER: "Waiting for trigger", OPEN: "Signal open", CANCELLED: "Trigger cancelled", EXPIRED: "No trigger in 24 h",
+  STOP: "Signal: stop hit", BREAKEVEN: "Signal: closed at entry", ALL_TP: "Signal: all targets", TIMEOUT: "Signal: no longer followed",
+};
 const range = (z: { low: number; high: number }) => (z.low === z.high ? fmtPrice(z.low) : `${fmtPrice(z.low)} – ${fmtPrice(z.high)}`);
 
 function ZoneRow({ z, draft, onError }: { z: ZoneDto; draft: boolean; onError: (m: string) => void }) {
@@ -30,6 +34,7 @@ function ZoneRow({ z, draft, onError }: { z: ZoneDto; draft: boolean; onError: (
         {z.outcome && <span className={`ml-1 font-semibold ${OUTCOME_TONE[z.outcome] ?? "text-ink-2"}`}>· {z.outcome.toLowerCase()}</span>}
         {z.enteredPrice != null && <span className="block tabular-nums text-ink-3">at {fmtPrice(z.enteredPrice)}{z.enteredAt ? ` · ${when(z.enteredAt)}` : ""}</span>}
         {z.mfe != null && <span className="block tabular-nums text-ink-3">best {fmtPrice(z.mfe)} · worst {fmtPrice(z.mae ?? 0)}</span>}
+        {z.signalState && <span className="block font-semibold text-ink-2">{SIGNAL_TEXT[z.signalState] ?? z.signalState}{z.triggerPrice != null ? ` at ${fmtPrice(z.triggerPrice)}` : ""}{z.tpHit > 0 ? ` · TP${z.tpHit} hit` : ""}</span>}
         {z.channelMessageId != null && <span className="block text-ink-3">posted to channel</span>}
         {z.channelError && <span className="block text-down" title={z.channelError}>channel post failed</span>}
       </td>
@@ -67,7 +72,7 @@ function PlanCard({ p, channel }: { p: PlanDto; channel: string | null }) {
           <h3 className="font-display text-base font-bold text-ink" dir="auto">{p.source}{p.title ? ` · ${p.title}` : ""}</h3>
           <p className="text-xs text-ink-3">
             {p.status === "ACTIVE" ? "Watching" : draft ? "Draft" : "Archived"} · until {when(p.expiresAt)}
-            {" "}· stop {p.stopPct}% · targets {p.targetPcts.join(" / ")}%
+            {" "}· trigger {p.triggerTf} · stop {p.stopPct}% · targets {p.targetPcts.join(" / ")}%
             {offsets.length > 0 && <> · offset {offsets.map(([s, v]) => `${s} ${v > 0 ? "+" : ""}${v}`).join(", ")}</>}
             {p.events.length > 0 && <> · events: {p.events.map((e) => `${e.label} ${when(e.at)}`).join(", ")}</>}
           </p>

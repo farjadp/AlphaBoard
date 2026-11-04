@@ -1148,6 +1148,8 @@ model AnalystPlan {
   /// Stop-loss and targets for buy/sell zone alerts, as percents of the entry price.
   stopPct     Float             @default(13)
   targetPcts  Float[]           @default([5, 8, 34, 55])
+  /// Timeframe of the system trigger after a zone touch: "5M" | "15M" | "1H".
+  triggerTf   String            @default("15M")
   createdAt   DateTime          @default(now())
 
   zones AnalystZone[]
@@ -1189,9 +1191,21 @@ model AnalystZone {
   mfe           Float?
   mae           Float?
   scoredAt      DateTime?
-  /// The channel post for this zone's event, or why it failed.
+  /// The channel post for this zone's signal (replies thread under it), or why it failed.
   channelMessageId Int?
   channelError     String?
+  /// Signal (buy/sell zones): the trigger after the touch, then its exits and life.
+  /// signalState: WAITING_TRIGGER | OPEN | CANCELLED | EXPIRED | STOP | BREAKEVEN | ALL_TP | TIMEOUT
+  signalState      String?
+  triggeredAt      DateTime?
+  triggerPrice     Float?
+  signalStop       Float?
+  signalStopPct    Float?
+  signalTargets    Float[]          @default([])
+  signalTargetPcts Float[]          @default([])
+  tpHit            Int              @default(0)
+  signalCheckedAt  DateTime?
+  signalClosedAt   DateTime?
 
   @@index([planId])
   @@index([state])

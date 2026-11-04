@@ -57,7 +57,7 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     const r2 = await evaluateZones({ ...deps, now: new Date(T0 + 4 * M5) });
     expect(r2.entered).toBe(0);
     expect(tg.sent).toHaveLength(1);
-    expect(tg.sent[0]).toContain("وارد زون فروش 3,940 – 3,976");
+    expect(tg.sent[0]).toContain("وارد زون فروش 3,940 – 3,976 شد — منتظر تریگر");
     expect(tg.sent[0]).toContain("💵 قیمت الان: 3,940");
     expect(tg.sent[0]).toContain("❌ ابطال: کلوز 4H بالای 3,976");
     expect(tg.sent[0]).toContain("خبر مهم نزدیک است: NFP");
@@ -65,29 +65,91 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     expect(z).toMatchObject({ state: "ENTERED", enteredPrice: 3940 });
   });
 
-  it("posts to the channel only for plans that ask for it, and keeps a failed post on the zone", async () => {
+  it("posts nothing to the channel on a zone touch or an analyst target", async () => {
     const posts: string[] = [];
-    const channel = { post: async (t: string) => { posts.push(t); return 77; }, reply: async () => 0 };
-    const quiet = await goldPlan();
-    const loud = await goldPlan({ source: "Loud", postToChannel: true });
+    const channel = { post: async (text: string) => { posts.push(text); return 77; }, reply: async () => 0 };
+    await goldPlan({ postToChannel: true, zones: [
+      { symbol: "XAU/USD", kind: "SELL", low: 3940, high: 3976 },
+      { symbol: "XAU/USD", kind: "TARGET", low: 3930, high: 3950 },
+    ] });
     const bars = [{ time: T0, open: 3960, high: 3965, low: 3955, close: 3960 }];
-    const r = await evaluateZones({ now: new Date(T0 + M5), barsOf: async () => bars, barsTfOf: async () => [], priceOf: async () => null, telegram: null, channel, channelUsername: "gheymat_today" });
+    const r = await evaluateZones({ now: new Date(T0 + M5), barsOf: async () => bars, barsTfOf: async () => [], priceOf: async () => null, telegram: tg.bot, channel, channelUsername: "gheymat_today" });
     expect(r.entered).toBe(2);
-    expect(posts).toHaveLength(1);
-    expect(posts[0]).not.toContain("Loud");
-    expect(posts[0]).toContain("@gheymat_today");
-    // Sell entered at 3940: stop 13% above, first target 5% below, risk line with its reasons.
-    expect(posts[0]).toContain("🛑 SL: 4,452.2 (+13%)");
-    expect(posts[0]).toContain("🎯 TP1: 3,743 (-5%) ✅ ریسک‌فری و سیو سود");
-    expect(posts[0]).toContain("🟡 ریسک: متوسط\n   ▫️ خبر مهم نزدیک است: NFP\n   ▫️ منبع هنوز آمار کافی ندارد");
-    expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: loud.id, kind: "SELL" } })).channelMessageId).toBe(77);
-    expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: quiet.id, kind: "SELL" } })).channelMessageId).toBeNull();
+    expect(posts).toEqual([]);
+    expect(tg.sent.join("\n")).toContain("منتظر تریگر");
+    expect(tg.sent.join("\n")).toContain("به تارگت تحلیل");
+  });
 
-    const failing = await goldPlan({ source: "Down", postToChannel: true, zones: [{ symbol: "XAU/USD", kind: "TARGET", low: 3930, high: 3950 }] });
-    const bad = { post: async () => { throw new Error("Forbidden: bot is not a member of the channel"); }, reply: async () => 0 };
-    const r2 = await evaluateZones({ now: new Date(T0 + 2 * M5), barsOf: async () => bars, barsTfOf: async () => [], priceOf: async () => null, telegram: null, channel: bad, channelUsername: null });
-    expect(r2.entered).toBe(1);
-    expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: failing.id } })).channelError).toMatch(/not a member/);
+  describe("signals", () => {
+    const M15 = 900_000;
+    const m15 = (i: number, high: number, low: number, close: number): Bar => ({ time: T0 + i * M15, open: close, high, low, close });
+    // Three candles before the touch (highs 3880, 3872, 3866), the touch candle, then a close above 3872.
+    const fifteen = [m15(-3, 3880, 3874, 3876), m15(-2, 3872, 3866, 3868), m15(-1, 3866, 3858, 3862), m15(0, 3866, 3852, 3860), m15(1, 3884, 3858, 3882)];
+    const plan = () => goldPlan({ offsets: {}, events: [], postToChannel: true, stopPct: 13, targetPcts: [1, 2], zones: [
+      { symbol: "XAU/USD", kind: "BUY", low: 3850, high: 3865, condition: "15m trigger" },
+      { symbol: "XAU/USD", kind: "INVALIDATION", low: 3830, high: 3830, direction: "BELOW", closeTf: "4H" },
+    ] });
+
+    it("waits for the trigger, posts the signal once, then threads TP1 and breakeven under it", async () => {
+      const posts: string[] = [];
+      const replies: Array<{ to: number; text: string }> = [];
+      const channel = { post: async (text: string) => { posts.push(text); return 501; }, reply: async (to: number, text: string) => { replies.push({ to, text }); return 0; } };
+      const p = await plan();
+      const tfBars = async (_s: string, tf: string) => (tf === "15M" ? fifteen : []);
+      const base = { barsTfOf: tfBars, priceOf: async () => null, telegram: tg.bot, channel, channelUsername: "gheymat_today" };
+
+      // Touch at T0; no closed 15m candle after it yet.
+      const r1 = await evaluateZones({ ...base, now: new Date(T0 + M15 - 1), barsOf: async () => [flat(T0, 3860)] });
+      expect(r1).toMatchObject({ entered: 1, triggered: 0 });
+      expect(posts).toEqual([]);
+
+      // The 15m candle at T0+15m closes 3882 > 3872: trigger, entry 3882.
+      const r2 = await evaluateZones({ ...base, now: new Date(T0 + 2 * M15), barsOf: async () => [flat(T0, 3860)] });
+      expect(r2.triggered).toBe(1);
+      expect(posts).toHaveLength(1);
+      expect(posts[0].split("\n").slice(0, 7)).toEqual([
+        "🟢 سیگنال خرید | XAU/USD", "━━━━━━━━━━━━━━", "💵 ورود: 3,882", "", "🎯 TP1: 3,920.82 (+1%) ✅ ریسک‌فری و سیو سود", "🎯 TP2: 3,959.64 (+2%)", "🛑 SL: 3,377.34 (-13%)",
+      ]);
+      expect(posts[0]).toContain("❌ ابطال: کلوز 4H زیر 3,830");
+      expect(tg.sent.some((m) => m.includes("✅ تریگر خرید XAU/USD فعال شد — وارد شو"))).toBe(true);
+      const z = await prisma.analystZone.findFirstOrThrow({ where: { planId: p.id, kind: "BUY" } });
+      expect(z).toMatchObject({ signalState: "OPEN", triggerPrice: 3882, channelMessageId: 501, tpHit: 0 });
+
+      // TP1 at T0+30m, then back to the entry: breakeven.
+      const after = [{ time: T0 + 2 * M15, open: 3890, high: 3925, low: 3889, close: 3920 }, { time: T0 + 2 * M15 + M5, open: 3920, high: 3921, low: 3881, close: 3885 }];
+      const r3 = await evaluateZones({ ...base, now: new Date(T0 + 2 * M15 + 2 * M5), barsOf: async () => after });
+      expect(r3.steps).toBe(2);
+      expect(replies.map((x) => x.to)).toEqual([501, 501]);
+      expect(replies[0].text).toBe("🎯 TP1 خورد | XAU/USD (+1%)\nحد ضرر را به نقطه‌ی ورود (3,882) ببرید و بخشی از سود را سیو کنید.");
+      expect(replies[1].text).toContain("⚪ ریسک‌فری بسته شد | XAU/USD");
+      expect(await prisma.analystZone.findUniqueOrThrow({ where: { id: z.id } })).toMatchObject({ signalState: "BREAKEVEN", tpHit: 1 });
+
+      // Nothing repeats.
+      const sentBefore = tg.sent.length;
+      const r4 = await evaluateZones({ ...base, now: new Date(T0 + 3 * M15), barsOf: async () => after });
+      expect(r4).toMatchObject({ triggered: 0, steps: 0 });
+      expect(replies).toHaveLength(2);
+      expect(tg.sent).toHaveLength(sentBefore);
+    });
+
+    it("a close below the zone before the trigger cancels it, privately", async () => {
+      const posts: string[] = [];
+      const channel = { post: async (text: string) => { posts.push(text); return 1; }, reply: async () => 0 };
+      const p = await plan();
+      const broken = [...fifteen.slice(0, 4), m15(1, 3862, 3840, 3845)];
+      await evaluateZones({ now: new Date(T0 + 2 * M15), barsOf: async () => [flat(T0, 3860)], barsTfOf: async (_s, tf) => (tf === "15M" ? broken : []), priceOf: async () => null, telegram: tg.bot, channel });
+      expect(posts).toEqual([]);
+      expect(tg.sent.at(-1)).toContain("قیمت زیر زون 3,850 – 3,865 بسته شد (3,845)");
+      expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: p.id, kind: "BUY" } })).signalState).toBe("CANCELLED");
+    });
+
+    it("keeps a failed signal post on the zone", async () => {
+      const p = await plan();
+      const bad = { post: async () => { throw new Error("Forbidden: bot is not a member of the channel"); }, reply: async () => 0 };
+      const r = await evaluateZones({ now: new Date(T0 + 2 * M15), barsOf: async () => [flat(T0, 3860)], barsTfOf: async (_s, tf) => (tf === "15M" ? fifteen : []), priceOf: async () => null, telegram: null, channel: bad });
+      expect(r.triggered).toBe(1);
+      expect((await prisma.analystZone.findFirstOrThrow({ where: { planId: p.id, kind: "BUY" } })).channelError).toMatch(/not a member/);
+    });
   });
 
   it("shows only the invalidation that fits the zone's side", async () => {
@@ -132,7 +194,7 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
       { symbol: "XAU/USD", kind: "TARGET", low: 3500, high: 3500 },
     ] });
     await evaluateZones({ now: new Date(T0 + M5), barsOf: async () => [flat(T0, 3775)], barsTfOf: async () => [], priceOf: async () => null, telegram: tg.bot });
-    expect(tg.sent[0]).toContain("به تارگت 3,740 – 3,760 رسید");
+    expect(tg.sent[0]).toContain("به تارگت تحلیل 3,740 – 3,760 رسید");
     const r = await evaluateZones({ now: new Date("2026-11-07T00:00:00Z"), barsOf: async () => [], barsTfOf: async () => [], priceOf: async () => null, telegram: tg.bot });
     expect(r.expired).toBe(1);
     const zones = await prisma.analystZone.findMany({ where: { planId: p.id }, orderBy: { low: "desc" } });

@@ -1,95 +1,99 @@
 import { describe, expect, it } from "vitest";
-import { channelMessage, zoneMessage } from "@/lib/analyst/message";
+import { noTriggerMessage, signalMessage, signalPost, stepMessage, stepPost, zoneMessage } from "@/lib/analyst/message";
 
-const sell = { id: "z1", symbol: "XAU/USD", kind: "SELL" as const, low: 3940, high: 3976, direction: null, closeTf: null, condition: "only with a 15m trigger", note: null };
-const buy = { ...sell, kind: "BUY" as const, low: 3850, high: 3865, condition: "فقط با تریگر در تایم پایین", explain: "صبر کنید تا در تایم ۱۵ دقیقه کندل برگشتی ببینید." };
-const invAbove = { id: "z2", symbol: "XAU/USD", kind: "INVALIDATION" as const, low: 3976, high: 3976, direction: "ABOVE", closeTf: "4H", condition: null, note: null };
-const invBelow = { ...invAbove, id: "z3", low: 3830, high: 3830, direction: "BELOW" };
-const trade = {
-  stop: 3358.2, stopPct: 13,
-  targets: [{ price: 4053, pct: 5 }, { price: 4168.8, pct: 8 }, { price: 5172.4, pct: 34 }, { price: 5983, pct: 55 }],
+const buy = { id: "z1", symbol: "XAU/USD", kind: "BUY" as const, low: 3850, high: 3865, direction: null, closeTf: null, condition: "فقط با تریگر در تایم پایین", explain: "صبر کنید تا کندل برگشتی ببینید." };
+const sell = { ...buy, kind: "SELL" as const, low: 3940, high: 3976, condition: null, explain: null };
+const invBelow = { id: "z3", symbol: "XAU/USD", kind: "INVALIDATION" as const, low: 3830, high: 3830, direction: "BELOW", closeTf: "4H", condition: null };
+const signal = {
+  entry: 3874, stop: 3370.38, stopPct: 13, triggerTf: "15M" as const,
+  targets: [{ price: 4067.7, pct: 5 }, { price: 4183.92, pct: 8 }],
   risk: { level: "MEDIUM" as const, reasons: ["خلاف روند ۴ساعته", "منبع هنوز آمار کافی ندارد"] },
 };
-const ctx = { planId: "p1", source: "Nima", price: 3860, agrees: [] as string[], newsRisk: null as string | null, invalidation: null as typeof invAbove | null };
 
-describe("channelMessage", () => {
-  it("lays out a buy entry: header, zone and price, TPs then SL, conditions, risk, invalidation, footer", () => {
-    const text = channelMessage("ENTERED", buy, { ...ctx, invalidation: invBelow, trade }, "gheymat_today");
-    expect(text.split("\n")).toEqual([
-      "🟢 XAU/USD | ورود به زون خرید",
+describe("signalPost", () => {
+  it("is the public signal: side and symbol, entry, TPs then SL, trigger, zone, risk, invalidation", () => {
+    expect(signalPost(buy, signal, invBelow, "gheymat_today").split("\n")).toEqual([
+      "🟢 سیگنال خرید | XAU/USD",
       "━━━━━━━━━━━━━━",
-      "📍 ناحیه‌ی ورود: 3,850 – 3,865",
-      "💵 قیمت الان: 3,860",
+      "💵 ورود: 3,874",
       "",
-      "🎯 TP1: 4,053 (+5%) ✅ ریسک‌فری و سیو سود",
-      "🎯 TP2: 4,168.8 (+8%)",
-      "🎯 TP3: 5,172.4 (+34%)",
-      "🎯 TP4: 5,983 (+55%)",
-      "🛑 SL: 3,358.2 (-13%)",
+      "🎯 TP1: 4,067.7 (+5%) ✅ ریسک‌فری و سیو سود",
+      "🎯 TP2: 4,183.92 (+8%)",
+      "🛑 SL: 3,370.38 (-13%)",
       "━━━━━━━━━━━━━━",
-      "⏳ شرط ورود: فقط با تریگر در تایم پایین",
-      "💡 صبر کنید تا در تایم ۱۵ دقیقه کندل برگشتی ببینید.",
+      "⚡ تریگر: کلوز بالای سقف 3 کندل ۱۵ دقیقه‌ای قبلی، بدون شکست زون",
+      "📍 زون: 3,850 – 3,865",
       "🟡 ریسک: متوسط",
       "   ▫️ خلاف روند ۴ساعته",
       "   ▫️ منبع هنوز آمار کافی ندارد",
       "❌ ابطال: کلوز 4H زیر 3,830",
       "",
-      "ورود فقط بعد از دیدن شرط ورود.",
       "حجم معامله و مدیریت ریسک با خودتان.",
       "",
       "@gheymat_today",
     ]);
   });
 
-  it("signs a sell's targets down and its stop up", () => {
-    const t = { ...trade, stop: 4452.2, targets: [{ price: 3743, pct: 5 }], risk: { level: "LOW" as const, reasons: [] } };
-    const text = channelMessage("ENTERED", sell, { ...ctx, price: 3940, trade: t }, null);
-    expect(text).toContain("🔴 XAU/USD | ورود به زون فروش");
+  it("mirrors signs for a sell and drops the handle when there is none", () => {
+    const text = signalPost(sell, { ...signal, entry: 3940, stop: 4452.2, targets: [{ price: 3743, pct: 5 }] }, null, null);
+    expect(text).toContain("🔴 سیگنال فروش | XAU/USD");
     expect(text).toContain("🎯 TP1: 3,743 (-5%) ✅ ریسک‌فری و سیو سود");
     expect(text).toContain("🛑 SL: 4,452.2 (+13%)");
-    expect(text).toContain("🟢 ریسک: کم");
+    expect(text).toContain("کلوز زیر کف 3 کندل");
     expect(text).not.toContain("@");
-  });
-
-  it("without exits it is a level alert, with a news line and its own footer", () => {
-    const text = channelMessage("ENTERED", { ...sell, condition: null }, { ...ctx, price: 3944.5, newsRisk: "NFP" }, null);
-    expect(text.split("\n")).toEqual([
-      "🔴 XAU/USD | ورود به زون فروش",
-      "━━━━━━━━━━━━━━",
-      "📍 ناحیه‌ی ورود: 3,940 – 3,976",
-      "💵 قیمت الان: 3,944.5",
-      "━━━━━━━━━━━━━━",
-      "⚠️ خبر مهم نزدیک است: NFP",
-      "",
-      "این هشدارِ رسیدن قیمت به یک سطح است، نه سیگنال ورود.",
-      "تصمیم و مدیریت ریسک با خودتان.",
-    ]);
-  });
-
-  it("covers a reached target and a broken scenario", () => {
-    expect(channelMessage("HIT", { ...sell, kind: "TARGET", low: 3740, high: 3760 }, { ...ctx, price: 3741 }, "gheymat_today").split("\n")).toEqual([
-      "🎯 XAU/USD | تارگت خورد", "━━━━━━━━━━━━━━", "📍 تارگت: 3,740 – 3,760", "💵 قیمت: 3,741", "", "@gheymat_today",
-    ]);
-    expect(channelMessage("BROKEN", invAbove, { ...ctx, price: 3985 }, null).split("\n")).toEqual([
-      "⛔ XAU/USD | سناریو باطل شد", "━━━━━━━━━━━━━━", "❌ کلوز 4H بالای 3,976", "💵 کلوز: 3,985", "⚠️ پوزیشن‌های باز این نماد را بازبینی کنید.",
-    ]);
   });
 });
 
-describe("zoneMessage", () => {
-  it("is the same layout for the owner, with source, agreement and the private footer", () => {
-    const m = zoneMessage("ENTERED", buy, { ...ctx, agrees: ["Me"], trade });
-    expect(m.type).toBe("analyst_zone");
-    expect(m.title).toBe("🟢 XAU/USD وارد زون خرید 3,850 – 3,865 شد");
-    const lines = m.body.split("\n");
-    expect(lines.slice(0, 4)).toEqual(["📌 منبع: Nima", "🤝 هم‌نظر: Me", "📍 ناحیه‌ی ورود: 3,850 – 3,865", "💵 قیمت الان: 3,860"]);
-    expect(lines).toContain("🛑 SL: 3,358.2 (-13%)");
-    expect(lines.at(-1)).toBe("این فقط هشدار است؛ هیچ سفارشی ثبت نشده.");
-    expect(m.data).toEqual({ planId: "p1", zoneId: "z1", symbol: "XAU/USD", price: 3860, href: "/admin/analyst" });
+describe("steps", () => {
+  it("are short replies; TP1 says to move the stop to entry", () => {
+    expect(stepPost(buy, signal, { kind: "TP", index: 0 })).toBe("🎯 TP1 خورد | XAU/USD (+5%)\nحد ضرر را به نقطه‌ی ورود (3,874) ببرید و بخشی از سود را سیو کنید.");
+    expect(stepPost(buy, signal, { kind: "TP", index: 1 })).toBe("🎯 TP2 خورد | XAU/USD (+8%)\nقیمت: 4,183.92");
+    expect(stepPost(buy, signal, { kind: "STOP" })).toBe("🛑 SL خورد | XAU/USD (-13%)\nسیگنال بسته شد.");
+    expect(stepPost(buy, signal, { kind: "BREAKEVEN" })).toBe("⚪ ریسک‌فری بسته شد | XAU/USD\nبعد از TP1 قیمت به نقطه‌ی ورود (3,874) برگشت.");
+    expect(stepPost(buy, signal, { kind: "ALL_TP" })).toBe("🏁 همه‌ی تارگت‌ها خورد | XAU/USD\nسیگنال بسته شد.");
+    expect(stepPost(buy, signal, { kind: "BROKEN", level: invBelow })).toBe("⛔ سناریو باطل شد | XAU/USD\n❌ کلوز 4H زیر 3,830\nخروج یا مدیریت پوزیشن را در نظر بگیرید.");
+    expect(stepPost(sell, signal, { kind: "TP", index: 0 })).toContain("(-5%)");
   });
 
-  it("titles a target and a broken scenario", () => {
-    expect(zoneMessage("HIT", { ...sell, kind: "TARGET", low: 3740, high: 3740 }, ctx).title).toBe("🎯 XAU/USD به تارگت 3,740 رسید");
-    expect(zoneMessage("BROKEN", invAbove, { ...ctx, price: 3985 }).title).toBe("⛔ XAU/USD: سناریو باطل شد");
+  it("tell the owner too, with the source", () => {
+    const m = stepMessage(buy, signal, { kind: "STOP" }, { planId: "p", source: "Nima" });
+    expect(m.title).toBe("🛑 SL خورد | XAU/USD (-13%)");
+    expect(m.body).toBe("📌 منبع: Nima\nسیگنال بسته شد.");
+  });
+});
+
+describe("owner messages", () => {
+  const ctx = { planId: "p1", source: "Nima", price: 3860, agrees: ["Me"], newsRisk: null, invalidation: invBelow, triggerTf: "15M" as const };
+
+  it("zone reached: wait for the trigger, says what the trigger is", () => {
+    const m = zoneMessage("ENTERED", buy, ctx);
+    expect(m.title).toBe("⏳ XAU/USD وارد زون خرید 3,850 – 3,865 شد — منتظر تریگر");
+    expect(m.body.split("\n")).toEqual([
+      "📌 منبع: Nima",
+      "🤝 هم‌نظر: Me",
+      "💵 قیمت الان: 3,860",
+      "⚡ تریگر سیستم: کلوز بالای سقف 3 کندل ۱۵ دقیقه‌ای قبلی، بدون شکست زون",
+      "⏳ شرط تحلیلگر: فقط با تریگر در تایم پایین",
+      "💡 صبر کنید تا کندل برگشتی ببینید.",
+      "❌ ابطال: کلوز 4H زیر 3,830",
+      "هنوز وارد نشو؛ وقتی تریگر بیاید پیام «✅ وارد شو» می‌گیری.",
+      "",
+      "این فقط هشدار است؛ هیچ سفارشی ثبت نشده.",
+    ]);
+  });
+
+  it("trigger fired: enter now, with the full signal", () => {
+    const m = signalMessage(buy, signal, ctx);
+    expect(m.title).toBe("✅ تریگر خرید XAU/USD فعال شد — وارد شو");
+    expect(m.body).toContain("💵 ورود: 3,874");
+    expect(m.body).toContain("🛑 SL: 3,370.38 (-13%)");
+    expect(m.data).toEqual({ planId: "p1", zoneId: "z1", symbol: "XAU/USD", price: 3874, href: "/admin/analyst" });
+  });
+
+  it("no trigger, analyst target, broken scenario", () => {
+    expect(noTriggerMessage(buy, "CANCELLED", 3845, ctx).body).toBe("📌 منبع: Nima\nقیمت زیر زون 3,850 – 3,865 بسته شد (3,845)؛ این ستاپ دیگر معتبر نیست.");
+    expect(noTriggerMessage(buy, "EXPIRED", null, ctx).title).toBe("✖️ تریگر خرید XAU/USD نیامد");
+    expect(zoneMessage("HIT", { ...buy, kind: "TARGET", low: 1.346, high: 1.348, symbol: "GBP/USD" }, { ...ctx, price: 1.3462 }).title).toBe("🎯 GBP/USD به تارگت تحلیل 1.346 – 1.348 رسید");
+    expect(zoneMessage("BROKEN", invBelow, { ...ctx, price: 3825 }).title).toBe("⛔ XAU/USD: سناریو باطل شد");
   });
 });
