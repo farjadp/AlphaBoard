@@ -1,7 +1,7 @@
 /** P18a against Postgres: the tick's analyst-zone step with injected candles and a fake Telegram bot. */
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { prisma } from "@/lib/db/client";
-import { evaluateZones } from "@/lib/analyst/job";
+import { evaluateZones, postDigests } from "@/lib/analyst/job";
 import { activatePlan, createPlan } from "@/lib/analyst/store";
 import type { Bar } from "@/lib/analyst/zones";
 import type { Telegram } from "@/lib/notify/telegram";
@@ -212,5 +212,24 @@ describe.skipIf(!run)("analyst zone job (Postgres)", () => {
     });
     expect(r.entered).toBe(1);
     expect(r.errors.join(" ")).toMatch(/binance down/);
+  });
+
+  it("posts today's zones once per weekday morning, only for plans on the channel", async () => {
+    const posts: string[] = [];
+    const channel = { post: async (text: string) => { posts.push(text); return 9; }, reply: async () => 0 };
+    await goldPlan({ postToChannel: true });
+    await goldPlan(); // not on the channel
+    const at = (iso: string) => postDigests({ now: new Date(iso), priceOf: async () => 3873, channel, channelUsername: "gheymat_today" });
+    expect((await at("2026-11-02T04:00:00Z")).posted).toBe(0); // before the window
+    expect(await at("2026-11-02T05:30:00Z")).toEqual({ posted: 1, errors: [] });
+    expect((await at("2026-11-02T06:30:00Z")).posted).toBe(0); // same day
+    expect((await at("2026-11-03T05:30:00Z")).posted).toBe(1); // next day
+    expect(posts).toHaveLength(2);
+    // Feed 3873 − offset 20 = 3853, in the analyst's basis.
+    expect(posts[0]).toContain("▫️ XAU/USD — قیمت 3,853");
+    expect(posts[0]).toContain("🔴 زون فروش: 3,940 – 3,976 (2.3٪ بالاتر)");
+    expect(posts[0]).toContain("❌ ابطال فروش: کلوز 4H بالای 3,976");
+    expect(posts[0]).not.toContain("3,740"); // targets are not listed
+    expect(posts[0]).toContain("@gheymat_today");
   });
 });

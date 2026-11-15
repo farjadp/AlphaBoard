@@ -1150,6 +1150,8 @@ model AnalystPlan {
   targetPcts  Float[]           @default([5, 8, 34, 55])
   /// Timeframe of the system trigger after a zone touch: "5M" | "15M" | "1H".
   triggerTf   String            @default("15M")
+  /// UTC day ("2026-11-17") of the last "today's zones" channel post, so it goes out at most once a day.
+  digestDay   String?
   createdAt   DateTime          @default(now())
 
   zones AnalystZone[]
