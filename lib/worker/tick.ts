@@ -9,7 +9,7 @@ import { livePrice, settlePosition, snapshotEquity, type PriceOf } from "@/lib/p
 import { scanExit, type Bar } from "@/lib/paper/engine";
 import { evaluatePendingSignals, type SignalBarsOf } from "@/lib/eval/job";
 import { evaluateAlerts } from "@/lib/alerts/job";
-import { evaluateZones } from "@/lib/analyst/job";
+import { evaluateZones, postDigests } from "@/lib/analyst/job";
 import { notify } from "@/lib/notify/notifications";
 import { telegramFromEnv, type Telegram } from "@/lib/notify/telegram";
 import { pruneEvents, recordEvent } from "@/lib/ops/events";
@@ -42,7 +42,7 @@ export interface TickResult {
   signals: { checked: number; resolved: number };
   alerts: { active: number; fired: number };
   /** Analyst plans (P18a): zones entered, invalidations broken, reactions scored, plans expired, triggers fired, signal steps. */
-  analyst?: { active: number; entered: number; broken: number; scored: number; expired: number; triggered: number; steps: number };
+  analyst?: { active: number; entered: number; broken: number; scored: number; expired: number; triggered: number; steps: number; digests: number };
   /** Signal Desk (P12): pending signals expired, silent claims flagged UNKNOWN. */
   signalDesk?: { expired: number; unknown: number };
   errors: string[];
@@ -156,13 +156,20 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
     errors.push(`alerts: ${e instanceof Error ? e.message : e}`);
   }
 
-  let analyst = { active: 0, entered: 0, broken: 0, scored: 0, expired: 0, triggered: 0, steps: 0 };
+  let analyst = { active: 0, entered: 0, broken: 0, scored: 0, expired: 0, triggered: 0, steps: 0, digests: 0 };
   try {
     const { errors: zoneErrors, ...counts } = await evaluateZones({ now: now(), barsOf, priceOf, telegram });
-    analyst = counts;
+    analyst = { ...counts, digests: 0 };
     errors.push(...zoneErrors);
   } catch (e) {
     errors.push(`analyst zones: ${e instanceof Error ? e.message : e}`);
+  }
+  try {
+    const d = await postDigests({ now: now(), priceOf });
+    analyst.digests = d.posted;
+    errors.push(...d.errors);
+  } catch (e) {
+    errors.push(`analyst digest: ${e instanceof Error ? e.message : e}`);
   }
 
   let signalDesk = { expired: 0, unknown: 0 };
@@ -188,6 +195,6 @@ export async function runTick(deps: TickDeps = {}): Promise<TickResult> {
   await pruneEvents(now());
   await pruneRateLimits(now()).catch((e) => logger.warn({ err: e instanceof Error ? e.message : String(e) }, "rate limit prune failed"));
   if (errors.length) logger.warn({ ...result }, "tick finished with errors");
-  else if (closed.length || signals.resolved || alerts.fired || analyst.entered || analyst.broken || analyst.triggered || analyst.steps || signalDesk.expired || signalDesk.unknown) logger.info({ ...result }, "tick settled positions");
+  else if (closed.length || signals.resolved || alerts.fired || analyst.entered || analyst.broken || analyst.triggered || analyst.steps || analyst.digests || signalDesk.expired || signalDesk.unknown) logger.info({ ...result }, "tick settled positions");
   return result;
 }

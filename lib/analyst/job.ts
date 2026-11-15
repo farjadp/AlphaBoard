@@ -10,6 +10,7 @@ import { notify } from "@/lib/notify/notifications";
 import type { Telegram } from "@/lib/notify/telegram";
 import type { PriceOf } from "@/lib/paper/account";
 import { calculateIndicatorSnapshot, computeAtr } from "@/lib/market/indicators";
+import { digestDay, digestDue, digestPost } from "./digest";
 import { exitsFor, riskLevel } from "./exits";
 import { noTriggerMessage, signalMessage, signalPost, stepMessage, stepPost, zoneMessage, type SignalInfo, type SignalStep } from "./message";
 import { findTrigger, trackSignal, TF_MS as TRIGGER_TF_MS, type TriggerTf } from "./trigger";
@@ -316,4 +317,54 @@ export async function evaluateZones(deps: ZoneJobDeps) {
   }
 
   return { active: plans.length, entered, broken, scored, expired, triggered, steps, errors };
+}
+
+export interface DigestDeps {
+  now: Date;
+  priceOf: PriceOf;
+  channel?: Channel | null;
+  channelUsername?: string | null;
+}
+
+/**
+ * The weekday-morning "today's zones" post for each active plan that posts to the channel. The plan's digestDay is
+ * claimed with a guarded update before posting, so a plan gets at most one digest a day even with two workers.
+ */
+export async function postDigests(deps: DigestDeps): Promise<{ posted: number; errors: string[] }> {
+  const { now } = deps;
+  if (!digestDue(now)) return { posted: 0, errors: [] };
+  const channel = deps.channel === undefined ? channelFromEnv() : deps.channel;
+  if (!channel) return { posted: 0, errors: [] };
+  const username = deps.channelUsername === undefined ? env().SIGNAL_CHANNEL_USERNAME ?? null : deps.channelUsername;
+  const day = digestDay(now);
+  const plans = await prisma.analystPlan.findMany({
+    where: { status: "ACTIVE", postToChannel: true, expiresAt: { gt: now }, OR: [{ digestDay: null }, { digestDay: { not: day } }] },
+    include: { zones: true },
+  });
+  const errors: string[] = [];
+  let posted = 0;
+  for (const p of plans) {
+    try {
+      const offsets = (p.offsets ?? {}) as Record<string, unknown>;
+      const symbols = [...new Set(p.zones.filter((z) => z.kind === "BUY" || z.kind === "SELL").map((z) => z.symbol))];
+      const prices: Record<string, number | null> = {};
+      for (const s of symbols) {
+        const feed = await deps.priceOf(s).catch(() => null);
+        const off = typeof offsets[s] === "number" ? (offsets[s] as number) : 0;
+        prices[s] = feed == null ? null : feed - off;
+      }
+      const text = digestPost(p.zones, prices, now, username);
+      const claimed = await prisma.analystPlan.updateMany({
+        where: { id: p.id, OR: [{ digestDay: null }, { digestDay: { not: day } }] },
+        data: { digestDay: day },
+      });
+      if (claimed.count !== 1 || !text) continue;
+      await channel.post(text);
+      posted++;
+    } catch (e) {
+      errors.push(`digest ${p.id}: ${msg(e)}`);
+      logger.warn({ err: msg(e), planId: p.id }, "analyst digest post failed");
+    }
+  }
+  return { posted, errors };
 }

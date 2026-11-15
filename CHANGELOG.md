@@ -10,6 +10,7 @@ All notable changes to AlphaBoard are documented here.
 - The worker watches active plans in every tick. It sends one in-app + Telegram message when price enters a zone or reaches a target, with agreeing sources, the entry condition, the invalidation level and a news-risk line near a listed event. It also sends one when a closed candle breaks an invalidation level. Nothing places an order.
 - Each zone is scored: held / broke / unclear 24 h after the touch, untouched or missed at the week end. A scorecard per source builds each analyst's track record.
 - DXY (US Dollar Index) added to the market catalog.
+- Daily "today's zones" post: on weekdays at 08:30 Tehran time, each active plan that posts to the channel lists its buy/sell zones still live with the distance from price, the zones waiting for a trigger and the open signals. At most once a day per plan; it is a watch list, not a signal.
 
 ### Paper positions fit the page
 - Open positions are a list instead of a wide table, so the panel no longer scrolls sideways; on phones each row wraps. The stop / target editor opens under its position with labelled fields.
